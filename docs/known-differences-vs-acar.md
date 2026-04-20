@@ -1,28 +1,30 @@
 # Known Differences Vs aCar
 
-This build is intentionally focused on data fidelity and the first working workflow. It is not yet feature-complete against aCar 5.2.17.
+This build is intentionally focused on data fidelity and the most important working workflows. It is still not feature-complete against aCar 5.2.17.
 
 ## Implemented now
 
 - Local `.abp` and sectioned CSV import
 - Dense console-style start screen
-- Vehicle browsing and vehicle detail
+- Vehicle browsing, vehicle detail, and browse/filter across all record families
 - Fuel-up add/edit with two-of-three cost math
-- Recomputed fuel efficiency and stats after import/edit
+- Service, expense, and trip add/edit screens
+- Recomputed fuel efficiency, reminder schedules, and vehicle stats after import/edit
 
 ## Not complete yet
 
-- Full service, expense, and trip editor screens
-- Browse/search/filter across all record families
 - Widgets and pinned shortcuts
 - WorkManager reminder checks and local backup scheduling
 - Attachments UI
 - Chart rendering and statistics export screens
 - Open zipped JSON backup UI/export path
-- Full field-customization screens mirroring aCar’s “Customize this screen”
+- Full field-customization screens mirroring aCar's "Customize this screen"
+- Delete flows and full record-detail screens for every record family
+- Fuelly CSV import field-mapping UI
 
-## Intentional differences in phase 1
+## Intentional differences in the current build
 
-- The fuel-up editor uses a text-based date/time format (`yyyy-MM-dd HH:mm`) for now instead of a classic dialog-heavy aCar flow.
+- The editors use text-based date/time entry (`yyyy-MM-dd HH:mm`) for now instead of a classic dialog-heavy aCar flow.
 - Preferences are stored as one DataStore snapshot object internally rather than many separate preference keys.
-- The app recalculates efficiency/reminder state after import instead of preserving stale derived backup values as authoritative.
+- The app recalculates efficiency and reminder state after import instead of preserving stale derived backup values as authoritative.
+- Browse filtering is currently local and text-driven rather than a full advanced query builder.

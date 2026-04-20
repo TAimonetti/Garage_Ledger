@@ -9,11 +9,8 @@ data class ChronoOdometerRecord(
 )
 
 object RecordConsistencyValidator {
-    fun validateInsertion(
-        siblings: List<ChronoOdometerRecord>,
-        candidate: ChronoOdometerRecord,
-    ): ValidationResult {
-        val combined = (siblings + candidate).sortedWith(compareBy<ChronoOdometerRecord> { it.dateTime }.thenBy { it.odometer })
+    fun validateTimeline(records: List<ChronoOdometerRecord>): ValidationResult {
+        val combined = records.sortedWith(compareBy<ChronoOdometerRecord> { it.dateTime }.thenBy { it.odometer })
         for (index in 1 until combined.size) {
             val previous = combined[index - 1]
             val current = combined[index]
@@ -27,6 +24,11 @@ object RecordConsistencyValidator {
         }
         return ValidationResult.Valid
     }
+
+    fun validateInsertion(
+        siblings: List<ChronoOdometerRecord>,
+        candidate: ChronoOdometerRecord,
+    ): ValidationResult = validateTimeline(siblings + candidate)
 
     sealed interface ValidationResult {
         data object Valid : ValidationResult
