@@ -310,6 +310,8 @@ data class VehicleDetailBundle(
     val reminders: List<ServiceReminder>,
     val recentFillUps: List<FillUpRecord>,
     val recentServices: List<ServiceRecord>,
+    val recentExpenses: List<ExpenseRecord>,
+    val recentTrips: List<TripRecord>,
     val stats: VehicleStatistics,
 )
 
@@ -325,4 +327,27 @@ data class VehicleStatistics(
     val serviceCostTotal: Double = 0.0,
     val expenseCostTotal: Double = 0.0,
     val tripDistanceTotal: Double = 0.0,
+)
+
+data class BrowseRecordItem(
+    val recordId: Long,
+    val vehicleId: Long,
+    val vehicleName: String,
+    val family: RecordFamily,
+    val occurredAt: LocalDateTime,
+    val title: String,
+    val subtitle: String = "",
+    val amount: Double? = null,
+    val odometerReading: Double? = null,
+    val tags: List<String> = emptyList(),
+    val searchText: String = "",
+)
+
+data class BrowseRecordFilter(
+    val vehicleId: Long? = null,
+    val family: RecordFamily? = null,
+    val query: String = "",
+    val tag: String = "",
+    val fromDate: LocalDate? = null,
+    val toDate: LocalDate? = null,
 )

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -39,7 +38,6 @@ import com.garageledger.core.model.VolumeUnit
 import com.garageledger.data.GarageRepository
 import com.garageledger.domain.model.FillUpRecord
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -340,34 +338,6 @@ fun FuelUpEditorScreen(
     }
 }
 
-@Composable
-private fun ToggleRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun SuggestionRow(
-    suggestions: List<String>,
-    onSelect: (String) -> Unit,
-) {
-    if (suggestions.isEmpty()) return
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        suggestions.take(4).forEach { suggestion ->
-            AssistChip(onClick = { onSelect(suggestion) }, label = { Text(suggestion) })
-        }
-    }
-}
-
 private data class FuelCostForm(
     val price: String,
     val volume: String,
@@ -399,15 +369,3 @@ private fun autoCompleteFuelCostFields(
         else -> FuelCostForm(price = price, volume = volume, total = total)
     }
 }
-
-private fun parseEditorDateTime(raw: String): LocalDateTime? = runCatching {
-    LocalDateTime.parse(raw.trim(), EditorDateFormatter)
-}.getOrNull()
-
-private fun Double.toStableString(): String = if (this % 1.0 == 0.0) {
-    this.toInt().toString()
-} else {
-    "%,.3f".format(this).replace(",", "")
-}
-
-private val EditorDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")

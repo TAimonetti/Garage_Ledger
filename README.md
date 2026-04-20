@@ -4,7 +4,7 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 1 is in place:
+Phase 2 record management is in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
@@ -13,8 +13,8 @@ Phase 1 is in place:
 - aCar `.abp` ZIP/XML importer
 - Fuelly CSV fill-up importer
 - Pure Kotlin calculation engine for fuel efficiency, reminders, trip costs, and chrono/odometer validation
-- First end-to-end flow: import -> browse vehicles -> vehicle detail -> add/edit fuel-up -> recalculate stats
-- Parser/regression/unit tests, plus an instrumented Compose editor smoke test
+- End-to-end flows for import, vehicle browsing, vehicle detail, fuel-up/service/expense/trip entry, and record browsing/filtering
+- Parser/regression/unit tests, plus instrumented Compose tests for fuel-up, service, and trip entry flows
 
 ## Build
 
@@ -38,7 +38,7 @@ $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 
 - [`app/src/main/kotlin/com/garageledger/data`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/data): importers, repository, Room persistence
 - [`app/src/main/kotlin/com/garageledger/domain`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/domain): pure models and calculation rules
-- [`app/src/main/kotlin/com/garageledger/ui`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/ui): Compose dashboard, import center, vehicle detail, fuel-up editor
+- [`app/src/main/kotlin/com/garageledger/ui`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/ui): Compose dashboard, import center, browse screen, vehicle detail, and record editors
 - [`docs/architecture.md`](D:/Code/Codex/Garage_Ledger/docs/architecture.md): implementation plan and schema proposal
 - [`docs/import-formats.md`](D:/Code/Codex/Garage_Ledger/docs/import-formats.md): CSV/ABP/Fuelly format notes
 - [`docs/migration-notes.md`](D:/Code/Codex/Garage_Ledger/docs/migration-notes.md): migration assumptions and sample expectations

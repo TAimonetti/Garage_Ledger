@@ -36,20 +36,56 @@ interface GarageDao {
     @Query("SELECT * FROM service_records WHERE vehicleId = :vehicleId ORDER BY dateTime ASC")
     suspend fun getVehicleServicesAscending(vehicleId: Long): List<ServiceRecordEntity>
 
+    @Query("SELECT * FROM expense_records WHERE vehicleId = :vehicleId ORDER BY dateTime DESC")
+    fun observeVehicleExpenses(vehicleId: Long): Flow<List<ExpenseRecordEntity>>
+
     @Query("SELECT * FROM expense_records WHERE vehicleId = :vehicleId ORDER BY dateTime ASC")
     suspend fun getVehicleExpensesAscending(vehicleId: Long): List<ExpenseRecordEntity>
+
+    @Query("SELECT * FROM trip_records WHERE vehicleId = :vehicleId ORDER BY startDateTime DESC")
+    fun observeVehicleTrips(vehicleId: Long): Flow<List<TripRecordEntity>>
 
     @Query("SELECT * FROM trip_records WHERE vehicleId = :vehicleId ORDER BY startDateTime ASC")
     suspend fun getVehicleTripsAscending(vehicleId: Long): List<TripRecordEntity>
 
+    @Query("SELECT * FROM fillup_records ORDER BY dateTime DESC")
+    fun observeAllFillUps(): Flow<List<FillUpRecordEntity>>
+
+    @Query("SELECT * FROM service_records ORDER BY dateTime DESC")
+    fun observeAllServices(): Flow<List<ServiceRecordEntity>>
+
+    @Query("SELECT * FROM expense_records ORDER BY dateTime DESC")
+    fun observeAllExpenses(): Flow<List<ExpenseRecordEntity>>
+
+    @Query("SELECT * FROM trip_records ORDER BY startDateTime DESC")
+    fun observeAllTrips(): Flow<List<TripRecordEntity>>
+
     @Query("SELECT * FROM fillup_records WHERE id = :recordId")
     suspend fun getFillUp(recordId: Long): FillUpRecordEntity?
+
+    @Query("SELECT * FROM service_records WHERE id = :recordId")
+    suspend fun getService(recordId: Long): ServiceRecordEntity?
+
+    @Query("SELECT * FROM expense_records WHERE id = :recordId")
+    suspend fun getExpense(recordId: Long): ExpenseRecordEntity?
+
+    @Query("SELECT * FROM trip_records WHERE id = :recordId")
+    suspend fun getTrip(recordId: Long): TripRecordEntity?
+
+    @Query("SELECT * FROM service_types ORDER BY name COLLATE NOCASE")
+    fun observeServiceTypes(): Flow<List<ServiceTypeEntity>>
 
     @Query("SELECT * FROM service_types ORDER BY name COLLATE NOCASE")
     suspend fun getServiceTypes(): List<ServiceTypeEntity>
 
     @Query("SELECT * FROM expense_types ORDER BY name COLLATE NOCASE")
+    fun observeExpenseTypes(): Flow<List<ExpenseTypeEntity>>
+
+    @Query("SELECT * FROM expense_types ORDER BY name COLLATE NOCASE")
     suspend fun getExpenseTypes(): List<ExpenseTypeEntity>
+
+    @Query("SELECT * FROM trip_types ORDER BY name COLLATE NOCASE")
+    fun observeTripTypes(): Flow<List<TripTypeEntity>>
 
     @Query("SELECT * FROM trip_types ORDER BY name COLLATE NOCASE")
     suspend fun getTripTypes(): List<TripTypeEntity>
@@ -57,17 +93,58 @@ interface GarageDao {
     @Query("SELECT * FROM fuel_types ORDER BY category COLLATE NOCASE, grade COLLATE NOCASE")
     suspend fun getFuelTypes(): List<FuelTypeEntity>
 
+    @Query("SELECT * FROM service_record_types")
+    fun observeServiceRecordCrossRefs(): Flow<List<ServiceRecordTypeCrossRef>>
+
     @Query("SELECT * FROM service_record_types WHERE serviceRecordId IN (:recordIds)")
     suspend fun getServiceRecordCrossRefs(recordIds: List<Long>): List<ServiceRecordTypeCrossRef>
+
+    @Query("SELECT * FROM expense_record_types")
+    fun observeExpenseRecordCrossRefs(): Flow<List<ExpenseRecordTypeCrossRef>>
 
     @Query("SELECT * FROM expense_record_types WHERE expenseRecordId IN (:recordIds)")
     suspend fun getExpenseRecordCrossRefs(recordIds: List<Long>): List<ExpenseRecordTypeCrossRef>
 
-    @Query("SELECT DISTINCT paymentType FROM fillup_records WHERE paymentType <> '' ORDER BY paymentType COLLATE NOCASE")
+    @Query(
+        """
+        SELECT value FROM (
+            SELECT paymentType AS value FROM fillup_records WHERE paymentType <> ''
+            UNION
+            SELECT paymentType AS value FROM service_records WHERE paymentType <> ''
+            UNION
+            SELECT paymentType AS value FROM expense_records WHERE paymentType <> ''
+        )
+        ORDER BY value COLLATE NOCASE
+        """,
+    )
     suspend fun getPaymentTypeSuggestions(): List<String>
 
     @Query("SELECT DISTINCT fuelBrand FROM fillup_records WHERE fuelBrand <> '' ORDER BY fuelBrand COLLATE NOCASE")
     suspend fun getFuelBrandSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT serviceCenterName FROM service_records WHERE serviceCenterName <> '' ORDER BY serviceCenterName COLLATE NOCASE")
+    suspend fun getServiceCenterSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT expenseCenterName FROM expense_records WHERE expenseCenterName <> '' ORDER BY expenseCenterName COLLATE NOCASE")
+    suspend fun getExpenseCenterSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT purpose FROM trip_records WHERE purpose <> '' ORDER BY purpose COLLATE NOCASE")
+    suspend fun getTripPurposeSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT client FROM trip_records WHERE client <> '' ORDER BY client COLLATE NOCASE")
+    suspend fun getTripClientSuggestions(): List<String>
+
+    @Query(
+        """
+        SELECT value FROM (
+            SELECT startLocation AS value FROM trip_records WHERE startLocation <> ''
+            UNION
+            SELECT endLocation AS value FROM trip_records WHERE endLocation <> ''
+        )
+        ORDER BY value COLLATE NOCASE
+        """,
+    )
+    suspend fun getTripLocationSuggestions(): List<String>
 
     @Query(
         """
@@ -126,14 +203,38 @@ interface GarageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFillUp(item: FillUpRecordEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertService(item: ServiceRecordEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExpense(item: ExpenseRecordEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTrip(item: TripRecordEntity): Long
+
     @Update
     suspend fun updateFillUp(item: FillUpRecordEntity)
+
+    @Update
+    suspend fun updateService(item: ServiceRecordEntity)
+
+    @Update
+    suspend fun updateExpense(item: ExpenseRecordEntity)
+
+    @Update
+    suspend fun updateTrip(item: TripRecordEntity)
 
     @Update
     suspend fun updateFillUps(items: List<FillUpRecordEntity>)
 
     @Update
     suspend fun updateReminders(items: List<ServiceReminderEntity>)
+
+    @Query("DELETE FROM service_record_types WHERE serviceRecordId = :recordId")
+    suspend fun deleteServiceCrossRefsForRecord(recordId: Long)
+
+    @Query("DELETE FROM expense_record_types WHERE expenseRecordId = :recordId")
+    suspend fun deleteExpenseCrossRefsForRecord(recordId: Long)
 
     @Query("DELETE FROM service_record_types")
     suspend fun clearServiceCrossRefs()

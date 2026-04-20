@@ -26,11 +26,15 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.LocalGasStation
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -86,8 +90,12 @@ fun GarageLedgerApp(
                 repository = repository,
                 onOpenImport = { navController.navigate("import") },
                 onOpenVehicles = { navController.navigate("vehicles") },
+                onOpenBrowse = { navController.navigate("browse/-1") },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
                 onAddFuelUp = { navController.navigate("fuelup/$it/-1") },
+                onAddService = { navController.navigate("service/$it/-1") },
+                onAddExpense = { navController.navigate("expense/$it/-1") },
+                onAddTrip = { navController.navigate("trip/$it/-1") },
             )
         }
         composable("import") {
@@ -112,8 +120,35 @@ fun GarageLedgerApp(
                 repository = repository,
                 vehicleId = vehicleId,
                 onBack = { navController.popBackStack() },
+                onBrowseRecords = { navController.navigate("browse/$vehicleId") },
                 onEditFuelUp = { navController.navigate("fuelup/$vehicleId/$it") },
+                onEditService = { navController.navigate("service/$vehicleId/$it") },
+                onEditExpense = { navController.navigate("expense/$vehicleId/$it") },
+                onEditTrip = { navController.navigate("trip/$vehicleId/$it") },
                 onAddFuelUp = { navController.navigate("fuelup/$vehicleId/-1") },
+                onAddService = { navController.navigate("service/$vehicleId/-1") },
+                onAddExpense = { navController.navigate("expense/$vehicleId/-1") },
+                onAddTrip = { navController.navigate("trip/$vehicleId/-1") },
+            )
+        }
+        composable(
+            route = "browse/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: -1L
+            BrowseRecordsScreen(
+                repository = repository,
+                preselectedVehicleId = vehicleId.takeIf { it > 0L },
+                onBack = { navController.popBackStack() },
+                onOpenRecord = { item ->
+                    val route = when (item.family) {
+                        com.garageledger.domain.model.RecordFamily.FILL_UP -> "fuelup/${item.vehicleId}/${item.recordId}"
+                        com.garageledger.domain.model.RecordFamily.SERVICE -> "service/${item.vehicleId}/${item.recordId}"
+                        com.garageledger.domain.model.RecordFamily.EXPENSE -> "expense/${item.vehicleId}/${item.recordId}"
+                        com.garageledger.domain.model.RecordFamily.TRIP -> "trip/${item.vehicleId}/${item.recordId}"
+                    }
+                    navController.navigate(route)
+                },
             )
         }
         composable(
@@ -130,6 +165,48 @@ fun GarageLedgerApp(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable(
+            route = "service/{vehicleId}/{recordId}",
+            arguments = listOf(
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("recordId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            ServiceEditorScreen(
+                repository = repository,
+                vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L,
+                recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "expense/{vehicleId}/{recordId}",
+            arguments = listOf(
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("recordId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            ExpenseEditorScreen(
+                repository = repository,
+                vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L,
+                recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "trip/{vehicleId}/{recordId}",
+            arguments = listOf(
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("recordId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            TripEditorScreen(
+                repository = repository,
+                vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L,
+                recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L,
+                onBack = { navController.popBackStack() },
+            )
+        }
     }
 }
 
@@ -139,8 +216,12 @@ private fun ConsoleScreen(
     repository: GarageRepository,
     onOpenImport: () -> Unit,
     onOpenVehicles: () -> Unit,
+    onOpenBrowse: () -> Unit,
     onOpenVehicle: (Long) -> Unit,
     onAddFuelUp: (Long) -> Unit,
+    onAddService: (Long) -> Unit,
+    onAddExpense: (Long) -> Unit,
+    onAddTrip: (Long) -> Unit,
 ) {
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     var selectedVehicleId by rememberSaveable { mutableLongStateOf(0L) }
@@ -221,11 +302,15 @@ private fun ConsoleScreen(
             }
             item {
                 ActionGrid(
-                    canAddFuelUp = selectedVehicle != null,
+                    hasSelectedVehicle = selectedVehicle != null,
                     onOpenImport = onOpenImport,
                     onOpenVehicles = onOpenVehicles,
+                    onOpenBrowse = onOpenBrowse,
                     onOpenVehicle = { selectedVehicle?.id?.let(onOpenVehicle) },
                     onAddFuelUp = { selectedVehicle?.id?.let(onAddFuelUp) },
+                    onAddService = { selectedVehicle?.id?.let(onAddService) },
+                    onAddExpense = { selectedVehicle?.id?.let(onAddExpense) },
+                    onAddTrip = { selectedVehicle?.id?.let(onAddTrip) },
                 )
             }
             if (detail != null) {
@@ -261,20 +346,28 @@ private fun ConsoleScreen(
 
 @Composable
 private fun ActionGrid(
-    canAddFuelUp: Boolean,
+    hasSelectedVehicle: Boolean,
     onOpenImport: () -> Unit,
     onOpenVehicles: () -> Unit,
+    onOpenBrowse: () -> Unit,
     onOpenVehicle: () -> Unit,
     onAddFuelUp: () -> Unit,
+    onAddService: () -> Unit,
+    onAddExpense: () -> Unit,
+    onAddTrip: () -> Unit,
 ) {
     val actions = listOf(
         DashboardAction("Import Center", Icons.Outlined.Archive, onOpenImport),
         DashboardAction("Browse Vehicles", Icons.Outlined.Storage, onOpenVehicles),
+        DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
         DashboardAction("Vehicle Details", Icons.Outlined.DirectionsCar, onOpenVehicle),
-        DashboardAction("New Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = canAddFuelUp),
+        DashboardAction("New Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
+        DashboardAction("New Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
+        DashboardAction("New Expense", Icons.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
+        DashboardAction("New Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
-        modifier = Modifier.height(220.dp),
+        modifier = Modifier.height(440.dp),
         columns = GridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -307,6 +400,9 @@ private fun StatsRow(detail: VehicleDetailBundle) {
         SummaryChip("Avg MPG", detail.stats.averageFuelEfficiency?.formatOneDecimal() ?: "n/a")
         SummaryChip("Last MPG", detail.stats.lastFuelEfficiency?.formatOneDecimal() ?: "n/a")
         SummaryChip("Fuel Cost", detail.stats.totalFuelCost.asCurrency())
+        SummaryChip("Service Cost", detail.stats.serviceCostTotal.asCurrency())
+        SummaryChip("Expense Cost", detail.stats.expenseCostTotal.asCurrency())
+        SummaryChip("Trip Miles", detail.stats.tripDistanceTotal.formatOneDecimal())
     }
 }
 
@@ -369,14 +465,21 @@ private fun VehiclesScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun VehicleDetailScreen(
     repository: GarageRepository,
     vehicleId: Long,
     onBack: () -> Unit,
+    onBrowseRecords: () -> Unit,
     onEditFuelUp: (Long) -> Unit,
+    onEditService: (Long) -> Unit,
+    onEditExpense: (Long) -> Unit,
+    onEditTrip: (Long) -> Unit,
     onAddFuelUp: () -> Unit,
+    onAddService: () -> Unit,
+    onAddExpense: () -> Unit,
+    onAddTrip: () -> Unit,
 ) {
     val detail by repository.observeVehicleDetail(vehicleId).collectAsStateWithLifecycle(initialValue = null)
     Scaffold(
@@ -385,11 +488,6 @@ private fun VehicleDetailScreen(
                 title = { Text(detail?.vehicle?.name ?: "Vehicle") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddFuelUp) {
-                Icon(Icons.Outlined.Add, contentDescription = "Add fuel-up")
-            }
         },
     ) { padding ->
         detail?.let { data ->
@@ -413,6 +511,21 @@ private fun VehicleDetailScreen(
                 item { StatsRow(detail = data) }
                 item {
                     Card {
+                        FlowRow(
+                            modifier = Modifier.padding(18.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            AssistChip(onClick = onAddFuelUp, label = { Text("New Fuel-Up") })
+                            AssistChip(onClick = onAddService, label = { Text("New Service") })
+                            AssistChip(onClick = onAddExpense, label = { Text("New Expense") })
+                            AssistChip(onClick = onAddTrip, label = { Text("New Trip") })
+                            AssistChip(onClick = onBrowseRecords, label = { Text("Browse Records") })
+                        }
+                    }
+                }
+                item {
+                    Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Recent Fill-Ups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (data.recentFillUps.isEmpty()) {
@@ -430,6 +543,102 @@ private fun VehicleDetailScreen(
                                         }
                                         IconButton(onClick = { onEditFuelUp(record.id) }) {
                                             Icon(Icons.Outlined.Edit, contentDescription = "Edit fuel-up")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Recent Services", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (data.recentServices.isEmpty()) {
+                                Text("No services imported yet.")
+                            } else {
+                                data.recentServices.forEach { record ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(
+                                                listOfNotNull(
+                                                    record.serviceCenterName.takeIf { it.isNotBlank() },
+                                                    record.totalCost.asCurrency(),
+                                                ).joinToString(" • "),
+                                            )
+                                        }
+                                        IconButton(onClick = { onEditService(record.id) }) {
+                                            Icon(Icons.Outlined.Edit, contentDescription = "Edit service")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Recent Expenses", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (data.recentExpenses.isEmpty()) {
+                                Text("No expenses imported yet.")
+                            } else {
+                                data.recentExpenses.forEach { record ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(
+                                                listOfNotNull(
+                                                    record.expenseCenterName.takeIf { it.isNotBlank() },
+                                                    record.totalCost.asCurrency(),
+                                                ).joinToString(" • "),
+                                            )
+                                        }
+                                        IconButton(onClick = { onEditExpense(record.id) }) {
+                                            Icon(Icons.Outlined.Edit, contentDescription = "Edit expense")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Recent Trips", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (data.recentTrips.isEmpty()) {
+                                Text("No trips imported yet.")
+                            } else {
+                                data.recentTrips.forEach { record ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(record.startDateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(
+                                                listOfNotNull(
+                                                    listOf(
+                                                        record.startLocation.takeIf { it.isNotBlank() },
+                                                        record.endLocation.takeIf { it.isNotBlank() },
+                                                    ).filterNotNull().takeIf { it.isNotEmpty() }?.joinToString(" → "),
+                                                    record.distance?.let { "${it.toStableString()} ${record.distanceUnit.storageValue}" },
+                                                ).joinToString(" • "),
+                                            )
+                                        }
+                                        IconButton(onClick = { onEditTrip(record.id) }) {
+                                            Icon(Icons.Outlined.Edit, contentDescription = "Edit trip")
                                         }
                                     }
                                 }
@@ -554,7 +763,3 @@ private data class DashboardAction(
     val onClick: () -> Unit,
     val enabled: Boolean = true,
 )
-
-private fun Double.asCurrency(): String = "$" + "%,.2f".format(this)
-
-private fun Double.formatOneDecimal(): String = "%,.1f".format(this)

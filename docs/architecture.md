@@ -3,10 +3,10 @@
 ## Short implementation plan
 
 1. Stabilize import and calculation fidelity before chasing visual parity.
-2. Preserve aCar’s dashboard-first mental model with a console home screen, vehicle switcher, dense stats, and direct record-entry actions.
+2. Preserve aCar's dashboard-first mental model with a console home screen, vehicle switcher, dense stats, and direct record-entry actions.
 3. Keep the core local: Room for ledger data, DataStore for settings, Storage Access Framework for files, and no account or server dependency.
 4. Treat imported raw records as source-of-truth, then recompute derived fields such as fuel efficiency and reminder due state after import or edit.
-5. Add broader parity in phases after the first vertical slice is stable: browse/filter, service/expense/trip editors, widgets/shortcuts, backup/export center, reminder workers, and attachment polish.
+5. Add broader parity in phases after the first vertical slice is stable: widgets/shortcuts, backup/export center, reminder workers, advanced browse/detail screens, and attachment polish.
 
 ## Package structure
 
@@ -25,7 +25,7 @@
 - `data`
   - repository and import persistence orchestration
 - `ui`
-  - Compose console, import center, vehicle detail, and fuel-up editor
+  - Compose console, import center, browse records, vehicle detail, and record editors
 
 ## Database schema proposal
 
@@ -54,14 +54,15 @@ Key schema choices:
 - All business records use local Room IDs plus optional `legacySourceId` for import traceability.
 - Vehicle purchase/sale metadata stays on the vehicle row, matching old aCar behavior.
 - Fill-up rows store both raw imported efficiency and recalculated efficiency fields so recalculation is deterministic without losing import visibility.
-- Reminder rows store absolute due state (`dueDate`, `dueDistance`) rather than the backup’s relative counters, then regenerate from service history after import.
+- Reminder rows store absolute due state (`dueDate`, `dueDistance`) rather than the backup's relative counters, then regenerate from service history after import.
 - Preferences are stored as a DataStore snapshot rather than another Room table because the settings are app-scoped, not ledger rows.
 
-## First implemented flow
+## Current implemented flows
 
 1. Import `.abp` or sectioned CSV from local storage.
 2. Persist catalogs, vehicles, reminders, and records into Room.
 3. Recompute fill-up fuel efficiency and reminder due state.
 4. Browse imported vehicles from the console or vehicles list.
-5. Open a vehicle detail page with recent fill-ups and summary stats.
-6. Add or edit a fuel-up and immediately refresh derived stats.
+5. Open a vehicle detail page with recent fill-ups, services, expenses, trips, and summary stats.
+6. Add or edit a fuel-up, service, expense, or trip and immediately refresh derived stats.
+7. Browse and filter records across all record families, then jump back into the matching editor.
