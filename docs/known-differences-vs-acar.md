@@ -16,11 +16,12 @@ This build is intentionally focused on data fidelity and the most important work
 - Local record attachments for photos and PDFs
 - Launcher quick actions with home-screen pin requests and vehicle selection
 - Home-screen quick add and service reminder widgets
+- Statistics and charts screen with local CSV export for summary and chart data
 
 ## Not complete yet
 
-- Chart rendering and statistics export screens
 - Optional fuel-efficiency and fuel-price widgets
+- Optional HTML statistics export
 - Full field-customization screens mirroring aCar's "Customize this screen"
 - Delete flows and full record-detail screens for every record family
 - Fuelly CSV import field-mapping UI

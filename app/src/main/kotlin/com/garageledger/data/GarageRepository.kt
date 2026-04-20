@@ -5,6 +5,7 @@ import com.garageledger.core.model.FuelEfficiencyAssignmentMethod
 import com.garageledger.data.export.ExportSnapshot
 import com.garageledger.data.export.OpenJsonBackupExporter
 import com.garageledger.data.export.SectionedCsvExporter
+import com.garageledger.data.export.StatisticsCsvExporter
 import com.garageledger.data.importer.AcarAbpImporter
 import com.garageledger.data.importer.AcarCsvImporter
 import com.garageledger.data.importer.FuellyCsvImporter
@@ -30,6 +31,7 @@ import com.garageledger.domain.calc.FuelEfficiencyCalculator
 import com.garageledger.domain.calc.RecordConsistencyValidator
 import com.garageledger.domain.calc.ReminderAlertEvaluator
 import com.garageledger.domain.calc.ReminderScheduler
+import com.garageledger.domain.calc.StatisticsReportBuilder
 import com.garageledger.domain.calc.TripCostBreakdown
 import com.garageledger.domain.calc.TripCostCalculator
 import com.garageledger.domain.model.AppPreferenceSnapshot
@@ -47,6 +49,10 @@ import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.RecordAttachment
 import com.garageledger.domain.model.ServiceRecord
 import com.garageledger.domain.model.ServiceType
+import com.garageledger.domain.model.StatisticsDashboard
+import com.garageledger.domain.model.StatisticsFilter
+import com.garageledger.domain.model.StatisticsSource
+import com.garageledger.domain.model.StatisticsTimeframe
 import com.garageledger.domain.model.TripRecord
 import com.garageledger.domain.model.TripType
 import com.garageledger.domain.model.Vehicle
@@ -70,6 +76,8 @@ class GarageRepository(
     private val fuellyCsvImporter: FuellyCsvImporter = FuellyCsvImporter(),
     private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
     private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
+    private val statisticsCsvExporter: StatisticsCsvExporter = StatisticsCsvExporter(),
+    private val statisticsReportBuilder: StatisticsReportBuilder = StatisticsReportBuilder(),
     private val onLedgerChanged: suspend () -> Unit = {},
 ) {
     private val dao = database.garageDao()
@@ -240,6 +248,45 @@ class GarageRepository(
             snapshot = buildExportSnapshot(),
             outputStream = outputStream,
         )
+    }
+
+    fun observeStatisticsDashboard(
+        vehicleId: Long? = null,
+        timeframe: StatisticsTimeframe = StatisticsTimeframe.ALL_TIME,
+    ): Flow<StatisticsDashboard> = combine(
+        combine(
+            dao.observeVehicles(),
+            dao.observeAllFillUps(),
+            dao.observeAllServices(),
+            dao.observeAllExpenses(),
+            dao.observeAllTrips(),
+        ) { vehicles, fillUps, services, expenses, trips ->
+            StatisticsSource(
+                vehicles = vehicles.map(VehicleEntity::toDomain),
+                fillUps = fillUps.map(FillUpRecordEntity::toDomain),
+                services = services.map { it.toDomain(emptyList()) },
+                expenses = expenses.map { it.toDomain(emptyList()) },
+                trips = trips.map(TripRecordEntity::toDomain),
+            )
+        },
+        preferencesRepository.preferences,
+    ) { source, preferences ->
+        statisticsReportBuilder.build(
+            source = source.copy(preferences = preferences),
+            filter = StatisticsFilter(vehicleId = vehicleId, timeframe = timeframe),
+        )
+    }
+
+    suspend fun exportStatisticsCsv(
+        outputStream: OutputStream,
+        filter: StatisticsFilter = StatisticsFilter(),
+    ) {
+        val dashboard = statisticsReportBuilder.build(
+            source = buildStatisticsSource(buildExportSnapshot()),
+            filter = filter,
+        )
+        val csv = statisticsCsvExporter.export(dashboard)
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
     }
 
     suspend fun getDueReminderAlerts(now: LocalDateTime = LocalDateTime.now()): List<ReminderAlert> {
@@ -1011,6 +1058,15 @@ class GarageRepository(
         expenseRecordTypes = dao.getAllExpenseRecordCrossRefs(),
         tripRecords = dao.getAllTrips(),
         attachments = dao.getAllAttachments(),
+    )
+
+    private fun buildStatisticsSource(snapshot: ExportSnapshot): StatisticsSource = StatisticsSource(
+        preferences = snapshot.preferences,
+        vehicles = snapshot.vehicles.map(VehicleEntity::toDomain),
+        fillUps = snapshot.fillUpRecords.map(FillUpRecordEntity::toDomain),
+        services = snapshot.serviceRecords.map { it.toDomain(emptyList()) },
+        expenses = snapshot.expenseRecords.map { it.toDomain(emptyList()) },
+        trips = snapshot.tripRecords.map(TripRecordEntity::toDomain),
     )
 
     private fun buildReminderDisplays(

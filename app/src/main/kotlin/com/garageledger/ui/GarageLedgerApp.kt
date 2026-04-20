@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Edit
@@ -107,6 +108,7 @@ fun GarageLedgerApp(
                 onOpenImport = { navController.navigate("import") },
                 onOpenVehicles = { navController.navigate("vehicles") },
                 onOpenBrowse = { navController.navigate("browse/-1") },
+                onOpenStats = { navController.navigate("stats/$it") },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
                 onAddFuelUp = { navController.navigate("fuelup/$it/-1") },
                 onAddService = { navController.navigate("service/$it/-1") },
@@ -147,6 +149,17 @@ fun GarageLedgerApp(
             )
         }
         composable(
+            route = "stats/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: -1L
+            StatisticsScreen(
+                repository = repository,
+                preselectedVehicleId = vehicleId.takeIf { it > 0L },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
             route = "vehicle/{vehicleId}",
             arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
         ) { backStackEntry ->
@@ -156,6 +169,7 @@ fun GarageLedgerApp(
                 vehicleId = vehicleId,
                 onBack = { navController.popBackStack() },
                 onBrowseRecords = { navController.navigate("browse/$vehicleId") },
+                onOpenStats = { navController.navigate("stats/$vehicleId") },
                 onEditFuelUp = { navController.navigate("fuelup/$vehicleId/$it") },
                 onEditService = { navController.navigate("service/$vehicleId/$it") },
                 onEditExpense = { navController.navigate("expense/$vehicleId/$it") },
@@ -252,6 +266,7 @@ private fun ConsoleScreen(
     onOpenImport: () -> Unit,
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
+    onOpenStats: (Long) -> Unit,
     onOpenVehicle: (Long) -> Unit,
     onAddFuelUp: (Long) -> Unit,
     onAddService: (Long) -> Unit,
@@ -343,6 +358,7 @@ private fun ConsoleScreen(
                     onOpenImport = onOpenImport,
                     onOpenVehicles = onOpenVehicles,
                     onOpenBrowse = onOpenBrowse,
+                    onOpenStats = { onOpenStats(selectedVehicle?.id ?: -1L) },
                     onOpenVehicle = { selectedVehicle?.id?.let(onOpenVehicle) },
                     onAddFuelUp = { selectedVehicle?.id?.let(onAddFuelUp) },
                     onAddService = { selectedVehicle?.id?.let(onAddService) },
@@ -444,6 +460,7 @@ private fun ActionGrid(
     onOpenImport: () -> Unit,
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
+    onOpenStats: () -> Unit,
     onOpenVehicle: () -> Unit,
     onAddFuelUp: () -> Unit,
     onAddService: () -> Unit,
@@ -454,6 +471,7 @@ private fun ActionGrid(
         DashboardAction("Import & Export", Icons.Outlined.Archive, onOpenImport),
         DashboardAction("Browse Vehicles", Icons.Outlined.Storage, onOpenVehicles),
         DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
+        DashboardAction("Statistics & Charts", Icons.Outlined.BarChart, onOpenStats),
         DashboardAction("Vehicle Details", Icons.Outlined.DirectionsCar, onOpenVehicle),
         DashboardAction("New Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
         DashboardAction("New Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
@@ -461,7 +479,7 @@ private fun ActionGrid(
         DashboardAction("New Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
-        modifier = Modifier.height(440.dp),
+        modifier = Modifier.height(560.dp),
         columns = GridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -497,19 +515,6 @@ private fun StatsRow(detail: VehicleDetailBundle) {
         SummaryChip("Service Cost", detail.stats.serviceCostTotal.asCurrency())
         SummaryChip("Expense Cost", detail.stats.expenseCostTotal.asCurrency())
         SummaryChip("Trip Miles", detail.stats.tripDistanceTotal.formatOneDecimal())
-    }
-}
-
-@Composable
-private fun SummaryChip(label: String, value: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall)
-            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        }
     }
 }
 
@@ -566,6 +571,7 @@ private fun VehicleDetailScreen(
     vehicleId: Long,
     onBack: () -> Unit,
     onBrowseRecords: () -> Unit,
+    onOpenStats: () -> Unit,
     onEditFuelUp: (Long) -> Unit,
     onEditService: (Long) -> Unit,
     onEditExpense: (Long) -> Unit,
@@ -615,6 +621,7 @@ private fun VehicleDetailScreen(
                             AssistChip(onClick = onAddExpense, label = { Text("New Expense") })
                             AssistChip(onClick = onAddTrip, label = { Text("New Trip") })
                             AssistChip(onClick = onBrowseRecords, label = { Text("Browse Records") })
+                            AssistChip(onClick = onOpenStats, label = { Text("Statistics & Charts") })
                         }
                     }
                 }
