@@ -14,7 +14,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             GarageLedgerTheme {
                 Surface {
-                    GarageLedgerApp(repository = container.repository)
+                    GarageLedgerApp(
+                        repository = container.repository,
+                        backupManager = container.backupManager,
+                    )
                 }
             }
         }

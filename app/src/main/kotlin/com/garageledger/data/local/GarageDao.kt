@@ -24,11 +24,20 @@ interface GarageDao {
     @Query("SELECT * FROM service_reminders WHERE vehicleId = :vehicleId ORDER BY dueDate ASC, dueDistance ASC")
     fun observeVehicleReminders(vehicleId: Long): Flow<List<ServiceReminderEntity>>
 
+    @Query("SELECT * FROM service_reminders ORDER BY vehicleId, dueDate ASC, dueDistance ASC")
+    suspend fun getAllServiceReminders(): List<ServiceReminderEntity>
+
+    @Query("SELECT * FROM service_reminders WHERE id IN (:reminderIds)")
+    suspend fun getServiceReminders(reminderIds: List<Long>): List<ServiceReminderEntity>
+
     @Query("SELECT * FROM fillup_records WHERE vehicleId = :vehicleId ORDER BY dateTime DESC")
     fun observeVehicleFillUps(vehicleId: Long): Flow<List<FillUpRecordEntity>>
 
     @Query("SELECT * FROM fillup_records WHERE vehicleId = :vehicleId ORDER BY dateTime ASC")
     suspend fun getVehicleFillUpsAscending(vehicleId: Long): List<FillUpRecordEntity>
+
+    @Query("SELECT * FROM fillup_records ORDER BY vehicleId, dateTime ASC")
+    suspend fun getAllFillUps(): List<FillUpRecordEntity>
 
     @Query("SELECT * FROM service_records WHERE vehicleId = :vehicleId ORDER BY dateTime DESC")
     fun observeVehicleServices(vehicleId: Long): Flow<List<ServiceRecordEntity>>
@@ -36,17 +45,26 @@ interface GarageDao {
     @Query("SELECT * FROM service_records WHERE vehicleId = :vehicleId ORDER BY dateTime ASC")
     suspend fun getVehicleServicesAscending(vehicleId: Long): List<ServiceRecordEntity>
 
+    @Query("SELECT * FROM service_records ORDER BY vehicleId, dateTime ASC")
+    suspend fun getAllServices(): List<ServiceRecordEntity>
+
     @Query("SELECT * FROM expense_records WHERE vehicleId = :vehicleId ORDER BY dateTime DESC")
     fun observeVehicleExpenses(vehicleId: Long): Flow<List<ExpenseRecordEntity>>
 
     @Query("SELECT * FROM expense_records WHERE vehicleId = :vehicleId ORDER BY dateTime ASC")
     suspend fun getVehicleExpensesAscending(vehicleId: Long): List<ExpenseRecordEntity>
 
+    @Query("SELECT * FROM expense_records ORDER BY vehicleId, dateTime ASC")
+    suspend fun getAllExpenses(): List<ExpenseRecordEntity>
+
     @Query("SELECT * FROM trip_records WHERE vehicleId = :vehicleId ORDER BY startDateTime DESC")
     fun observeVehicleTrips(vehicleId: Long): Flow<List<TripRecordEntity>>
 
     @Query("SELECT * FROM trip_records WHERE vehicleId = :vehicleId ORDER BY startDateTime ASC")
     suspend fun getVehicleTripsAscending(vehicleId: Long): List<TripRecordEntity>
+
+    @Query("SELECT * FROM trip_records ORDER BY vehicleId, startDateTime ASC")
+    suspend fun getAllTrips(): List<TripRecordEntity>
 
     @Query("SELECT * FROM fillup_records ORDER BY dateTime DESC")
     fun observeAllFillUps(): Flow<List<FillUpRecordEntity>>
@@ -93,14 +111,26 @@ interface GarageDao {
     @Query("SELECT * FROM fuel_types ORDER BY category COLLATE NOCASE, grade COLLATE NOCASE")
     suspend fun getFuelTypes(): List<FuelTypeEntity>
 
+    @Query("SELECT * FROM vehicle_parts ORDER BY vehicleId, name COLLATE NOCASE")
+    suspend fun getAllVehicleParts(): List<VehiclePartEntity>
+
+    @Query("SELECT * FROM record_attachments ORDER BY createdAt ASC")
+    suspend fun getAllAttachments(): List<RecordAttachmentEntity>
+
     @Query("SELECT * FROM service_record_types")
     fun observeServiceRecordCrossRefs(): Flow<List<ServiceRecordTypeCrossRef>>
+
+    @Query("SELECT * FROM service_record_types")
+    suspend fun getAllServiceRecordCrossRefs(): List<ServiceRecordTypeCrossRef>
 
     @Query("SELECT * FROM service_record_types WHERE serviceRecordId IN (:recordIds)")
     suspend fun getServiceRecordCrossRefs(recordIds: List<Long>): List<ServiceRecordTypeCrossRef>
 
     @Query("SELECT * FROM expense_record_types")
     fun observeExpenseRecordCrossRefs(): Flow<List<ExpenseRecordTypeCrossRef>>
+
+    @Query("SELECT * FROM expense_record_types")
+    suspend fun getAllExpenseRecordCrossRefs(): List<ExpenseRecordTypeCrossRef>
 
     @Query("SELECT * FROM expense_record_types WHERE expenseRecordId IN (:recordIds)")
     suspend fun getExpenseRecordCrossRefs(recordIds: List<Long>): List<ExpenseRecordTypeCrossRef>

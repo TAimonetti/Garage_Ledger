@@ -4,6 +4,7 @@ import com.garageledger.domain.model.ServiceRecord
 import com.garageledger.domain.model.ServiceReminder
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 object ReminderScheduler {
     fun schedule(
@@ -42,8 +43,8 @@ object ReminderScheduler {
     ): Boolean {
         if (reminder.timeAlertSilent) return false
         val dueDate = reminder.dueDate ?: return false
-        val totalDays = createdAt.until(dueDate).days.coerceAtLeast(1)
-        val remaining = now.toLocalDate().until(dueDate).days
+        val totalDays = ChronoUnit.DAYS.between(createdAt, dueDate).coerceAtLeast(1)
+        val remaining = ChronoUnit.DAYS.between(now.toLocalDate(), dueDate)
         return remaining <= (totalDays * thresholdPercent / 100.0)
     }
 

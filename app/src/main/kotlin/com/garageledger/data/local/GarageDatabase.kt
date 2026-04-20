@@ -27,4 +27,8 @@ import androidx.room.TypeConverters
 @TypeConverters(RoomConverters::class)
 abstract class GarageDatabase : RoomDatabase() {
     abstract fun garageDao(): GarageDao
+
+    companion object {
+        const val SCHEMA_VERSION: Int = 1
+    }
 }

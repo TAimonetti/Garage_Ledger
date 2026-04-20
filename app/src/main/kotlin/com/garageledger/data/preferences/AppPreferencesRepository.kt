@@ -33,5 +33,14 @@ class AppPreferencesRepository(
         }
     }
 
+    suspend fun update(transform: (AppPreferenceSnapshot) -> AppPreferenceSnapshot) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[snapshotKey]
+                ?.let { runCatching { json.decodeFromString<AppPreferenceSnapshot>(it) }.getOrNull() }
+                ?: AppPreferenceSnapshot()
+            preferences[snapshotKey] = json.encodeToString(transform(current))
+        }
+    }
+
     suspend fun currentSnapshot(): AppPreferenceSnapshot = preferences.first()
 }
