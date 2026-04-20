@@ -2,6 +2,9 @@ package com.garageledger.data
 
 import androidx.room.withTransaction
 import com.garageledger.core.model.FuelEfficiencyAssignmentMethod
+import com.garageledger.data.export.ExportSnapshot
+import com.garageledger.data.export.OpenJsonBackupExporter
+import com.garageledger.data.export.SectionedCsvExporter
 import com.garageledger.data.importer.AcarAbpImporter
 import com.garageledger.data.importer.AcarCsvImporter
 import com.garageledger.data.importer.FuellyCsvImporter
@@ -25,10 +28,14 @@ import com.garageledger.data.preferences.AppPreferencesRepository
 import com.garageledger.domain.calc.ChronoOdometerRecord
 import com.garageledger.domain.calc.FuelEfficiencyCalculator
 import com.garageledger.domain.calc.RecordConsistencyValidator
+import com.garageledger.domain.calc.ReminderAlertEvaluator
 import com.garageledger.domain.calc.ReminderScheduler
 import com.garageledger.domain.calc.TripCostBreakdown
 import com.garageledger.domain.calc.TripCostCalculator
+import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.BrowseRecordItem
+import com.garageledger.domain.model.ReminderAlert
+import com.garageledger.domain.model.ReminderDisplayItem
 import com.garageledger.domain.model.ExpenseRecord
 import com.garageledger.domain.model.ExpenseType
 import com.garageledger.domain.model.FillUpRecord
@@ -44,8 +51,10 @@ import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
 import com.garageledger.domain.model.VehicleStatistics
 import java.io.InputStream
+import java.io.OutputStream
 import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -57,6 +66,8 @@ class GarageRepository(
     private val acarCsvImporter: AcarCsvImporter = AcarCsvImporter(),
     private val acarAbpImporter: AcarAbpImporter = AcarAbpImporter(),
     private val fuellyCsvImporter: FuellyCsvImporter = FuellyCsvImporter(),
+    private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
+    private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
 ) {
     private val dao = database.garageDao()
 
@@ -66,18 +77,31 @@ class GarageRepository(
 
     fun observeVehicleDetail(vehicleId: Long): Flow<VehicleDetailBundle?> = combine(
         combine(
-            dao.observeVehicle(vehicleId),
-            dao.observeVehicleParts(vehicleId),
-            dao.observeVehicleReminders(vehicleId),
-            dao.observeVehicleFillUps(vehicleId),
-            dao.observeVehicleServices(vehicleId),
-        ) { vehicle, parts, reminders, fillUps, services ->
+            combine(
+                dao.observeVehicle(vehicleId),
+                dao.observeVehicleParts(vehicleId),
+                dao.observeVehicleReminders(vehicleId),
+                dao.observeVehicleFillUps(vehicleId),
+                dao.observeVehicleServices(vehicleId),
+            ) { vehicle, parts, reminders, fillUps, services ->
+                VehicleDetailPrimarySnapshot(
+                    vehicle = vehicle,
+                    parts = parts,
+                    reminders = reminders,
+                    fillUps = fillUps,
+                    services = services,
+                    serviceTypes = emptyList(),
+                )
+            },
+            dao.observeServiceTypes(),
+        ) { primary, serviceTypes ->
             VehicleDetailPrimarySnapshot(
-                vehicle = vehicle,
-                parts = parts,
-                reminders = reminders,
-                fillUps = fillUps,
-                services = services,
+                vehicle = primary.vehicle,
+                parts = primary.parts,
+                reminders = primary.reminders,
+                fillUps = primary.fillUps,
+                services = primary.services,
+                serviceTypes = serviceTypes,
             )
         },
         combine(
@@ -96,10 +120,15 @@ class GarageRepository(
         val domainExpenses = secondary.expenses.map { it.toDomain(emptyList()) }
         val domainTrips = secondary.trips.map(TripRecordEntity::toDomain)
         val stats = buildStats(vehicleId, domainFillUps, domainServices, domainExpenses, domainTrips)
+        val reminderDisplays = buildReminderDisplays(
+            reminders = primary.reminders,
+            serviceTypes = primary.serviceTypes,
+        )
         VehicleDetailBundle(
             vehicle = currentVehicle,
             parts = primary.parts.map(VehiclePartEntity::toDomain),
             reminders = primary.reminders.map(ServiceReminderEntity::toDomain),
+            upcomingReminders = reminderDisplays,
             recentFillUps = domainFillUps.sortedByDescending { it.dateTime }.take(15),
             recentServices = domainServices.sortedByDescending { it.dateTime }.take(10),
             recentExpenses = domainExpenses.sortedByDescending { it.dateTime }.take(10),
@@ -169,6 +198,95 @@ class GarageRepository(
     suspend fun getExpenseTypes(): List<ExpenseType> = dao.getExpenseTypes().map(ExpenseTypeEntity::toDomain)
 
     suspend fun getTripTypes(): List<TripType> = dao.getTripTypes().map(TripTypeEntity::toDomain)
+
+    suspend fun getPreferenceSnapshot(): AppPreferenceSnapshot = preferencesRepository.currentSnapshot()
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        preferencesRepository.update { current -> current.copy(notificationsEnabled = enabled) }
+    }
+
+    suspend fun exportSectionedCsv(outputStream: OutputStream) {
+        val snapshot = buildExportSnapshot()
+        val servicesByRecord = snapshot.serviceRecordTypes.groupBy(
+            keySelector = ServiceRecordTypeCrossRef::serviceRecordId,
+            valueTransform = ServiceRecordTypeCrossRef::serviceTypeId,
+        )
+        val expensesByRecord = snapshot.expenseRecordTypes.groupBy(
+            keySelector = ExpenseRecordTypeCrossRef::expenseRecordId,
+            valueTransform = ExpenseRecordTypeCrossRef::expenseTypeId,
+        )
+        val csv = sectionedCsvExporter.export(
+            preferences = snapshot.preferences,
+            vehicles = snapshot.vehicles.map(VehicleEntity::toDomain),
+            fillUps = snapshot.fillUpRecords.map(FillUpRecordEntity::toDomain),
+            services = snapshot.serviceRecords.map { it.toDomain(servicesByRecord[it.id].orEmpty()) },
+            expenses = snapshot.expenseRecords.map { it.toDomain(expensesByRecord[it.id].orEmpty()) },
+            trips = snapshot.tripRecords.map(TripRecordEntity::toDomain),
+            serviceTypes = snapshot.serviceTypes.map(ServiceTypeEntity::toDomain),
+            expenseTypes = snapshot.expenseTypes.map(ExpenseTypeEntity::toDomain),
+            tripTypes = snapshot.tripTypes.map(TripTypeEntity::toDomain),
+        )
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
+    }
+
+    suspend fun exportOpenJsonBackup(outputStream: OutputStream) {
+        openJsonBackupExporter.export(
+            snapshot = buildExportSnapshot(),
+            outputStream = outputStream,
+        )
+    }
+
+    suspend fun getDueReminderAlerts(now: LocalDateTime = LocalDateTime.now()): List<ReminderAlert> {
+        val preferences = preferencesRepository.currentSnapshot()
+        val reminders = dao.getAllServiceReminders()
+        if (reminders.isEmpty()) return emptyList()
+        val vehiclesById = dao.getVehicles().associateBy(VehicleEntity::id)
+        val serviceTypesById = dao.getServiceTypes().associateBy(ServiceTypeEntity::id)
+        val odometerByVehicle = reminders.map(ServiceReminderEntity::vehicleId).distinct().associateWith { vehicleId ->
+            dao.getLatestOdometer(vehicleId)
+        }
+        return reminders.mapNotNull { entity ->
+            val trigger = ReminderAlertEvaluator.evaluate(
+                reminder = entity.toDomain(),
+                now = now,
+                currentOdometer = odometerByVehicle[entity.vehicleId],
+                timeThresholdPercent = preferences.reminderTimeAlertPercent,
+                distanceThresholdPercent = preferences.reminderDistanceAlertPercent,
+            ) ?: return@mapNotNull null
+            ReminderAlert(
+                reminderId = entity.id,
+                vehicleId = entity.vehicleId,
+                vehicleName = vehiclesById[entity.vehicleId]?.name.orEmpty(),
+                serviceTypeId = entity.serviceTypeId,
+                serviceTypeName = serviceTypesById[entity.serviceTypeId]?.name ?: "Service",
+                dueDate = entity.dueDate,
+                dueDistance = entity.dueDistance,
+                currentOdometer = odometerByVehicle[entity.vehicleId],
+                triggeredByTime = trigger.byTime,
+                triggeredByDistance = trigger.byDistance,
+            )
+        }.sortedWith(
+            compareBy<ReminderAlert> { it.dueDate ?: LocalDate.MAX }
+                .thenBy { it.dueDistance ?: Double.MAX_VALUE },
+        )
+    }
+
+    suspend fun markReminderAlertsDelivered(
+        alerts: List<ReminderAlert>,
+        deliveredAt: LocalDateTime = LocalDateTime.now(),
+    ) {
+        if (alerts.isEmpty()) return
+        val remindersById = dao.getServiceReminders(alerts.map(ReminderAlert::reminderId)).associateBy(ServiceReminderEntity::id)
+        val updated = alerts.mapNotNull { alert ->
+            remindersById[alert.reminderId]?.copy(
+                lastTimeAlert = if (alert.triggeredByTime) deliveredAt else remindersById[alert.reminderId]?.lastTimeAlert,
+                lastDistanceAlert = if (alert.triggeredByDistance) deliveredAt else remindersById[alert.reminderId]?.lastDistanceAlert,
+            )
+        }
+        if (updated.isNotEmpty()) {
+            dao.updateReminders(updated)
+        }
+    }
 
     fun observeBrowseRecords(): Flow<List<BrowseRecordItem>> = combine(
         combine(
@@ -820,12 +938,47 @@ class GarageRepository(
         "%,.2f".format(this).replace(",", "")
     }
 
+    private suspend fun buildExportSnapshot(): ExportSnapshot = ExportSnapshot(
+        preferences = preferencesRepository.currentSnapshot(),
+        vehicles = dao.getVehicles(),
+        vehicleParts = dao.getAllVehicleParts(),
+        fuelTypes = dao.getFuelTypes(),
+        serviceTypes = dao.getServiceTypes(),
+        expenseTypes = dao.getExpenseTypes(),
+        tripTypes = dao.getTripTypes(),
+        serviceReminders = dao.getAllServiceReminders(),
+        fillUpRecords = dao.getAllFillUps(),
+        serviceRecords = dao.getAllServices(),
+        serviceRecordTypes = dao.getAllServiceRecordCrossRefs(),
+        expenseRecords = dao.getAllExpenses(),
+        expenseRecordTypes = dao.getAllExpenseRecordCrossRefs(),
+        tripRecords = dao.getAllTrips(),
+        attachments = dao.getAllAttachments(),
+    )
+
+    private fun buildReminderDisplays(
+        reminders: List<ServiceReminderEntity>,
+        serviceTypes: List<ServiceTypeEntity>,
+    ): List<ReminderDisplayItem> {
+        val serviceTypeNames = serviceTypes.associate { it.id to it.name }
+        return reminders
+            .map(ServiceReminderEntity::toDomain)
+            .sortedWith(compareBy({ it.dueDate ?: LocalDate.MAX }, { it.dueDistance ?: Double.MAX_VALUE }))
+            .map { reminder ->
+                ReminderDisplayItem(
+                    reminder = reminder,
+                    serviceTypeName = serviceTypeNames[reminder.serviceTypeId] ?: "Service",
+                )
+            }
+    }
+
     private data class VehicleDetailPrimarySnapshot(
         val vehicle: VehicleEntity?,
         val parts: List<VehiclePartEntity>,
         val reminders: List<ServiceReminderEntity>,
         val fillUps: List<FillUpRecordEntity>,
         val services: List<ServiceRecordEntity>,
+        val serviceTypes: List<ServiceTypeEntity>,
     )
 
     private data class VehicleDetailSecondarySnapshot(

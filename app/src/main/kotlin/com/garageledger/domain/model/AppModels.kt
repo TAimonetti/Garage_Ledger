@@ -308,6 +308,7 @@ data class VehicleDetailBundle(
     val vehicle: Vehicle,
     val parts: List<VehiclePart>,
     val reminders: List<ServiceReminder>,
+    val upcomingReminders: List<ReminderDisplayItem> = emptyList(),
     val recentFillUps: List<FillUpRecord>,
     val recentServices: List<ServiceRecord>,
     val recentExpenses: List<ExpenseRecord>,

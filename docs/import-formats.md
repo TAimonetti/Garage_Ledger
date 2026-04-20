@@ -60,3 +60,35 @@ Current support is fill-up focused and handles these common columns:
 - `partial_fuelup`
 
 The parser already accepts an explicit field-mapping dictionary so the UI can grow into a real mapping screen later without rewriting the importer.
+
+## Current export formats
+
+### Sectioned CSV
+
+The app exports a readable sectioned CSV that mirrors the import-oriented structure:
+
+- `Metadata`
+- `Vehicles`
+- `Fill-Up Records`
+- `Service Records`
+- `Expense Records`
+- `Trip Records`
+
+Behavior:
+
+- Writes a human-readable CSV meant for inspection and round-trip parsing
+- Uses the current local preference snapshot for currency/unit formatting
+- Resolves normalized service, expense, and trip type names into the exported text
+
+### Open zipped JSON backup
+
+The app exports a ZIP with two entries:
+
+- `metadata.json`
+- `garage-ledger-backup.json`
+
+Behavior:
+
+- Stores the full local ledger, catalogs, reminders, attachments, cross-reference tables, and preferences
+- Uses ISO-8601 strings for date/time fields for low-friction migration
+- Writes only open JSON, never a proprietary binary payload

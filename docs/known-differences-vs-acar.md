@@ -5,19 +5,20 @@ This build is intentionally focused on data fidelity and the most important work
 ## Implemented now
 
 - Local `.abp` and sectioned CSV import
+- Local sectioned CSV export and open zipped JSON backup export
 - Dense console-style start screen
 - Vehicle browsing, vehicle detail, and browse/filter across all record families
 - Fuel-up add/edit with two-of-three cost math
 - Service, expense, and trip add/edit screens
 - Recomputed fuel efficiency, reminder schedules, and vehicle stats after import/edit
+- WorkManager reminder checks, local rotating backups, and Android reminder notifications
+- Import/export center UI with manual local backup trigger and notification enablement
 
 ## Not complete yet
 
 - Widgets and pinned shortcuts
-- WorkManager reminder checks and local backup scheduling
 - Attachments UI
 - Chart rendering and statistics export screens
-- Open zipped JSON backup UI/export path
 - Full field-customization screens mirroring aCar's "Customize this screen"
 - Delete flows and full record-detail screens for every record family
 - Fuelly CSV import field-mapping UI

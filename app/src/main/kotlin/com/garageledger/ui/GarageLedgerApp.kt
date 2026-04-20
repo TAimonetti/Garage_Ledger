@@ -1,7 +1,9 @@
 package com.garageledger.ui
 
-import android.content.Context
+import android.Manifest
 import android.net.Uri
+import android.os.Build
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,7 +26,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.DirectionsCar
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Storage
@@ -44,7 +44,6 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -65,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -72,16 +72,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.garageledger.data.GarageRepository
+import com.garageledger.data.backup.LocalBackupManager
+import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
 import java.io.InputStream
+import java.io.OutputStream
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 @Composable
 fun GarageLedgerApp(
     repository: GarageRepository,
+    backupManager: LocalBackupManager,
 ) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "console") {
@@ -101,6 +105,7 @@ fun GarageLedgerApp(
         composable("import") {
             ImportScreen(
                 repository = repository,
+                backupManager = backupManager,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -316,6 +321,36 @@ private fun ConsoleScreen(
             if (detail != null) {
                 item {
                     Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Upcoming Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (detail!!.upcomingReminders.isEmpty()) {
+                                Text("No reminder schedules imported yet.")
+                            } else {
+                                detail!!.upcomingReminders.take(4).forEach { item ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onOpenVehicle(detail!!.vehicle.id) },
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text(item.serviceTypeName)
+                                            Text(
+                                                listOfNotNull(
+                                                    item.reminder.dueDate?.let { "Due $it" },
+                                                    item.reminder.dueDistance?.let { "At ${it.toInt()} mi" },
+                                                ).joinToString(" • ").ifBlank { "Scheduled" },
+                                            )
+                                        }
+                                        Text("Open")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text("Recent Fill-Ups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (detail!!.recentFillUps.isEmpty()) {
@@ -357,7 +392,7 @@ private fun ActionGrid(
     onAddTrip: () -> Unit,
 ) {
     val actions = listOf(
-        DashboardAction("Import Center", Icons.Outlined.Archive, onOpenImport),
+        DashboardAction("Import & Export", Icons.Outlined.Archive, onOpenImport),
         DashboardAction("Browse Vehicles", Icons.Outlined.Storage, onOpenVehicles),
         DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
         DashboardAction("Vehicle Details", Icons.Outlined.DirectionsCar, onOpenVehicle),
@@ -527,6 +562,28 @@ private fun VehicleDetailScreen(
                 item {
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (data.upcomingReminders.isEmpty()) {
+                                Text("No reminder schedules available for this vehicle.")
+                            } else {
+                                data.upcomingReminders.forEach { reminder ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(reminder.serviceTypeName)
+                                        Text(
+                                            listOfNotNull(
+                                                reminder.reminder.dueDate?.let { "Due $it" },
+                                                reminder.reminder.dueDistance?.let { "At ${it.toInt()} ${data.vehicle.distanceUnitOverride?.storageValue ?: "mi"}" },
+                                            ).joinToString(" | ").ifBlank { "Scheduled" },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Recent Fill-Ups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (data.recentFillUps.isEmpty()) {
                                 Text("No fill-ups imported yet.")
@@ -655,11 +712,14 @@ private fun VehicleDetailScreen(
 @Composable
 private fun ImportScreen(
     repository: GarageRepository,
+    backupManager: LocalBackupManager,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
     var lastReport by remember { mutableStateOf<ImportReport?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
     fun runImport(importer: suspend (InputStream) -> ImportReport, uri: Uri?) {
@@ -671,6 +731,23 @@ private fun ImportScreen(
                 stream.use { importer(it) }
             }.onSuccess {
                 lastReport = it
+                importError = null
+                exportMessage = null
+            }.onFailure {
+                importError = it.message
+            }
+        }
+    }
+
+    fun runExport(exporter: suspend (OutputStream) -> Unit, uri: Uri?, successMessage: String) {
+        if (uri == null) return
+        scope.launch {
+            runCatching {
+                val stream = context.contentResolver.openOutputStream(uri)
+                    ?: error("Unable to create the selected export file.")
+                stream.use { exporter(it) }
+            }.onSuccess {
+                exportMessage = successMessage
                 importError = null
             }.onFailure {
                 importError = it.message
@@ -684,11 +761,30 @@ private fun ImportScreen(
     val acarCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         runImport(repository::importAcarCsv, uri)
     }
+    val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        runExport(repository::exportSectionedCsv, uri, "Readable CSV export saved.")
+    }
+    val exportBackupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        runExport(repository::exportOpenJsonBackup, uri, "Open zipped backup saved.")
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        scope.launch {
+            repository.setNotificationsEnabled(granted)
+            exportMessage = if (granted) {
+                "Reminder notifications enabled."
+            } else {
+                "Reminder notifications stay off until Android permission is granted."
+            }
+        }
+    }
+
+    fun notificationPermissionGranted(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Import Center") },
+                title = { Text("Import & Export Center") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
             )
         },
@@ -700,6 +796,70 @@ private fun ImportScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item {
+                Card {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Automatic Local Backups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Scheduled backups stay local in the app documents area and rotate automatically.")
+                        Text("Cadence: ${formatBackupCadence(preferences.backupFrequencyHours)}")
+                        Text("History: keep ${preferences.backupHistoryCount} zip files")
+                        Text("Folder: ${backupManager.backupDirectoryPath()}")
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    runCatching { backupManager.writeBackupNow() }
+                                        .onSuccess { result ->
+                                            exportMessage = "Local backup saved to ${result.filePath}"
+                                            importError = null
+                                        }
+                                        .onFailure { error ->
+                                            importError = error.message
+                                        }
+                                }
+                            },
+                        ) {
+                            Icon(Icons.Outlined.Archive, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Run Local Backup Now")
+                        }
+                    }
+                }
+            }
+            item {
+                Card {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Reminder Alerts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (preferences.notificationsEnabled) {
+                                "Reminder checks are on every 12 hours with ${preferences.reminderTimeAlertPercent}% time and ${preferences.reminderDistanceAlertPercent}% distance thresholds."
+                            } else {
+                                "Notifications are currently off."
+                            },
+                        )
+                        Button(
+                            onClick = {
+                                when {
+                                    preferences.notificationsEnabled -> scope.launch {
+                                        repository.setNotificationsEnabled(false)
+                                        exportMessage = "Reminder notifications disabled."
+                                    }
+
+                                    notificationPermissionGranted() -> scope.launch {
+                                        repository.setNotificationsEnabled(true)
+                                        exportMessage = "Reminder notifications enabled."
+                                    }
+
+                                    else -> notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            },
+                        ) {
+                            Icon(Icons.Outlined.Storage, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text(if (preferences.notificationsEnabled) "Disable Alerts" else "Enable Alerts")
+                        }
+                    }
+                }
+            }
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -726,10 +886,51 @@ private fun ImportScreen(
                     }
                 }
             }
+            item {
+                Card {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Readable CSV Export", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Write the human-readable sectioned CSV export to any local document destination.")
+                        Button(onClick = { exportCsvLauncher.launch("garage-ledger-export.csv") }) {
+                            Icon(Icons.Outlined.FileUpload, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Export CSV")
+                        }
+                    }
+                }
+            }
+            item {
+                Card {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Open Zipped Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Export the full local ledger to a documented zipped JSON bundle.")
+                        Button(onClick = { exportBackupLauncher.launch("garage-ledger-backup.zip") }) {
+                            Icon(Icons.Outlined.Archive, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Export Backup Zip")
+                        }
+                    }
+                }
+            }
             importError?.let { message ->
                 item {
                     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                         Text(message, modifier = Modifier.padding(18.dp))
+                    }
+                }
+            }
+            exportMessage?.let { message ->
+                item {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                        Text(message, modifier = Modifier.padding(18.dp))
+                    }
+                }
+            }
+            item {
+                Card {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Local-First Notes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Backups and exports stay local-first. Manual exports use the Storage Access Framework, and scheduled backups write into the app's own documents area.")
                     }
                 }
             }
@@ -755,6 +956,16 @@ private fun ImportScreen(
             }
         }
     }
+}
+
+private fun formatBackupCadence(hours: Int): String = when {
+    hours <= 0 -> "Off"
+    hours % 24 == 0 -> {
+        val days = hours / 24
+        if (days == 1) "Every day" else "Every $days days"
+    }
+
+    else -> "Every $hours hours"
 }
 
 private data class DashboardAction(
