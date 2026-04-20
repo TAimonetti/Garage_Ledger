@@ -284,6 +284,18 @@ interface GarageDao {
     @Query("DELETE FROM record_attachments WHERE recordFamily = :recordFamily AND recordId = :recordId")
     suspend fun deleteRecordAttachmentsForRecord(recordFamily: com.garageledger.domain.model.RecordFamily, recordId: Long)
 
+    @Query("DELETE FROM fillup_records WHERE id = :recordId")
+    suspend fun deleteFillUp(recordId: Long)
+
+    @Query("DELETE FROM service_records WHERE id = :recordId")
+    suspend fun deleteService(recordId: Long)
+
+    @Query("DELETE FROM expense_records WHERE id = :recordId")
+    suspend fun deleteExpense(recordId: Long)
+
+    @Query("DELETE FROM trip_records WHERE id = :recordId")
+    suspend fun deleteTrip(recordId: Long)
+
     @Query("DELETE FROM service_reminders")
     suspend fun clearServiceReminders()
 

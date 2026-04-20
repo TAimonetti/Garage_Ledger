@@ -45,6 +45,7 @@ import com.garageledger.domain.model.FillUpRecord
 import com.garageledger.domain.model.ImportIssue
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.ImportedGarageData
+import com.garageledger.domain.model.OptionalFieldToggle
 import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.RecordAttachment
 import com.garageledger.domain.model.ServiceRecord
@@ -217,6 +218,15 @@ class GarageRepository(
 
     suspend fun setNotificationsEnabled(enabled: Boolean) {
         preferencesRepository.update { current -> current.copy(notificationsEnabled = enabled) }
+    }
+
+    suspend fun setVisibleField(toggle: OptionalFieldToggle, visible: Boolean) {
+        preferencesRepository.update { current ->
+            val updated = current.visibleFields.toMutableSet().apply {
+                if (visible) add(toggle) else remove(toggle)
+            }
+            current.copy(visibleFields = updated)
+        }
     }
 
     suspend fun exportSectionedCsv(outputStream: OutputStream) {
@@ -514,6 +524,46 @@ class GarageRepository(
         }
         onLedgerChanged()
         return savedId
+    }
+
+    suspend fun deleteFillUp(recordId: Long) {
+        val record = dao.getFillUp(recordId)?.toDomain() ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.FILL_UP, recordId)
+            dao.deleteFillUp(recordId)
+            recalculateVehicleFillUps(record.vehicleId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteService(recordId: Long) {
+        val record = getService(recordId) ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.SERVICE, recordId)
+            dao.deleteServiceCrossRefsForRecord(recordId)
+            dao.deleteService(recordId)
+            recalculateVehicleReminders(record.vehicleId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteExpense(recordId: Long) {
+        val record = getExpense(recordId) ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.EXPENSE, recordId)
+            dao.deleteExpenseCrossRefsForRecord(recordId)
+            dao.deleteExpense(recordId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteTrip(recordId: Long) {
+        val record = dao.getTrip(recordId)?.toDomain() ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.TRIP, recordId)
+            dao.deleteTrip(recordId)
+        }
+        onLedgerChanged()
     }
 
     suspend fun replaceRecordAttachments(

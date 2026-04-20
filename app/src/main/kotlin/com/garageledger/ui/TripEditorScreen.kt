@@ -92,6 +92,7 @@ fun TripEditorScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
     var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
+    var showCustomizeFields by remember { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -124,6 +125,14 @@ fun TripEditorScreen(
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Trip"
+    val visibleFields = preferences.visibleFields
+    val showTripLocation = com.garageledger.domain.model.OptionalFieldToggle.TRIP_LOCATION in visibleFields
+    val showTripPurpose = com.garageledger.domain.model.OptionalFieldToggle.TRIP_PURPOSE in visibleFields
+    val showTripClient = com.garageledger.domain.model.OptionalFieldToggle.TRIP_CLIENT in visibleFields
+    val showTripTaxDeduction = com.garageledger.domain.model.OptionalFieldToggle.TRIP_TAX_DEDUCTION in visibleFields
+    val showTripReimbursement = com.garageledger.domain.model.OptionalFieldToggle.TRIP_REIMBURSEMENT in visibleFields
+    val showTags = com.garageledger.domain.model.OptionalFieldToggle.TAGS in visibleFields
+    val showNotes = com.garageledger.domain.model.OptionalFieldToggle.NOTES in visibleFields
     val parsedStart = remember(startDateText) { parseEditorDateTime(startDateText) }
     val parsedEnd = remember(endDateText) { parseEditorDateTime(endDateText).takeIf { endDateText.isNotBlank() } }
     val startOdometer = remember(startOdometerText) { startOdometerText.toDoubleOrNull() }
@@ -193,11 +202,28 @@ fun TripEditorScreen(
 
     val lastCompletedTrip = priorTrips.lastOrNull { it.id != recordId && it.endDateTime != null }
 
+    if (showCustomizeFields) {
+        VisibleFieldsDialog(
+            title = "Customize Trip Screen",
+            options = TripVisibleFieldOptions,
+            visibleFields = visibleFields,
+            onToggle = { toggle, visible ->
+                scope.launch { repository.setVisibleField(toggle, visible) }
+            },
+            onDismiss = { showCustomizeFields = false },
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(if (recordId > 0L) "Edit Trip" else "New Trip") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                actions = {
+                    TextButton(onClick = { showCustomizeFields = true }) {
+                        Text("Customize")
+                    }
+                },
             )
         },
     ) { padding ->
@@ -257,13 +283,15 @@ fun TripEditorScreen(
                             label = { Text("Start Odometer (${preferences.distanceUnit.storageValue})") },
                             singleLine = true,
                         )
-                        OutlinedTextField(
-                            value = startLocation,
-                            onValueChange = { startLocation = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Start Location") },
-                        )
-                        SuggestionRow(locationSuggestions, onSelect = { startLocation = it })
+                        if (showTripLocation) {
+                            OutlinedTextField(
+                                value = startLocation,
+                                onValueChange = { startLocation = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Start Location") },
+                            )
+                            SuggestionRow(locationSuggestions, onSelect = { startLocation = it })
+                        }
                     }
                 }
             }
@@ -284,13 +312,15 @@ fun TripEditorScreen(
                             label = { Text("End Odometer (optional)") },
                             singleLine = true,
                         )
-                        OutlinedTextField(
-                            value = endLocation,
-                            onValueChange = { endLocation = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("End Location") },
-                        )
-                        SuggestionRow(locationSuggestions, onSelect = { endLocation = it })
+                        if (showTripLocation) {
+                            OutlinedTextField(
+                                value = endLocation,
+                                onValueChange = { endLocation = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("End Location") },
+                            )
+                            SuggestionRow(locationSuggestions, onSelect = { endLocation = it })
+                        }
                     }
                 }
             }
@@ -315,54 +345,66 @@ fun TripEditorScreen(
                                 )
                             }
                         }
-                        OutlinedTextField(
-                            value = purpose,
-                            onValueChange = { purpose = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Purpose") },
-                        )
-                        SuggestionRow(purposeSuggestions, onSelect = { purpose = it })
-                        OutlinedTextField(
-                            value = client,
-                            onValueChange = { client = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Client") },
-                        )
-                        SuggestionRow(clientSuggestions, onSelect = { client = it })
+                        if (showTripPurpose) {
+                            OutlinedTextField(
+                                value = purpose,
+                                onValueChange = { purpose = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Purpose") },
+                            )
+                            SuggestionRow(purposeSuggestions, onSelect = { purpose = it })
+                        }
+                        if (showTripClient) {
+                            OutlinedTextField(
+                                value = client,
+                                onValueChange = { client = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Client") },
+                            )
+                            SuggestionRow(clientSuggestions, onSelect = { client = it })
+                        }
                     }
                 }
             }
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = taxRateText,
-                            onValueChange = { taxRateText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Tax Deduction Rate") },
-                            singleLine = true,
-                        )
-                        OutlinedTextField(
-                            value = reimbursementRateText,
-                            onValueChange = { reimbursementRateText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Reimbursement Rate") },
-                            singleLine = true,
-                        )
-                        ToggleRow("Paid", paid) { paid = it }
-                        OutlinedTextField(
-                            value = tagsText,
-                            onValueChange = { tagsText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Tags") },
-                        )
-                        OutlinedTextField(
-                            value = notesText,
-                            onValueChange = { notesText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Notes") },
-                            minLines = 3,
-                        )
+                        if (showTripTaxDeduction) {
+                            OutlinedTextField(
+                                value = taxRateText,
+                                onValueChange = { taxRateText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tax Deduction Rate") },
+                                singleLine = true,
+                            )
+                        }
+                        if (showTripReimbursement) {
+                            OutlinedTextField(
+                                value = reimbursementRateText,
+                                onValueChange = { reimbursementRateText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Reimbursement Rate") },
+                                singleLine = true,
+                            )
+                            ToggleRow("Paid", paid) { paid = it }
+                        }
+                        if (showTags) {
+                            OutlinedTextField(
+                                value = tagsText,
+                                onValueChange = { tagsText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tags") },
+                            )
+                        }
+                        if (showNotes) {
+                            OutlinedTextField(
+                                value = notesText,
+                                onValueChange = { notesText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Notes") },
+                                minLines = 3,
+                            )
+                        }
                     }
                 }
             }
@@ -389,12 +431,12 @@ fun TripEditorScreen(
                                 } ?: "Open trip"
                             ),
                         )
-                        taxRateText.toDoubleOrNull()?.let { rate ->
+                        if (showTripTaxDeduction) taxRateText.toDoubleOrNull()?.let { rate ->
                             distancePreview?.let { distance ->
                                 Text("Tax Deduction: ${(rate * distance).asCurrency()}")
                             }
                         }
-                        reimbursementRateText.toDoubleOrNull()?.let { rate ->
+                        if (showTripReimbursement) reimbursementRateText.toDoubleOrNull()?.let { rate ->
                             distancePreview?.let { distance ->
                                 Text("Reimbursement: ${(rate * distance).asCurrency()}")
                             }

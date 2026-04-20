@@ -80,6 +80,12 @@ fun FuelUpEditorScreen(
     var fuelBrand by rememberSaveable { mutableStateOf("") }
     var stationAddress by rememberSaveable { mutableStateOf("") }
     var fuelTypeText by rememberSaveable { mutableStateOf("") }
+    var hasFuelAdditive by rememberSaveable { mutableStateOf(false) }
+    var fuelAdditiveName by rememberSaveable { mutableStateOf("") }
+    var drivingMode by rememberSaveable { mutableStateOf("") }
+    var averageSpeedText by rememberSaveable { mutableStateOf("") }
+    var cityDrivingText by rememberSaveable { mutableStateOf("") }
+    var highwayDrivingText by rememberSaveable { mutableStateOf("") }
     var partial by rememberSaveable { mutableStateOf(false) }
     var missed by rememberSaveable { mutableStateOf(false) }
     var tagsText by rememberSaveable { mutableStateOf("") }
@@ -87,6 +93,7 @@ fun FuelUpEditorScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
     var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
+    var showCustomizeFields by remember { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -100,6 +107,12 @@ fun FuelUpEditorScreen(
             fuelBrand = record.fuelBrand
             stationAddress = record.stationAddress
             fuelTypeText = record.importedFuelTypeText.orEmpty()
+            hasFuelAdditive = record.hasFuelAdditive
+            fuelAdditiveName = record.fuelAdditiveName
+            drivingMode = record.drivingMode
+            averageSpeedText = record.averageSpeed?.toString().orEmpty()
+            cityDrivingText = record.cityDrivingPercentage?.toString().orEmpty()
+            highwayDrivingText = record.highwayDrivingPercentage?.toString().orEmpty()
             partial = record.partial
             missed = record.previousMissedFillups
             tagsText = record.tags.joinToString(", ")
@@ -122,12 +135,39 @@ fun FuelUpEditorScreen(
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Fuel-Up"
+    val visibleFields = preferences.visibleFields
+    val showPaymentType = com.garageledger.domain.model.OptionalFieldToggle.PAYMENT_TYPE in visibleFields
+    val showFuelType = com.garageledger.domain.model.OptionalFieldToggle.FUEL_TYPE in visibleFields
+    val showFuelAdditive = com.garageledger.domain.model.OptionalFieldToggle.FUEL_ADDITIVE in visibleFields
+    val showFuelingStation = com.garageledger.domain.model.OptionalFieldToggle.FUELING_STATION in visibleFields
+    val showAverageSpeed = com.garageledger.domain.model.OptionalFieldToggle.AVERAGE_SPEED in visibleFields
+    val showDrivingMode = com.garageledger.domain.model.OptionalFieldToggle.DRIVING_MODE in visibleFields
+    val showDrivingCondition = com.garageledger.domain.model.OptionalFieldToggle.DRIVING_CONDITION in visibleFields
+    val showTags = com.garageledger.domain.model.OptionalFieldToggle.TAGS in visibleFields
+    val showNotes = com.garageledger.domain.model.OptionalFieldToggle.NOTES in visibleFields
+
+    if (showCustomizeFields) {
+        VisibleFieldsDialog(
+            title = "Customize Fuel-Up Screen",
+            options = FuelUpVisibleFieldOptions,
+            visibleFields = visibleFields,
+            onToggle = { toggle, visible ->
+                scope.launch { repository.setVisibleField(toggle, visible) }
+            },
+            onDismiss = { showCustomizeFields = false },
+        )
+    }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(if (recordId > 0) "Edit Fuel-Up" else "New Fuel-Up") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                actions = {
+                    TextButton(onClick = { showCustomizeFields = true }) {
+                        Text("Customize")
+                    }
+                },
             )
         },
     ) { padding ->
@@ -245,48 +285,104 @@ fun FuelUpEditorScreen(
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         ToggleRow("Partial Fill-Up", partial) { partial = it }
                         ToggleRow("Previous Missed Fill-Ups", missed) { missed = it }
-                        OutlinedTextField(
-                            value = paymentType,
-                            onValueChange = { paymentType = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Payment Type") },
-                            singleLine = true,
-                        )
-                        SuggestionRow(paymentSuggestions) { paymentType = it }
-                        OutlinedTextField(
-                            value = fuelBrand,
-                            onValueChange = { fuelBrand = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Fuel Brand") },
-                            singleLine = true,
-                        )
-                        SuggestionRow(brandSuggestions) { fuelBrand = it }
-                        OutlinedTextField(
-                            value = fuelTypeText,
-                            onValueChange = { fuelTypeText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Fuel Type") },
-                            singleLine = true,
-                        )
-                        OutlinedTextField(
-                            value = stationAddress,
-                            onValueChange = { stationAddress = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Station Address") },
-                        )
-                        OutlinedTextField(
-                            value = tagsText,
-                            onValueChange = { tagsText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Tags") },
-                        )
-                        OutlinedTextField(
-                            value = notesText,
-                            onValueChange = { notesText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Notes") },
-                            minLines = 3,
-                        )
+                        if (showPaymentType) {
+                            OutlinedTextField(
+                                value = paymentType,
+                                onValueChange = { paymentType = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Payment Type") },
+                                singleLine = true,
+                            )
+                            SuggestionRow(paymentSuggestions) { paymentType = it }
+                        }
+                        if (showFuelType) {
+                            OutlinedTextField(
+                                value = fuelTypeText,
+                                onValueChange = { fuelTypeText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Fuel Type") },
+                                singleLine = true,
+                            )
+                        }
+                        if (showFuelAdditive) {
+                            ToggleRow("Fuel Additive", hasFuelAdditive) { hasFuelAdditive = it }
+                            if (hasFuelAdditive) {
+                                OutlinedTextField(
+                                    value = fuelAdditiveName,
+                                    onValueChange = { fuelAdditiveName = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Fuel Additive Name") },
+                                    singleLine = true,
+                                )
+                            }
+                        }
+                        if (showFuelingStation) {
+                            OutlinedTextField(
+                                value = fuelBrand,
+                                onValueChange = { fuelBrand = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Fuel Brand") },
+                                singleLine = true,
+                            )
+                            SuggestionRow(brandSuggestions) { fuelBrand = it }
+                            OutlinedTextField(
+                                value = stationAddress,
+                                onValueChange = { stationAddress = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Station Address") },
+                            )
+                        }
+                        if (showDrivingMode) {
+                            OutlinedTextField(
+                                value = drivingMode,
+                                onValueChange = { drivingMode = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Driving Mode") },
+                                singleLine = true,
+                            )
+                        }
+                        if (showAverageSpeed) {
+                            OutlinedTextField(
+                                value = averageSpeedText,
+                                onValueChange = { averageSpeedText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Average Speed") },
+                                singleLine = true,
+                            )
+                        }
+                        if (showDrivingCondition) {
+                            OutlinedTextField(
+                                value = cityDrivingText,
+                                onValueChange = { cityDrivingText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("City Driving Percentage") },
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = highwayDrivingText,
+                                onValueChange = { highwayDrivingText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Highway Driving Percentage") },
+                                singleLine = true,
+                            )
+                        }
+                        if (showTags) {
+                            OutlinedTextField(
+                                value = tagsText,
+                                onValueChange = { tagsText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tags") },
+                            )
+                        }
+                        if (showNotes) {
+                            OutlinedTextField(
+                                value = notesText,
+                                onValueChange = { notesText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Notes") },
+                                minLines = 3,
+                            )
+                        }
                     }
                 }
             }
@@ -335,11 +431,17 @@ fun FuelUpEditorScreen(
                                         paymentType = paymentType,
                                         partial = partial,
                                         previousMissedFillups = missed,
-                                        fuelEfficiencyUnit = FuelEfficiencyUnit.MPG_US,
+                                        fuelEfficiencyUnit = preferences.fuelEfficiencyUnit,
                                         fuelTypeId = existingRecord?.fuelTypeId,
                                         importedFuelTypeText = fuelTypeText.ifBlank { null },
+                                        hasFuelAdditive = hasFuelAdditive,
+                                        fuelAdditiveName = fuelAdditiveName,
                                         fuelBrand = fuelBrand,
                                         stationAddress = stationAddress,
+                                        drivingMode = drivingMode,
+                                        cityDrivingPercentage = cityDrivingText.toIntOrNull(),
+                                        highwayDrivingPercentage = highwayDrivingText.toIntOrNull(),
+                                        averageSpeed = averageSpeedText.toDoubleOrNull(),
                                         tags = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() },
                                         notes = notesText,
                                     ),
