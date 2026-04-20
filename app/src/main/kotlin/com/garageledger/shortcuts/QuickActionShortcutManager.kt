@@ -72,7 +72,7 @@ object QuickActionShortcutManager {
                 .setShortLabel(target.shortLabel)
                 .setLongLabel(target.longLabel)
                 .setIcon(IconCompat.createWithResource(context, target.iconResId))
-                .setIntent(buildLaunchIntent(context, target))
+                .setIntent(launchIntent(context, target))
                 .build()
         }
         ShortcutManagerCompat.setDynamicShortcuts(context, shortcuts)
@@ -83,7 +83,7 @@ object QuickActionShortcutManager {
             .setShortLabel(target.shortLabel)
             .setLongLabel(target.longLabel)
             .setIcon(IconCompat.createWithResource(context, target.iconResId))
-            .setIntent(buildLaunchIntent(context, target))
+            .setIntent(launchIntent(context, target))
             .build()
         return ShortcutManagerCompat.requestPinShortcut(context, shortcut, null)
     }
@@ -94,7 +94,7 @@ object QuickActionShortcutManager {
         return LaunchRequest(route = target.route())
     }
 
-    private fun buildLaunchIntent(context: android.content.Context, target: QuickActionTarget): Intent = Intent(context, MainActivity::class.java).apply {
+    fun launchIntent(context: android.content.Context, target: QuickActionTarget): Intent = Intent(context, MainActivity::class.java).apply {
         action = Intent.ACTION_VIEW
         putExtra(EXTRA_QUICK_ACTION, target.routeSegment)
         addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)

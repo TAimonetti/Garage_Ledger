@@ -4,7 +4,7 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 4 fast-entry shortcuts and attachments are in place:
+Phase 5 widgets are in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
@@ -19,6 +19,7 @@ Phase 4 fast-entry shortcuts and attachments are in place:
 - Open zipped JSON backup export plus scheduled local rotating backups in app documents storage
 - Local attachment support for photos and PDFs across fuel-up, service, expense, and trip editors
 - Launcher quick actions with home-screen pin requests and a vehicle chooser for fast entry
+- Classic Android home-screen widgets for quick add and service reminders
 - Parser/regression/unit tests, backup/export tests, reminder alert tests, and instrumented Compose tests for entry flows plus import/export center navigation
 
 ## Build
@@ -47,6 +48,7 @@ $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 - [`app/src/main/kotlin/com/garageledger/domain`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/domain): pure models and calculation rules
 - [`app/src/main/kotlin/com/garageledger/notifications`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/notifications): notification channel and reminder notifier
 - [`app/src/main/kotlin/com/garageledger/shortcuts`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/shortcuts): launcher quick actions and pinning helpers
+- [`app/src/main/kotlin/com/garageledger/widgets`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/widgets): app widget providers, updater, and reminder formatting
 - [`app/src/main/kotlin/com/garageledger/ui`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/ui): Compose dashboard, import center, browse screen, vehicle detail, and record editors
 - [`docs/architecture.md`](D:/Code/Codex/Garage_Ledger/docs/architecture.md): implementation plan and schema proposal
 - [`docs/import-formats.md`](D:/Code/Codex/Garage_Ledger/docs/import-formats.md): CSV/ABP/Fuelly format notes

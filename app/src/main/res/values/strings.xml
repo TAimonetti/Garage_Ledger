@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">Garage Ledger</string>
+    <string name="widget_quick_add_title">Garage Ledger Quick Add</string>
+    <string name="widget_quick_add_label">Quick Add</string>
+    <string name="widget_reminders_title">Service Reminders</string>
+    <string name="widget_reminders_label">Reminders</string>
+    <string name="widget_reminders_empty_title">No reminders yet</string>
+    <string name="widget_reminders_empty_subtitle">Import service history or create reminders to populate this widget.</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_open_app">Open App</string>
 </resources>

@@ -10,6 +10,7 @@ import com.garageledger.data.local.GarageDatabase
 import com.garageledger.data.preferences.AppPreferencesRepository
 import com.garageledger.notifications.NotificationChannels
 import com.garageledger.shortcuts.QuickActionShortcutManager
+import com.garageledger.widgets.GarageWidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,9 +29,14 @@ class AppContainer(context: Context) {
 
     private val preferencesRepository = AppPreferencesRepository(appContext)
 
-    val repository = GarageRepository(
+    val widgetUpdater = GarageWidgetUpdater(appContext)
+
+    val repository: GarageRepository = GarageRepository(
         database = database,
         preferencesRepository = preferencesRepository,
+        onLedgerChanged = {
+            widgetUpdater.refreshAll()
+        },
     )
 
     val backupManager = LocalBackupManager(
@@ -48,6 +54,9 @@ class AppContainer(context: Context) {
     fun start() {
         NotificationChannels.ensureCreated(appContext)
         QuickActionShortcutManager.syncDynamicShortcuts(appContext)
+        applicationScope.launch {
+            widgetUpdater.refreshAll()
+        }
         applicationScope.launch {
             preferencesRepository.preferences.collectLatest { snapshot ->
                 workScheduler.sync(snapshot)
