@@ -117,6 +117,9 @@ interface GarageDao {
     @Query("SELECT * FROM record_attachments ORDER BY createdAt ASC")
     suspend fun getAllAttachments(): List<RecordAttachmentEntity>
 
+    @Query("SELECT * FROM record_attachments WHERE recordFamily = :recordFamily AND recordId = :recordId ORDER BY createdAt ASC")
+    suspend fun getRecordAttachments(recordFamily: com.garageledger.domain.model.RecordFamily, recordId: Long): List<RecordAttachmentEntity>
+
     @Query("SELECT * FROM service_record_types")
     fun observeServiceRecordCrossRefs(): Flow<List<ServiceRecordTypeCrossRef>>
 
@@ -231,6 +234,9 @@ interface GarageDao {
     suspend fun insertTrips(items: List<TripRecordEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRecordAttachments(items: List<RecordAttachmentEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFillUp(item: FillUpRecordEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -274,6 +280,9 @@ interface GarageDao {
 
     @Query("DELETE FROM record_attachments")
     suspend fun clearAttachments()
+
+    @Query("DELETE FROM record_attachments WHERE recordFamily = :recordFamily AND recordId = :recordId")
+    suspend fun deleteRecordAttachmentsForRecord(recordFamily: com.garageledger.domain.model.RecordFamily, recordId: Long)
 
     @Query("DELETE FROM service_reminders")
     suspend fun clearServiceReminders()

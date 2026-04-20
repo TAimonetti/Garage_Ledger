@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
 import com.garageledger.domain.calc.TripCostBreakdown
+import com.garageledger.domain.model.RecordAttachment
+import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.TripRecord
 import kotlinx.coroutines.launch
 
@@ -52,6 +54,9 @@ fun TripEditorScreen(
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = com.garageledger.domain.model.AppPreferenceSnapshot())
     val existingRecord by produceState<TripRecord?>(initialValue = null, key1 = recordId) {
         value = if (recordId > 0L) repository.getTrip(recordId) else null
+    }
+    val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
+        value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.TRIP, recordId) else emptyList()
     }
     val tripTypes by produceState(initialValue = emptyList<com.garageledger.domain.model.TripType>()) {
         value = repository.getTripTypes()
@@ -85,6 +90,8 @@ fun TripEditorScreen(
     var paid by rememberSaveable { mutableStateOf(false) }
     var tripTypeId by remember { mutableStateOf<Long?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
+    var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -108,6 +115,12 @@ fun TripEditorScreen(
             startDateText = java.time.LocalDateTime.now().format(EditorDateFormatter)
         }
         initialized = true
+    }
+
+    LaunchedEffect(existingAttachments) {
+        if (attachmentsInitialized) return@LaunchedEffect
+        attachments = existingAttachments
+        attachmentsInitialized = true
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Trip"
@@ -354,6 +367,15 @@ fun TripEditorScreen(
                 }
             }
             item {
+                AttachmentEditorCard(
+                    vehicleId = vehicleId,
+                    recordFamily = RecordFamily.TRIP,
+                    attachments = attachments,
+                    onAttachmentsChange = { attachments = it },
+                    onError = { errorMessage = it },
+                )
+            }
+            item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Trip Preview", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -398,8 +420,14 @@ fun TripEditorScreen(
                     onClick = {
                         scope.launch {
                             runCatching {
-                                repository.saveTrip(
+                                val savedId = repository.saveTrip(
                                     tripDraft ?: error("Enter a valid start date and start odometer."),
+                                )
+                                repository.replaceRecordAttachments(
+                                    vehicleId = vehicleId,
+                                    recordFamily = RecordFamily.TRIP,
+                                    recordId = savedId,
+                                    attachments = attachments,
                                 )
                             }.onSuccess {
                                 errorMessage = null

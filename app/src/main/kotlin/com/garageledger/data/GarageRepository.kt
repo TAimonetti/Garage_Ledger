@@ -43,6 +43,7 @@ import com.garageledger.domain.model.ImportIssue
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.ImportedGarageData
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.RecordAttachment
 import com.garageledger.domain.model.ServiceRecord
 import com.garageledger.domain.model.ServiceType
 import com.garageledger.domain.model.TripRecord
@@ -156,6 +157,9 @@ class GarageRepository(
     }
 
     suspend fun getTrip(recordId: Long): TripRecord? = dao.getTrip(recordId)?.toDomain()
+
+    suspend fun getRecordAttachments(recordFamily: RecordFamily, recordId: Long): List<RecordAttachment> =
+        dao.getRecordAttachments(recordFamily, recordId).map(com.garageledger.data.local.RecordAttachmentEntity::toDomain)
 
     suspend fun estimateTripCost(record: TripRecord): TripCostBreakdown {
         val normalized = normalizeTrip(record)
@@ -434,6 +438,29 @@ class GarageRepository(
         } else {
             dao.updateTrip(normalized.toEntity())
             normalized.id
+        }
+    }
+
+    suspend fun replaceRecordAttachments(
+        vehicleId: Long,
+        recordFamily: RecordFamily,
+        recordId: Long,
+        attachments: List<RecordAttachment>,
+    ) {
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(recordFamily, recordId)
+            if (attachments.isNotEmpty()) {
+                dao.insertRecordAttachments(
+                    attachments.map { attachment ->
+                        attachment.copy(
+                            id = 0L,
+                            vehicleId = vehicleId,
+                            recordFamily = recordFamily,
+                            recordId = recordId,
+                        ).toEntity()
+                    },
+                )
+            }
         }
     }
 

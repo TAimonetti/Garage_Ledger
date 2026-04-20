@@ -9,6 +9,7 @@ import com.garageledger.data.backup.LocalBackupManager
 import com.garageledger.data.local.GarageDatabase
 import com.garageledger.data.preferences.AppPreferencesRepository
 import com.garageledger.notifications.NotificationChannels
+import com.garageledger.shortcuts.QuickActionShortcutManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,6 +47,7 @@ class AppContainer(context: Context) {
 
     fun start() {
         NotificationChannels.ensureCreated(appContext)
+        QuickActionShortcutManager.syncDynamicShortcuts(appContext)
         applicationScope.launch {
             preferencesRepository.preferences.collectLatest { snapshot ->
                 workScheduler.sync(snapshot)
