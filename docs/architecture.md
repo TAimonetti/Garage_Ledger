@@ -6,7 +6,7 @@
 2. Preserve aCar's dashboard-first mental model with a console home screen, vehicle switcher, dense stats, and direct record-entry actions.
 3. Keep the core local: Room for ledger data, DataStore for settings, Storage Access Framework for files, and no account or server dependency.
 4. Treat imported raw records as source-of-truth, then recompute derived fields such as fuel efficiency and reminder due state after import or edit.
-5. Add broader parity in phases after the first vertical slice is stable: richer stats/charts, full detail/customization screens, advanced widgets, and attachment export polish.
+5. Add broader parity in phases after the first vertical slice is stable: full detail/customization screens, optional advanced widgets, and attachment/export polish.
 
 ## Package structure
 
@@ -19,7 +19,7 @@
 - `data.importer`
   - aCar CSV, aCar ABP, and Fuelly CSV parsing
 - `data.export`
-  - sectioned CSV export and open zipped JSON backup export
+  - sectioned CSV export, statistics CSV export, and open zipped JSON backup export
 - `data.backup`
   - local backup file rotation and app-local backup writing
 - `attachments`
@@ -39,7 +39,7 @@
 - `widgets`
   - classic RemoteViews-based home-screen widgets for quick add and reminders
 - `ui`
-  - Compose console, import/export center, quick-add chooser, browse records, vehicle detail, and record editors
+  - Compose console, statistics/charts, import/export center, quick-add chooser, browse records, vehicle detail, and record editors
 
 ## Database schema proposal
 
@@ -85,3 +85,4 @@ Key schema choices:
 10. Launch fast-entry flows from pinned launcher shortcuts into a vehicle chooser when needed.
 11. Surface quick add and service reminder summaries on the home screen with classic Android widgets.
 12. Browse and filter records across all record families, then jump back into the matching editor.
+13. Review per-vehicle or all-vehicle statistics with timeframe filtering, simple Compose charts, and local CSV export.
