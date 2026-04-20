@@ -32,6 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
+import com.garageledger.domain.model.RecordAttachment
+import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.ServiceRecord
 import kotlinx.coroutines.launch
 
@@ -48,6 +50,9 @@ fun ServiceEditorScreen(
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = com.garageledger.domain.model.AppPreferenceSnapshot())
     val existingRecord by produceState<ServiceRecord?>(initialValue = null, key1 = recordId) {
         value = if (recordId > 0L) repository.getService(recordId) else null
+    }
+    val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
+        value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.SERVICE, recordId) else emptyList()
     }
     val serviceTypes by produceState(initialValue = emptyList<com.garageledger.domain.model.ServiceType>()) {
         value = repository.getServiceTypes()
@@ -70,6 +75,8 @@ fun ServiceEditorScreen(
     var notesText by rememberSaveable { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedTypeIds by remember { mutableStateOf(emptySet<Long>()) }
+    var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
+    var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -88,6 +95,12 @@ fun ServiceEditorScreen(
             dateTimeText = java.time.LocalDateTime.now().format(EditorDateFormatter)
         }
         initialized = true
+    }
+
+    LaunchedEffect(existingAttachments) {
+        if (attachmentsInitialized) return@LaunchedEffect
+        attachments = existingAttachments
+        attachmentsInitialized = true
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Service"
@@ -203,6 +216,15 @@ fun ServiceEditorScreen(
                     }
                 }
             }
+            item {
+                AttachmentEditorCard(
+                    vehicleId = vehicleId,
+                    recordFamily = RecordFamily.SERVICE,
+                    attachments = attachments,
+                    onAttachmentsChange = { attachments = it },
+                    onError = { errorMessage = it },
+                )
+            }
             errorMessage?.let { message ->
                 item {
                     Text(message, color = MaterialTheme.colorScheme.error)
@@ -215,7 +237,7 @@ fun ServiceEditorScreen(
                     onClick = {
                         scope.launch {
                             runCatching {
-                                repository.saveService(
+                                val savedId = repository.saveService(
                                     ServiceRecord(
                                         id = existingRecord?.id ?: 0L,
                                         legacySourceId = existingRecord?.legacySourceId,
@@ -234,6 +256,12 @@ fun ServiceEditorScreen(
                                         notes = notesText,
                                         serviceTypeIds = selectedTypeIds.toList().sorted(),
                                     ),
+                                )
+                                repository.replaceRecordAttachments(
+                                    vehicleId = vehicleId,
+                                    recordFamily = RecordFamily.SERVICE,
+                                    recordId = savedId,
+                                    attachments = attachments,
                                 )
                             }.onSuccess {
                                 errorMessage = null

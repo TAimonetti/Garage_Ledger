@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
 import com.garageledger.domain.model.ExpenseRecord
+import com.garageledger.domain.model.RecordAttachment
+import com.garageledger.domain.model.RecordFamily
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +50,9 @@ fun ExpenseEditorScreen(
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = com.garageledger.domain.model.AppPreferenceSnapshot())
     val existingRecord by produceState<ExpenseRecord?>(initialValue = null, key1 = recordId) {
         value = if (recordId > 0L) repository.getExpense(recordId) else null
+    }
+    val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
+        value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.EXPENSE, recordId) else emptyList()
     }
     val expenseTypes by produceState(initialValue = emptyList<com.garageledger.domain.model.ExpenseType>()) {
         value = repository.getExpenseTypes()
@@ -70,6 +75,8 @@ fun ExpenseEditorScreen(
     var notesText by rememberSaveable { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedTypeIds by remember { mutableStateOf(emptySet<Long>()) }
+    var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
+    var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -88,6 +95,12 @@ fun ExpenseEditorScreen(
             dateTimeText = java.time.LocalDateTime.now().format(EditorDateFormatter)
         }
         initialized = true
+    }
+
+    LaunchedEffect(existingAttachments) {
+        if (attachmentsInitialized) return@LaunchedEffect
+        attachments = existingAttachments
+        attachmentsInitialized = true
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Expense"
@@ -203,6 +216,15 @@ fun ExpenseEditorScreen(
                     }
                 }
             }
+            item {
+                AttachmentEditorCard(
+                    vehicleId = vehicleId,
+                    recordFamily = RecordFamily.EXPENSE,
+                    attachments = attachments,
+                    onAttachmentsChange = { attachments = it },
+                    onError = { errorMessage = it },
+                )
+            }
             errorMessage?.let { message ->
                 item {
                     Text(message, color = MaterialTheme.colorScheme.error)
@@ -215,7 +237,7 @@ fun ExpenseEditorScreen(
                     onClick = {
                         scope.launch {
                             runCatching {
-                                repository.saveExpense(
+                                val savedId = repository.saveExpense(
                                     ExpenseRecord(
                                         id = existingRecord?.id ?: 0L,
                                         legacySourceId = existingRecord?.legacySourceId,
@@ -234,6 +256,12 @@ fun ExpenseEditorScreen(
                                         notes = notesText,
                                         expenseTypeIds = selectedTypeIds.toList().sorted(),
                                     ),
+                                )
+                                repository.replaceRecordAttachments(
+                                    vehicleId = vehicleId,
+                                    recordFamily = RecordFamily.EXPENSE,
+                                    recordId = savedId,
+                                    attachments = attachments,
                                 )
                             }.onSuccess {
                                 errorMessage = null

@@ -77,6 +77,9 @@ import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
+import com.garageledger.shortcuts.LaunchRequest
+import com.garageledger.shortcuts.QuickActionShortcutManager
+import com.garageledger.shortcuts.QuickActionTarget
 import java.io.InputStream
 import java.io.OutputStream
 import java.time.format.DateTimeFormatter
@@ -86,8 +89,17 @@ import kotlinx.coroutines.launch
 fun GarageLedgerApp(
     repository: GarageRepository,
     backupManager: LocalBackupManager,
+    launchRequest: LaunchRequest? = null,
+    onLaunchHandled: () -> Unit = {},
 ) {
     val navController = rememberNavController()
+    LaunchedEffect(launchRequest?.token) {
+        val request = launchRequest ?: return@LaunchedEffect
+        navController.navigate(request.route) {
+            launchSingleTop = true
+        }
+        onLaunchHandled()
+    }
     NavHost(navController = navController, startDestination = "console") {
         composable("console") {
             ConsoleScreen(
@@ -101,6 +113,24 @@ fun GarageLedgerApp(
                 onAddExpense = { navController.navigate("expense/$it/-1") },
                 onAddTrip = { navController.navigate("trip/$it/-1") },
             )
+        }
+        composable(
+            route = "quickadd/{target}",
+            arguments = listOf(navArgument("target") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val target = QuickActionTarget.fromRouteSegment(backStackEntry.arguments?.getString("target"))
+            if (target != null) {
+                QuickAddChooserScreen(
+                    repository = repository,
+                    target = target,
+                    onBack = { navController.popBackStack() },
+                    onOpenVehicleEditor = { vehicleId ->
+                        navController.navigate(target.editorRoute(vehicleId)) {
+                            popUpTo("quickadd/${target.routeSegment}") { inclusive = true }
+                        }
+                    },
+                )
+            }
         }
         composable("import") {
             ImportScreen(
@@ -215,7 +245,7 @@ fun GarageLedgerApp(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ConsoleScreen(
     repository: GarageRepository,
@@ -228,9 +258,11 @@ private fun ConsoleScreen(
     onAddExpense: (Long) -> Unit,
     onAddTrip: (Long) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     var selectedVehicleId by rememberSaveable { mutableLongStateOf(0L) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var shortcutStatus by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vehicles) {
         if (selectedVehicleId == 0L && vehicles.isNotEmpty()) {
@@ -319,6 +351,33 @@ private fun ConsoleScreen(
                 )
             }
             if (detail != null) {
+                item {
+                    Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Pin Quick Actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Create launcher shortcuts for the old aCar-style fast entry paths.")
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                QuickActionTarget.entries.forEach { target ->
+                                    AssistChip(
+                                        onClick = {
+                                            val requested = QuickActionShortcutManager.requestPinnedShortcut(context, target)
+                                            shortcutStatus = if (requested) {
+                                                "${target.shortLabel} pin request sent to the launcher."
+                                            } else {
+                                                "Pinned shortcuts are not supported by this launcher."
+                                            }
+                                        },
+                                        label = { Text(target.shortLabel.removePrefix("New ")) },
+                                    )
+                                }
+                            }
+                            shortcutStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        }
+                    }
+                }
                 item {
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

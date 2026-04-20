@@ -37,6 +37,8 @@ import com.garageledger.core.model.FuelEfficiencyUnit
 import com.garageledger.core.model.VolumeUnit
 import com.garageledger.data.GarageRepository
 import com.garageledger.domain.model.FillUpRecord
+import com.garageledger.domain.model.RecordAttachment
+import com.garageledger.domain.model.RecordFamily
 import java.time.LocalDateTime
 import kotlinx.coroutines.launch
 
@@ -56,6 +58,9 @@ fun FuelUpEditorScreen(
     }
     val existingRecord by produceState<FillUpRecord?>(initialValue = null, key1 = recordId) {
         value = if (recordId > 0) repository.getFillUp(recordId) else null
+    }
+    val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
+        value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.FILL_UP, recordId) else emptyList()
     }
     val paymentSuggestions by produceState(initialValue = emptyList<String>()) {
         value = repository.getPaymentTypeSuggestions()
@@ -80,6 +85,8 @@ fun FuelUpEditorScreen(
     var tagsText by rememberSaveable { mutableStateOf("") }
     var notesText by rememberSaveable { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
+    var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -99,6 +106,12 @@ fun FuelUpEditorScreen(
             notesText = record.notes
         }
         initialized = true
+    }
+
+    LaunchedEffect(existingAttachments) {
+        if (attachmentsInitialized) return@LaunchedEffect
+        attachments = existingAttachments
+        attachmentsInitialized = true
     }
 
     val editorDateTime = remember(dateTimeText) { parseEditorDateTime(dateTimeText) }
@@ -277,6 +290,15 @@ fun FuelUpEditorScreen(
                     }
                 }
             }
+            item {
+                AttachmentEditorCard(
+                    vehicleId = vehicleId,
+                    recordFamily = RecordFamily.FILL_UP,
+                    attachments = attachments,
+                    onAttachmentsChange = { attachments = it },
+                    onError = { errorMessage = it },
+                )
+            }
             errorMessage?.let { message ->
                 item { Text(message, color = MaterialTheme.colorScheme.error) }
             }
@@ -298,7 +320,7 @@ fun FuelUpEditorScreen(
                                 val volume = solved.volume.toDoubleOrNull() ?: error("Enter at least two of price, volume, and total cost.")
                                 val total = solved.total.toDoubleOrNull() ?: error("Enter at least two of price, volume, and total cost.")
 
-                                repository.saveFillUp(
+                                val savedId = repository.saveFillUp(
                                     FillUpRecord(
                                         id = existingRecord?.id ?: 0L,
                                         legacySourceId = existingRecord?.legacySourceId,
@@ -321,6 +343,12 @@ fun FuelUpEditorScreen(
                                         tags = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() },
                                         notes = notesText,
                                     ),
+                                )
+                                repository.replaceRecordAttachments(
+                                    vehicleId = vehicleId,
+                                    recordFamily = RecordFamily.FILL_UP,
+                                    recordId = savedId,
+                                    attachments = attachments,
                                 )
                             }.onSuccess {
                                 errorMessage = null

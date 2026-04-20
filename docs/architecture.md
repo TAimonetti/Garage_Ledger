@@ -6,7 +6,7 @@
 2. Preserve aCar's dashboard-first mental model with a console home screen, vehicle switcher, dense stats, and direct record-entry actions.
 3. Keep the core local: Room for ledger data, DataStore for settings, Storage Access Framework for files, and no account or server dependency.
 4. Treat imported raw records as source-of-truth, then recompute derived fields such as fuel efficiency and reminder due state after import or edit.
-5. Add broader parity in phases after the first vertical slice is stable: widgets/shortcuts, full detail/customization screens, attachment polish, and richer stats/charts.
+5. Add broader parity in phases after the first vertical slice is stable: richer stats/charts, full detail/customization screens, advanced widgets, and attachment export polish.
 
 ## Package structure
 
@@ -22,6 +22,8 @@
   - sectioned CSV export and open zipped JSON backup export
 - `data.backup`
   - local backup file rotation and app-local backup writing
+- `attachments`
+  - local copy-in storage for picked files, gallery images, and camera captures
 - `data.local`
   - Room entities, DAO, converters, and domain/entity mappers
 - `data.preferences`
@@ -32,8 +34,12 @@
   - WorkManager scheduler, workers, and worker factory
 - `notifications`
   - notification channels and reminder delivery
+- `shortcuts`
+  - launcher quick actions, pinned shortcut requests, and launch routing
+- `widgets`
+  - classic RemoteViews-based home-screen widgets for quick add and reminders
 - `ui`
-  - Compose console, import/export center, browse records, vehicle detail, and record editors
+  - Compose console, import/export center, quick-add chooser, browse records, vehicle detail, and record editors
 
 ## Database schema proposal
 
@@ -75,4 +81,7 @@ Key schema choices:
 6. Add or edit a fuel-up, service, expense, or trip and immediately refresh derived stats and reminder schedules.
 7. Export a readable sectioned CSV or an open zipped JSON backup through the Storage Access Framework.
 8. Schedule local rotating backups and reminder checks with WorkManager from imported or local preferences.
-9. Browse and filter records across all record families, then jump back into the matching editor.
+9. Capture or attach local photos/PDFs to records from the file picker, gallery, or camera intents.
+10. Launch fast-entry flows from pinned launcher shortcuts into a vehicle chooser when needed.
+11. Surface quick add and service reminder summaries on the home screen with classic Android widgets.
+12. Browse and filter records across all record families, then jump back into the matching editor.

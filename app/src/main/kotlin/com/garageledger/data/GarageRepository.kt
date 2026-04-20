@@ -36,6 +36,7 @@ import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.ReminderAlert
 import com.garageledger.domain.model.ReminderDisplayItem
+import com.garageledger.domain.model.ReminderWidgetItem
 import com.garageledger.domain.model.ExpenseRecord
 import com.garageledger.domain.model.ExpenseType
 import com.garageledger.domain.model.FillUpRecord
@@ -43,6 +44,7 @@ import com.garageledger.domain.model.ImportIssue
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.ImportedGarageData
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.RecordAttachment
 import com.garageledger.domain.model.ServiceRecord
 import com.garageledger.domain.model.ServiceType
 import com.garageledger.domain.model.TripRecord
@@ -68,6 +70,7 @@ class GarageRepository(
     private val fuellyCsvImporter: FuellyCsvImporter = FuellyCsvImporter(),
     private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
     private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
+    private val onLedgerChanged: suspend () -> Unit = {},
 ) {
     private val dao = database.garageDao()
 
@@ -156,6 +159,9 @@ class GarageRepository(
     }
 
     suspend fun getTrip(recordId: Long): TripRecord? = dao.getTrip(recordId)?.toDomain()
+
+    suspend fun getRecordAttachments(recordFamily: RecordFamily, recordId: Long): List<RecordAttachment> =
+        dao.getRecordAttachments(recordFamily, recordId).map(com.garageledger.data.local.RecordAttachmentEntity::toDomain)
 
     suspend fun estimateTripCost(record: TripRecord): TripCostBreakdown {
         val normalized = normalizeTrip(record)
@@ -271,6 +277,25 @@ class GarageRepository(
         )
     }
 
+    suspend fun getUpcomingReminderWidgets(limit: Int = 3): List<ReminderWidgetItem> {
+        val reminders = dao.getAllServiceReminders()
+        if (reminders.isEmpty()) return emptyList()
+        val vehiclesById = dao.getVehicles().associateBy(VehicleEntity::id)
+        val serviceTypesById = dao.getServiceTypes().associateBy(ServiceTypeEntity::id)
+        return reminders
+            .sortedWith(compareBy<ServiceReminderEntity> { it.dueDate ?: LocalDate.MAX }.thenBy { it.dueDistance ?: Double.MAX_VALUE })
+            .take(limit.coerceAtLeast(1))
+            .map { reminder ->
+                ReminderWidgetItem(
+                    reminderId = reminder.id,
+                    vehicleName = vehiclesById[reminder.vehicleId]?.name.orEmpty(),
+                    serviceTypeName = serviceTypesById[reminder.serviceTypeId]?.name ?: "Service",
+                    dueDate = reminder.dueDate,
+                    dueDistance = reminder.dueDistance,
+                )
+            }
+    }
+
     suspend fun markReminderAlertsDelivered(
         alerts: List<ReminderAlert>,
         deliveredAt: LocalDateTime = LocalDateTime.now(),
@@ -285,6 +310,7 @@ class GarageRepository(
         }
         if (updated.isNotEmpty()) {
             dao.updateReminders(updated)
+            onLedgerChanged()
         }
     }
 
@@ -361,6 +387,7 @@ class GarageRepository(
             record.id
         }
         recalculateVehicleFillUps(record.vehicleId)
+        onLedgerChanged()
         return savedId
     }
 
@@ -388,6 +415,7 @@ class GarageRepository(
             recordId
         }
         recalculateVehicleReminders(record.vehicleId)
+        onLedgerChanged()
         return savedId
     }
 
@@ -397,7 +425,7 @@ class GarageRepository(
             excludedRecordId = record.id,
             candidates = listOf(ChronoOdometerRecord(record.id, record.dateTime, record.odometerReading)),
         )
-        return database.withTransaction {
+        val savedId = database.withTransaction {
             val recordId = if (record.id == 0L) {
                 dao.insertExpense(record.toEntity())
             } else {
@@ -414,6 +442,8 @@ class GarageRepository(
             }
             recordId
         }
+        onLedgerChanged()
+        return savedId
     }
 
     suspend fun saveTrip(record: TripRecord): Long {
@@ -429,12 +459,38 @@ class GarageRepository(
             excludedRecordId = normalized.id,
             candidates = candidates,
         )
-        return if (normalized.id == 0L) {
+        val savedId = if (normalized.id == 0L) {
             dao.insertTrip(normalized.toEntity())
         } else {
             dao.updateTrip(normalized.toEntity())
             normalized.id
         }
+        onLedgerChanged()
+        return savedId
+    }
+
+    suspend fun replaceRecordAttachments(
+        vehicleId: Long,
+        recordFamily: RecordFamily,
+        recordId: Long,
+        attachments: List<RecordAttachment>,
+    ) {
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(recordFamily, recordId)
+            if (attachments.isNotEmpty()) {
+                dao.insertRecordAttachments(
+                    attachments.map { attachment ->
+                        attachment.copy(
+                            id = 0L,
+                            vehicleId = vehicleId,
+                            recordFamily = recordFamily,
+                            recordId = recordId,
+                        ).toEntity()
+                    },
+                )
+            }
+        }
+        onLedgerChanged()
     }
 
     private suspend fun persistImportedData(
@@ -551,6 +607,7 @@ class GarageRepository(
             recalculateVehicleFillUps(vehicleId)
             recalculateVehicleReminders(vehicleId)
         }
+        onLedgerChanged()
 
         return ImportReport(
             sourceLabel = sourceLabel,
