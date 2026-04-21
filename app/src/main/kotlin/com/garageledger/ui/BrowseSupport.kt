@@ -108,6 +108,21 @@ internal fun buildBrowseActionItems(record: BrowseRecordItem): List<BrowseRecord
     }
 }
 
+internal fun sortBrowseRecords(
+    records: List<BrowseRecordItem>,
+    descending: Boolean,
+): List<BrowseRecordItem> = if (descending) {
+    records.sortedByDescending(BrowseRecordItem::occurredAt)
+} else {
+    records.sortedBy(BrowseRecordItem::occurredAt)
+}
+
+internal fun browseSortLabel(descending: Boolean): String = if (descending) {
+    "Newest First"
+} else {
+    "Oldest First"
+}
+
 private fun distinctSuggestions(values: List<String>): List<String> {
     val normalized = linkedMapOf<String, String>()
     values.forEach { value ->

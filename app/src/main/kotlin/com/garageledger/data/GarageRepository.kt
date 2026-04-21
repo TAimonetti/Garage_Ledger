@@ -1,6 +1,7 @@
 package com.garageledger.data
 
 import androidx.room.withTransaction
+import com.garageledger.data.export.BrowseRecordsCsvExporter
 import com.garageledger.data.export.ExportSnapshot
 import com.garageledger.data.export.OpenJsonBackupExporter
 import com.garageledger.data.export.SectionedCsvExporter
@@ -88,6 +89,7 @@ class GarageRepository(
     private val acarCsvImporter: AcarCsvImporter = AcarCsvImporter(),
     private val acarAbpImporter: AcarAbpImporter = AcarAbpImporter(),
     private val fuellyCsvImporter: FuellyCsvImporter = FuellyCsvImporter(),
+    private val browseRecordsCsvExporter: BrowseRecordsCsvExporter = BrowseRecordsCsvExporter(),
     private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
     private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
     private val statisticsCsvExporter: StatisticsCsvExporter = StatisticsCsvExporter(),
@@ -444,6 +446,18 @@ class GarageRepository(
             serviceTypes = snapshot.serviceTypes.map(ServiceTypeEntity::toDomain),
             expenseTypes = snapshot.expenseTypes.map(ExpenseTypeEntity::toDomain),
             tripTypes = snapshot.tripTypes.map(TripTypeEntity::toDomain),
+        )
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
+    }
+
+    suspend fun exportBrowseRecordsCsv(
+        outputStream: OutputStream,
+        records: List<BrowseRecordItem>,
+        sortDescending: Boolean,
+    ) {
+        val csv = browseRecordsCsvExporter.export(
+            records = records,
+            sortDescending = sortDescending,
         )
         outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
     }

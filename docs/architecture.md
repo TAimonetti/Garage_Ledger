@@ -94,3 +94,4 @@ Key schema choices:
 19. Surface fuel efficiency and fuel price snapshots on the home screen with classic RemoteViews widgets.
 20. Export the current statistics dashboard as standalone HTML in addition to CSV.
 21. Manage browsed records directly with per-record action menus, including trip copy/finish shortcuts and retired-vehicle edit protection.
+22. Control browse sort order from the browse screen itself and export the current filtered result set as local CSV.

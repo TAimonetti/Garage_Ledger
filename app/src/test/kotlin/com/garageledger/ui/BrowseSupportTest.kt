@@ -166,4 +166,27 @@ class BrowseSupportTest {
         assertThat(retiredActions.first { it.action == BrowseRecordAction.EDIT }.enabled).isFalse()
         assertThat(retiredActions.first { it.action == BrowseRecordAction.DELETE }.enabled).isFalse()
     }
+
+    @Test
+    fun sortBrowseRecords_ordersByOccurredAtAccordingToPreference() {
+        val older = BrowseRecordItem(
+            recordId = 1L,
+            vehicleId = 2L,
+            vehicleName = "Corolla",
+            family = RecordFamily.FILL_UP,
+            occurredAt = LocalDateTime.parse("2024-01-01T08:00:00"),
+            title = "Older",
+            searchText = "",
+        )
+        val newer = older.copy(
+            recordId = 2L,
+            occurredAt = LocalDateTime.parse("2024-02-01T08:00:00"),
+            title = "Newer",
+        )
+
+        assertThat(sortBrowseRecords(listOf(older, newer), descending = true)).containsExactly(newer, older).inOrder()
+        assertThat(sortBrowseRecords(listOf(older, newer), descending = false)).containsExactly(older, newer).inOrder()
+        assertThat(browseSortLabel(descending = true)).isEqualTo("Newest First")
+        assertThat(browseSortLabel(descending = false)).isEqualTo("Oldest First")
+    }
 }
