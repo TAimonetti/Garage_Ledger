@@ -4,7 +4,7 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 7 record details and customization are in place:
+Phase 8 settings and type management are in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
@@ -24,6 +24,8 @@ Phase 7 record details and customization are in place:
 - Local statistics CSV export with chart-series data
 - Record detail screens for fuel-ups, services, expenses, and trips with explicit delete flows
 - Editor-level `Customize this screen` support backed by imported visible-field preferences
+- Settings screen for units, formats, backup/reminder thresholds, notifications, and optional fields
+- Type Management screen for local fuel, service, expense, and trip type catalogs
 - Parser/regression/unit tests, backup/export tests, reminder alert tests, and instrumented Compose tests for entry flows plus import/export center navigation
 
 ## Build
@@ -53,7 +55,7 @@ $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 - [`app/src/main/kotlin/com/garageledger/notifications`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/notifications): notification channel and reminder notifier
 - [`app/src/main/kotlin/com/garageledger/shortcuts`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/shortcuts): launcher quick actions and pinning helpers
 - [`app/src/main/kotlin/com/garageledger/widgets`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/widgets): app widget providers, updater, and reminder formatting
-- [`app/src/main/kotlin/com/garageledger/ui`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/ui): Compose dashboard, statistics/charts, record detail, import center, browse screen, vehicle detail, and record editors
+- [`app/src/main/kotlin/com/garageledger/ui`](D:/Code/Codex/Garage_Ledger/app/src/main/kotlin/com/garageledger/ui): Compose dashboard, settings, type management, statistics/charts, record detail, import center, browse screen, vehicle detail, and record editors
 - [`docs/architecture.md`](D:/Code/Codex/Garage_Ledger/docs/architecture.md): implementation plan and schema proposal
 - [`docs/import-formats.md`](D:/Code/Codex/Garage_Ledger/docs/import-formats.md): CSV/ABP/Fuelly format notes
 - [`docs/migration-notes.md`](D:/Code/Codex/Garage_Ledger/docs/migration-notes.md): migration assumptions and sample expectations

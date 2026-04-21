@@ -19,6 +19,8 @@ This build is intentionally focused on data fidelity and the most important work
 - Statistics and charts screen with local CSV export for summary and chart data
 - Record detail screens with edit/delete actions across all main record families
 - Editor-level "Customize this screen" support for fuel-up, service, expense, and trip flows
+- Settings screen for local units, formats, reminder thresholds, notifications, and optional fields
+- Type management for local fuel, service, expense, and trip catalogs
 
 ## Not complete yet
 

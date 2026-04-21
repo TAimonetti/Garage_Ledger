@@ -109,6 +109,9 @@ interface GarageDao {
     suspend fun getTripTypes(): List<TripTypeEntity>
 
     @Query("SELECT * FROM fuel_types ORDER BY category COLLATE NOCASE, grade COLLATE NOCASE")
+    fun observeFuelTypes(): Flow<List<FuelTypeEntity>>
+
+    @Query("SELECT * FROM fuel_types ORDER BY category COLLATE NOCASE, grade COLLATE NOCASE")
     suspend fun getFuelTypes(): List<FuelTypeEntity>
 
     @Query("SELECT * FROM vehicle_parts ORDER BY vehicleId, name COLLATE NOCASE")
@@ -249,6 +252,18 @@ interface GarageDao {
     suspend fun insertTrip(item: TripRecordEntity): Long
 
     @Update
+    suspend fun updateFuelType(item: FuelTypeEntity)
+
+    @Update
+    suspend fun updateServiceType(item: ServiceTypeEntity)
+
+    @Update
+    suspend fun updateExpenseType(item: ExpenseTypeEntity)
+
+    @Update
+    suspend fun updateTripType(item: TripTypeEntity)
+
+    @Update
     suspend fun updateFillUp(item: FillUpRecordEntity)
 
     @Update
@@ -295,6 +310,33 @@ interface GarageDao {
 
     @Query("DELETE FROM trip_records WHERE id = :recordId")
     suspend fun deleteTrip(recordId: Long)
+
+    @Query("DELETE FROM fuel_types WHERE id = :typeId")
+    suspend fun deleteFuelType(typeId: Long)
+
+    @Query("DELETE FROM service_types WHERE id = :typeId")
+    suspend fun deleteServiceType(typeId: Long)
+
+    @Query("DELETE FROM expense_types WHERE id = :typeId")
+    suspend fun deleteExpenseType(typeId: Long)
+
+    @Query("DELETE FROM trip_types WHERE id = :typeId")
+    suspend fun deleteTripType(typeId: Long)
+
+    @Query("SELECT COUNT(*) FROM fillup_records WHERE fuelTypeId = :typeId")
+    suspend fun countFuelTypeUsage(typeId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM service_record_types WHERE serviceTypeId = :typeId")
+    suspend fun countServiceTypeRecordUsage(typeId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM service_reminders WHERE serviceTypeId = :typeId")
+    suspend fun countServiceTypeReminderUsage(typeId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM expense_record_types WHERE expenseTypeId = :typeId")
+    suspend fun countExpenseTypeUsage(typeId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM trip_records WHERE tripTypeId = :typeId")
+    suspend fun countTripTypeUsage(typeId: Long): Int
 
     @Query("DELETE FROM service_reminders")
     suspend fun clearServiceReminders()

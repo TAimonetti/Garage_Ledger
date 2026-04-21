@@ -42,6 +42,7 @@ import com.garageledger.domain.model.ReminderWidgetItem
 import com.garageledger.domain.model.ExpenseRecord
 import com.garageledger.domain.model.ExpenseType
 import com.garageledger.domain.model.FillUpRecord
+import com.garageledger.domain.model.FuelType
 import com.garageledger.domain.model.ImportIssue
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.ImportedGarageData
@@ -86,6 +87,14 @@ class GarageRepository(
     val preferences = preferencesRepository.preferences
 
     fun observeVehicles(): Flow<List<Vehicle>> = dao.observeVehicles().map { list -> list.map(VehicleEntity::toDomain) }
+
+    fun observeFuelTypes(): Flow<List<FuelType>> = dao.observeFuelTypes().map { list -> list.map(FuelTypeEntity::toDomain) }
+
+    fun observeServiceTypes(): Flow<List<ServiceType>> = dao.observeServiceTypes().map { list -> list.map(ServiceTypeEntity::toDomain) }
+
+    fun observeExpenseTypes(): Flow<List<ExpenseType>> = dao.observeExpenseTypes().map { list -> list.map(ExpenseTypeEntity::toDomain) }
+
+    fun observeTripTypes(): Flow<List<TripType>> = dao.observeTripTypes().map { list -> list.map(TripTypeEntity::toDomain) }
 
     fun observeVehicleDetail(vehicleId: Long): Flow<VehicleDetailBundle?> = combine(
         combine(
@@ -227,6 +236,11 @@ class GarageRepository(
             }
             current.copy(visibleFields = updated)
         }
+    }
+
+    suspend fun updatePreferences(transform: (AppPreferenceSnapshot) -> AppPreferenceSnapshot) {
+        preferencesRepository.update(transform)
+        onLedgerChanged()
     }
 
     suspend fun exportSectionedCsv(outputStream: OutputStream) {
@@ -563,6 +577,80 @@ class GarageRepository(
             dao.deleteRecordAttachmentsForRecord(RecordFamily.TRIP, recordId)
             dao.deleteTrip(recordId)
         }
+        onLedgerChanged()
+    }
+
+    suspend fun saveFuelType(type: FuelType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertFuelTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateFuelType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun saveServiceType(type: ServiceType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertServiceTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateServiceType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun saveExpenseType(type: ExpenseType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertExpenseTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateExpenseType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun saveTripType(type: TripType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertTripTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateTripType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun deleteFuelType(typeId: Long) {
+        val inUse = dao.countFuelTypeUsage(typeId)
+        if (inUse > 0) {
+            throw IllegalArgumentException("This fuel type is already used by $inUse fill-up record(s).")
+        }
+        database.withTransaction { dao.deleteFuelType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteServiceType(typeId: Long) {
+        val recordUsage = dao.countServiceTypeRecordUsage(typeId)
+        val reminderUsage = dao.countServiceTypeReminderUsage(typeId)
+        val totalUsage = recordUsage + reminderUsage
+        if (totalUsage > 0) {
+            throw IllegalArgumentException("This service type is already used by records or reminders.")
+        }
+        database.withTransaction { dao.deleteServiceType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteExpenseType(typeId: Long) {
+        val inUse = dao.countExpenseTypeUsage(typeId)
+        if (inUse > 0) {
+            throw IllegalArgumentException("This expense type is already used by $inUse expense record(s).")
+        }
+        database.withTransaction { dao.deleteExpenseType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteTripType(typeId: Long) {
+        val inUse = dao.countTripTypeUsage(typeId)
+        if (inUse > 0) {
+            throw IllegalArgumentException("This trip type is already used by $inUse trip record(s).")
+        }
+        database.withTransaction { dao.deleteTripType(typeId) }
         onLedgerChanged()
     }
 
