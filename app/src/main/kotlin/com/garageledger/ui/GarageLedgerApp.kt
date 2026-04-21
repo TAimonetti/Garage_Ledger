@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileUpload
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -109,6 +111,8 @@ fun GarageLedgerApp(
                 onOpenVehicles = { navController.navigate("vehicles") },
                 onOpenBrowse = { navController.navigate("browse/-1") },
                 onOpenStats = { navController.navigate("stats/$it") },
+                onOpenSettings = { navController.navigate("settings") },
+                onOpenTypes = { navController.navigate("types") },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
                 onAddFuelUp = { navController.navigate("fuelup/$it/-1") },
                 onAddService = { navController.navigate("service/$it/-1") },
@@ -138,6 +142,18 @@ fun GarageLedgerApp(
             ImportScreen(
                 repository = repository,
                 backupManager = backupManager,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("settings") {
+            SettingsScreen(
+                repository = repository,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable("types") {
+            TypeManagementScreen(
+                repository = repository,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -296,6 +312,8 @@ private fun ConsoleScreen(
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenStats: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenTypes: () -> Unit,
     onOpenVehicle: (Long) -> Unit,
     onAddFuelUp: (Long) -> Unit,
     onAddService: (Long) -> Unit,
@@ -388,6 +406,8 @@ private fun ConsoleScreen(
                     onOpenVehicles = onOpenVehicles,
                     onOpenBrowse = onOpenBrowse,
                     onOpenStats = { onOpenStats(selectedVehicle?.id ?: -1L) },
+                    onOpenSettings = onOpenSettings,
+                    onOpenTypes = onOpenTypes,
                     onOpenVehicle = { selectedVehicle?.id?.let(onOpenVehicle) },
                     onAddFuelUp = { selectedVehicle?.id?.let(onAddFuelUp) },
                     onAddService = { selectedVehicle?.id?.let(onAddService) },
@@ -490,6 +510,8 @@ private fun ActionGrid(
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenTypes: () -> Unit,
     onOpenVehicle: () -> Unit,
     onAddFuelUp: () -> Unit,
     onAddService: () -> Unit,
@@ -501,6 +523,8 @@ private fun ActionGrid(
         DashboardAction("Browse Vehicles", Icons.Outlined.Storage, onOpenVehicles),
         DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
         DashboardAction("Statistics & Charts", Icons.Outlined.BarChart, onOpenStats),
+        DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
+        DashboardAction("Type Management", Icons.Outlined.Category, onOpenTypes),
         DashboardAction("Vehicle Details", Icons.Outlined.DirectionsCar, onOpenVehicle),
         DashboardAction("New Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
         DashboardAction("New Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
@@ -508,7 +532,7 @@ private fun ActionGrid(
         DashboardAction("New Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
-        modifier = Modifier.height(560.dp),
+        modifier = Modifier.height(700.dp),
         columns = GridCells.Fixed(2),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
