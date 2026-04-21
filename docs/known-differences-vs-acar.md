@@ -30,6 +30,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Browse filters for subtype, payment type, event place, fuel facets, and trip-specific criteria
 - Browse action menus for direct view/edit/delete plus trip copy/finish shortcuts
 - Retired vehicles keep history visible but block further record edits and deletes
+- Browse sort order can be changed in-place and the current filtered browse result set can be exported locally as CSV
 
 ## Not complete yet
 

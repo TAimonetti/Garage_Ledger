@@ -1,5 +1,8 @@
 package com.garageledger.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.foundation.clickable
@@ -37,10 +40,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
+import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.BrowseTripPaidStatus
@@ -60,12 +65,15 @@ fun BrowseRecordsScreen(
     onFinishTrip: (BrowseRecordItem) -> Unit,
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val context = LocalContext.current
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     val records by repository.observeBrowseRecords().collectAsStateWithLifecycle(initialValue = emptyList())
+    val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
 
     var selectedVehicleId by rememberSaveable { mutableLongStateOf(preselectedVehicleId ?: 0L) }
     var selectedFamily by remember { mutableStateOf<RecordFamily?>(null) }
     var vehicleMenuExpanded by remember { mutableStateOf(false) }
+    var overflowMenuExpanded by remember { mutableStateOf(false) }
     var queryText by rememberSaveable { mutableStateOf("") }
     var tagText by rememberSaveable { mutableStateOf("") }
     var fromDateText by rememberSaveable { mutableStateOf("") }
@@ -83,6 +91,7 @@ fun BrowseRecordsScreen(
     var selectedTripPaidStatus by remember { mutableStateOf<BrowseTripPaidStatus?>(null) }
     var actionMenuKey by remember { mutableStateOf<String?>(null) }
     var recordPendingDelete by remember { mutableStateOf<BrowseRecordItem?>(null) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(selectedFamily) {
@@ -148,6 +157,36 @@ fun BrowseRecordsScreen(
     val filteredRecords = remember(records, fullFilter) {
         applyBrowseRecordFilter(records, fullFilter)
     }
+    val sortedRecords = remember(filteredRecords, preferences.browseSortDescending) {
+        sortBrowseRecords(filteredRecords, preferences.browseSortDescending)
+    }
+
+    fun runExport(uri: Uri?) {
+        if (uri == null) return
+        scope.launch {
+            runCatching {
+                val stream = context.contentResolver.openOutputStream(uri)
+                    ?: error("Unable to create the selected browse export file.")
+                stream.use {
+                    repository.exportBrowseRecordsCsv(
+                        outputStream = it,
+                        records = sortedRecords,
+                        sortDescending = preferences.browseSortDescending,
+                    )
+                }
+            }.onSuccess {
+                statusMessage = "Browse CSV export saved."
+                errorMessage = null
+            }.onFailure {
+                statusMessage = null
+                errorMessage = it.message
+            }
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        runExport(uri)
+    }
 
     fun clearFilters() {
         selectedVehicleId = preselectedVehicleId ?: 0L
@@ -188,8 +227,10 @@ fun BrowseRecordsScreen(
                                 }
                             }.onSuccess {
                                 recordPendingDelete = null
+                                statusMessage = "Record deleted."
                                 errorMessage = null
                             }.onFailure {
+                                statusMessage = null
                                 errorMessage = it.message
                             }
                         }
@@ -211,6 +252,53 @@ fun BrowseRecordsScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Browse Records") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                actions = {
+                    Box {
+                        IconButton(onClick = { overflowMenuExpanded = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "Browse options")
+                        }
+                        DropdownMenu(
+                            expanded = overflowMenuExpanded,
+                            onDismissRequest = { overflowMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (preferences.browseSortDescending) {
+                                            "Sort Oldest First"
+                                        } else {
+                                            "Sort Newest First"
+                                        },
+                                    )
+                                },
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    scope.launch {
+                                        runCatching {
+                                            repository.updatePreferences { current ->
+                                                current.copy(browseSortDescending = !current.browseSortDescending)
+                                            }
+                                        }.onSuccess {
+                                            statusMessage = "Browse sort updated."
+                                            errorMessage = null
+                                        }.onFailure {
+                                            statusMessage = null
+                                            errorMessage = it.message
+                                        }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export Current Results") },
+                                enabled = sortedRecords.isNotEmpty(),
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    exportLauncher.launch("garage-ledger-browse.csv")
+                                },
+                            )
+                        }
+                    }
+                },
             )
         },
     ) { padding ->
@@ -406,14 +494,20 @@ fun BrowseRecordsScreen(
                         TextButton(onClick = ::clearFilters) {
                             Text("Clear Filters")
                         }
-                        Text("${filteredRecords.size} matching records", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "${sortedRecords.size} matching records | ${browseSortLabel(preferences.browseSortDescending)}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        statusMessage?.let { message ->
+                            Text(message, color = MaterialTheme.colorScheme.primary)
+                        }
                         errorMessage?.let { message ->
                             Text(message, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             }
-            if (filteredRecords.isEmpty()) {
+            if (sortedRecords.isEmpty()) {
                 item {
                     Card {
                         Text(
@@ -423,8 +517,8 @@ fun BrowseRecordsScreen(
                     }
                 }
             } else {
-                items(filteredRecords.size) { index ->
-                    val item = filteredRecords[index]
+                items(sortedRecords.size) { index ->
+                    val item = sortedRecords[index]
                     val actionItems = remember(item) { buildBrowseActionItems(item) }
                     val menuKey = remember(item.family, item.recordId) { "${item.family.name}:${item.recordId}" }
                     Card(
