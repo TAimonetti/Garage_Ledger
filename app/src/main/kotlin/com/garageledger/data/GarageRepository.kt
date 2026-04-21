@@ -26,6 +26,7 @@ import com.garageledger.data.local.VehiclePartEntity
 import com.garageledger.data.local.toDomain
 import com.garageledger.data.local.toEntity
 import com.garageledger.data.preferences.AppPreferencesRepository
+import com.garageledger.core.model.FuelEfficiencyUnit
 import com.garageledger.domain.calc.ChronoOdometerRecord
 import com.garageledger.domain.calc.FuelEfficiencyCalculator
 import com.garageledger.domain.calc.RecordConsistencyValidator
@@ -1096,13 +1097,22 @@ class GarageRepository(
         val fillUps = dao.getVehicleFillUpsAscending(vehicleId).map(FillUpRecordEntity::toDomain)
         if (fillUps.isEmpty()) return
         val resolvedPreferences = preferencesSnapshot ?: preferencesRepository.currentSnapshot()
+        val fuelEfficiencyUnit = resolveFuelEfficiencyUnit(vehicleId, resolvedPreferences)
         val recalculated = FuelEfficiencyCalculator.recalculate(
             records = fillUps,
             assignmentMethod = resolvedPreferences.fuelEfficiencyAssignmentMethod,
-            fuelEfficiencyUnit = resolvedPreferences.fuelEfficiencyUnit,
+            fuelEfficiencyUnit = fuelEfficiencyUnit,
         )
         dao.updateFillUps(recalculated.map(FillUpRecord::toEntity))
     }
+
+    private suspend fun resolveFuelEfficiencyUnit(
+        vehicleId: Long,
+        preferencesSnapshot: AppPreferenceSnapshot,
+    ): FuelEfficiencyUnit = dao.getVehicleEntity(vehicleId)
+        ?.toDomain()
+        ?.fuelEfficiencyUnitOverride
+        ?: preferencesSnapshot.fuelEfficiencyUnit
 
     private suspend fun recalculateVehicleReminders(vehicleId: Long) {
         val reminders = dao.observeVehicleReminders(vehicleId).first()
@@ -1171,7 +1181,7 @@ class GarageRepository(
                 family = RecordFamily.FILL_UP,
                 occurredAt = fillUp.dateTime,
                 title = "Fuel-Up ${fillUp.volume.toPrettyNumber()} ${fillUp.volumeUnit}",
-                subtitle = listOfNotNull(fillUp.fuelBrand.takeIf { it.isNotBlank() }, fillUp.stationAddress.takeIf { it.isNotBlank() }).joinToString(" • "),
+                subtitle = listOfNotNull(fillUp.fuelBrand.takeIf { it.isNotBlank() }, fillUp.stationAddress.takeIf { it.isNotBlank() }).joinToString(" | "),
                 amount = fillUp.totalCost,
                 odometerReading = fillUp.odometerReading,
                 tags = fillUp.tags,
@@ -1195,7 +1205,7 @@ class GarageRepository(
                 family = RecordFamily.SERVICE,
                 occurredAt = service.dateTime,
                 title = typeNames.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Service",
-                subtitle = listOfNotNull(service.serviceCenterName.takeIf { it.isNotBlank() }, service.serviceCenterAddress.takeIf { it.isNotBlank() }).joinToString(" • "),
+                subtitle = listOfNotNull(service.serviceCenterName.takeIf { it.isNotBlank() }, service.serviceCenterAddress.takeIf { it.isNotBlank() }).joinToString(" | "),
                 amount = service.totalCost,
                 odometerReading = service.odometerReading,
                 tags = service.tags,
@@ -1219,7 +1229,7 @@ class GarageRepository(
                 family = RecordFamily.EXPENSE,
                 occurredAt = expense.dateTime,
                 title = typeNames.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Expense",
-                subtitle = listOfNotNull(expense.expenseCenterName.takeIf { it.isNotBlank() }, expense.expenseCenterAddress.takeIf { it.isNotBlank() }).joinToString(" • "),
+                subtitle = listOfNotNull(expense.expenseCenterName.takeIf { it.isNotBlank() }, expense.expenseCenterAddress.takeIf { it.isNotBlank() }).joinToString(" | "),
                 amount = expense.totalCost,
                 odometerReading = expense.odometerReading,
                 tags = expense.tags,
@@ -1246,7 +1256,7 @@ class GarageRepository(
                 subtitle = listOfNotNull(
                     trip.startLocation.takeIf { it.isNotBlank() },
                     trip.endLocation.takeIf { it.isNotBlank() },
-                ).joinToString(" → "),
+                ).joinToString(" -> "),
                 amount = trip.reimbursementAmount ?: trip.taxDeductionAmount,
                 odometerReading = trip.startOdometerReading,
                 tags = trip.tags,

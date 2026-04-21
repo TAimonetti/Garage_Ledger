@@ -150,6 +150,7 @@ fun FuelUpEditorScreen(
     val vehicleName = selectedVehicle?.name ?: "Fuel-Up"
     val distanceUnit = selectedVehicle?.distanceUnitOverride ?: preferences.distanceUnit
     val volumeUnit = selectedVehicle?.volumeUnitOverride ?: preferences.volumeUnit
+    val fuelEfficiencyUnit = selectedVehicle?.fuelEfficiencyUnitOverride ?: preferences.fuelEfficiencyUnit
     val visibleFields = preferences.visibleFields
     val showPaymentType = com.garageledger.domain.model.OptionalFieldToggle.PAYMENT_TYPE in visibleFields
     val showFuelType = com.garageledger.domain.model.OptionalFieldToggle.FUEL_TYPE in visibleFields
@@ -452,7 +453,7 @@ fun FuelUpEditorScreen(
                                         paymentType = paymentType,
                                         partial = partial,
                                         previousMissedFillups = missed,
-                                        fuelEfficiencyUnit = preferences.fuelEfficiencyUnit,
+                                        fuelEfficiencyUnit = fuelEfficiencyUnit,
                                         fuelTypeId = existingRecord?.fuelTypeId,
                                         importedFuelTypeText = fuelTypeText.ifBlank { null },
                                         hasFuelAdditive = hasFuelAdditive,
