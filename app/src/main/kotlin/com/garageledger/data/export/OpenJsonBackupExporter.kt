@@ -41,7 +41,7 @@ class OpenJsonBackupExporter(
 }
 
 @Serializable
-private data class OpenJsonBackupMetadata(
+internal data class OpenJsonBackupMetadata(
     val formatVersion: Int,
     val schemaVersion: Int,
     val exportedAt: String,
@@ -53,7 +53,7 @@ private data class OpenJsonBackupMetadata(
 )
 
 @Serializable
-private data class OpenJsonBackupPayload(
+internal data class OpenJsonBackupPayload(
     val formatVersion: Int,
     val schemaVersion: Int,
     val exportedAt: String,
@@ -100,7 +100,7 @@ private data class OpenJsonBackupPayload(
 }
 
 @Serializable
-private data class PreferencesPayload(
+internal data class PreferencesPayload(
     val distanceUnit: String,
     val volumeUnit: String,
     val fuelEfficiencyUnit: String,
@@ -143,7 +143,7 @@ private data class PreferencesPayload(
 }
 
 @Serializable
-private data class VehiclePayload(
+internal data class VehiclePayload(
     val id: Long,
     val legacySourceId: Long?,
     val name: String,
@@ -208,7 +208,7 @@ private data class VehiclePayload(
 }
 
 @Serializable
-private data class VehiclePartPayload(
+internal data class VehiclePartPayload(
     val id: Long,
     val legacySourceId: Long?,
     val vehicleId: Long,
@@ -243,7 +243,7 @@ private data class VehiclePartPayload(
 }
 
 @Serializable
-private data class FuelTypePayload(
+internal data class FuelTypePayload(
     val id: Long,
     val legacySourceId: Long?,
     val category: String,
@@ -266,7 +266,7 @@ private data class FuelTypePayload(
 }
 
 @Serializable
-private data class ServiceTypePayload(
+internal data class ServiceTypePayload(
     val id: Long,
     val legacySourceId: Long?,
     val name: String,
@@ -287,7 +287,7 @@ private data class ServiceTypePayload(
 }
 
 @Serializable
-private data class ExpenseTypePayload(
+internal data class ExpenseTypePayload(
     val id: Long,
     val legacySourceId: Long?,
     val name: String,
@@ -304,7 +304,7 @@ private data class ExpenseTypePayload(
 }
 
 @Serializable
-private data class TripTypePayload(
+internal data class TripTypePayload(
     val id: Long,
     val legacySourceId: Long?,
     val name: String,
@@ -323,7 +323,7 @@ private data class TripTypePayload(
 }
 
 @Serializable
-private data class ServiceReminderPayload(
+internal data class ServiceReminderPayload(
     val id: Long,
     val legacySourceId: Long?,
     val vehicleId: Long,
@@ -356,7 +356,7 @@ private data class ServiceReminderPayload(
 }
 
 @Serializable
-private data class FillUpRecordPayload(
+internal data class FillUpRecordPayload(
     val id: Long,
     val legacySourceId: Long?,
     val vehicleId: Long,
@@ -437,7 +437,7 @@ private data class FillUpRecordPayload(
 }
 
 @Serializable
-private data class ServiceRecordPayload(
+internal data class ServiceRecordPayload(
     val id: Long,
     val legacySourceId: Long?,
     val vehicleId: Long,
@@ -474,13 +474,13 @@ private data class ServiceRecordPayload(
 }
 
 @Serializable
-private data class ServiceRecordTypePayload(
+internal data class ServiceRecordTypePayload(
     val serviceRecordId: Long,
     val serviceTypeId: Long,
 )
 
 @Serializable
-private data class ExpenseRecordPayload(
+internal data class ExpenseRecordPayload(
     val id: Long,
     val legacySourceId: Long?,
     val vehicleId: Long,
@@ -517,13 +517,13 @@ private data class ExpenseRecordPayload(
 }
 
 @Serializable
-private data class ExpenseRecordTypePayload(
+internal data class ExpenseRecordTypePayload(
     val expenseRecordId: Long,
     val expenseTypeId: Long,
 )
 
 @Serializable
-private data class TripRecordPayload(
+internal data class TripRecordPayload(
     val id: Long,
     val legacySourceId: Long?,
     val vehicleId: Long,
@@ -584,7 +584,7 @@ private data class TripRecordPayload(
 }
 
 @Serializable
-private data class AttachmentPayload(
+internal data class AttachmentPayload(
     val id: Long,
     val vehicleId: Long,
     val recordFamily: String,

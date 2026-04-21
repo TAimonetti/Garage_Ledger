@@ -105,7 +105,7 @@ Behavior:
 
 ### Open zipped JSON backup
 
-The app exports a ZIP with two entries:
+The app exports and restores a ZIP with two entries:
 
 - `metadata.json`
 - `garage-ledger-backup.json`
@@ -113,5 +113,6 @@ The app exports a ZIP with two entries:
 Behavior:
 
 - Stores the full local ledger, catalogs, reminders, attachments, cross-reference tables, and preferences
+- Restores back into local storage as a full replacement import through the Import & Export Center
 - Uses ISO-8601 strings for date/time fields for low-friction migration
 - Writes only open JSON, never a proprietary binary payload

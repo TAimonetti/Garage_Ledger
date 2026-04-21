@@ -4,7 +4,7 @@ This build is intentionally focused on data fidelity and the most important work
 
 ## Implemented now
 
-- Local `.abp` and sectioned CSV import
+- Local `.abp`, sectioned CSV, and open zipped backup import
 - Local sectioned CSV export and open zipped JSON backup export
 - Dense console-style start screen
 - Vehicle browsing, vehicle detail, and browse/filter across all record families

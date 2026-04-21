@@ -58,5 +58,6 @@ class PhaseThreeImportExportCenterTest {
         composeRule.onNodeWithText("Automatic Local Backups").assertIsDisplayed()
         composeRule.onNodeWithText("Fuelly CSV").assertIsDisplayed()
         composeRule.onNodeWithText("Open Zipped Backup").assertIsDisplayed()
+        composeRule.onNodeWithText("Restore Backup Zip").assertIsDisplayed()
     }
 }
