@@ -26,15 +26,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.TripRecord
 import com.garageledger.domain.model.VehicleLifecycle
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 internal val EditorDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 internal val FilterDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+private const val DefaultFullDatePattern = "MMM dd, yyyy"
+private const val DefaultCompactDatePattern = "MM/dd/yy"
 
 internal fun parseEditorDateTime(raw: String): LocalDateTime? = runCatching {
     LocalDateTime.parse(raw.trim(), EditorDateFormatter)
@@ -43,6 +47,44 @@ internal fun parseEditorDateTime(raw: String): LocalDateTime? = runCatching {
 internal fun parseFilterDate(raw: String): LocalDate? = runCatching {
     LocalDate.parse(raw.trim(), FilterDateFormatter)
 }.getOrNull()
+
+internal fun AppPreferenceSnapshot.displayDateFormatter(compact: Boolean = false): DateTimeFormatter {
+    val preferredPattern = if (compact) compactDateFormat else fullDateFormat
+    val fallbackPattern = if (compact) DefaultCompactDatePattern else DefaultFullDatePattern
+    return preferredFormatter(preferredPattern, fallbackPattern)
+}
+
+internal fun AppPreferenceSnapshot.displayDateTimeFormatter(): DateTimeFormatter =
+    preferredFormatter("$fullDateFormat HH:mm", "$DefaultFullDatePattern HH:mm")
+
+internal fun LocalDate.formatForDisplay(
+    preferences: AppPreferenceSnapshot,
+    compact: Boolean = false,
+): String = format(preferences.displayDateFormatter(compact))
+
+internal fun LocalDateTime.formatForDisplay(preferences: AppPreferenceSnapshot): String =
+    format(preferences.displayDateTimeFormatter())
+
+internal fun String.toDisplayDateOrNull(
+    preferences: AppPreferenceSnapshot,
+    compact: Boolean = false,
+): String? = parseFilterDate(this)?.formatForDisplay(preferences, compact)
+
+private fun AppPreferenceSnapshot.preferredFormatter(
+    preferredPattern: String,
+    fallbackPattern: String,
+): DateTimeFormatter = runCatching {
+    DateTimeFormatter.ofPattern(preferredPattern.ifBlank { fallbackPattern }, resolvedLocale())
+}.getOrElse {
+    DateTimeFormatter.ofPattern(fallbackPattern, resolvedLocale())
+}
+
+private fun AppPreferenceSnapshot.resolvedLocale(): Locale {
+    val tag = localeTag.trim()
+    if (tag.isBlank() || tag.equals("system", ignoreCase = true)) return Locale.getDefault()
+    val locale = Locale.forLanguageTag(tag)
+    return if (locale.language.isNullOrBlank()) Locale.getDefault() else locale
+}
 
 internal fun applyPickedDateToEditorDateTime(
     raw: String,

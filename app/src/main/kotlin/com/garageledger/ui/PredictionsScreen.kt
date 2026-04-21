@@ -27,8 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
+import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.VehiclePredictionSummary
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -38,6 +38,7 @@ fun PredictionsScreen(
     onBack: () -> Unit,
 ) {
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
+    val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
     var selectedVehicleId by rememberSaveable(preselectedVehicleId) { mutableLongStateOf(preselectedVehicleId ?: 0L) }
 
     LaunchedEffect(vehicles, preselectedVehicleId) {
@@ -105,7 +106,10 @@ fun PredictionsScreen(
                 }
             } else {
                 item {
-                    PredictionSummaryCard(prediction = prediction)
+                    PredictionSummaryCard(
+                        prediction = prediction,
+                        preferences = preferences,
+                    )
                 }
             }
         }
@@ -114,8 +118,11 @@ fun PredictionsScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PredictionSummaryCard(prediction: VehiclePredictionSummary) {
-    val nextDateLabel = prediction.nextFillUpDateTime?.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")) ?: "n/a"
+private fun PredictionSummaryCard(
+    prediction: VehiclePredictionSummary,
+    preferences: AppPreferenceSnapshot,
+) {
+    val nextDateLabel = prediction.nextFillUpDateTime?.formatForDisplay(preferences) ?: "n/a"
     val nextOdometerLabel = prediction.nextFillUpOdometerReading?.let {
         "${it.toStableString()} ${prediction.distanceUnitLabel}"
     } ?: "n/a"
