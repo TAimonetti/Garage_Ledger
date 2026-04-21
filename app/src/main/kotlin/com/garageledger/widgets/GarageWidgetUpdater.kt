@@ -12,5 +12,6 @@ class GarageWidgetUpdater(
         ReminderWidgetProvider.refreshAll(appContext)
         FuelEfficiencyWidgetProvider.refreshAll(appContext)
         FuelPriceWidgetProvider.refreshAll(appContext)
+        PredictionWidgetProvider.refreshAll(appContext)
     }
 }

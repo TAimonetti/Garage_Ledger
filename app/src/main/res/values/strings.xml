@@ -14,6 +14,12 @@
     <string name="widget_fuel_price_label">Fuel Price</string>
     <string name="widget_fuel_price_empty_title">No fuel prices yet</string>
     <string name="widget_fuel_price_empty_subtitle">Import or add fuel-ups to populate this widget.</string>
+    <string name="widget_predictions_title">Predictions</string>
+    <string name="widget_predictions_label">Predictions</string>
+    <string name="widget_predictions_empty_title">No predictions yet</string>
+    <string name="widget_predictions_empty_subtitle">Add fill-up history and costs to populate this widget.</string>
+    <string name="widget_predictions_range_title">Range</string>
+    <string name="widget_predictions_trip_cost_title">Trip Cost</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_open_app">Open App</string>
 </resources>
