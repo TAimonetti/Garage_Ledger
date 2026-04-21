@@ -39,7 +39,7 @@
 - `widgets`
   - classic RemoteViews-based home-screen widgets for quick add and reminders
 - `ui`
-  - Compose console, statistics/charts, import/export center, quick-add chooser, browse records, vehicle detail, and record editors
+  - Compose console, statistics/charts, record detail, import/export center, quick-add chooser, browse records, vehicle detail, and record editors
 
 ## Database schema proposal
 
@@ -86,3 +86,5 @@ Key schema choices:
 11. Surface quick add and service reminder summaries on the home screen with classic Android widgets.
 12. Browse and filter records across all record families, then jump back into the matching editor.
 13. Review per-vehicle or all-vehicle statistics with timeframe filtering, simple Compose charts, and local CSV export.
+14. Open any browsed record into a detail screen, then edit or permanently delete it with explicit confirmation.
+15. Toggle optional editor fields on and off with the same imported visible-field preferences used for aCar migration.

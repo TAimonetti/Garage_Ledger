@@ -77,6 +77,7 @@ fun ExpenseEditorScreen(
     var selectedTypeIds by remember { mutableStateOf(emptySet<Long>()) }
     var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
     var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
+    var showCustomizeFields by remember { mutableStateOf(false) }
 
     LaunchedEffect(existingRecord) {
         if (initialized) return@LaunchedEffect
@@ -104,12 +105,34 @@ fun ExpenseEditorScreen(
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Expense"
+    val visibleFields = preferences.visibleFields
+    val showPaymentType = com.garageledger.domain.model.OptionalFieldToggle.PAYMENT_TYPE in visibleFields
+    val showExpenseCenter = com.garageledger.domain.model.OptionalFieldToggle.EXPENSE_CENTER in visibleFields
+    val showTags = com.garageledger.domain.model.OptionalFieldToggle.TAGS in visibleFields
+    val showNotes = com.garageledger.domain.model.OptionalFieldToggle.NOTES in visibleFields
+
+    if (showCustomizeFields) {
+        VisibleFieldsDialog(
+            title = "Customize Expense Screen",
+            options = ExpenseVisibleFieldOptions,
+            visibleFields = visibleFields,
+            onToggle = { toggle, visible ->
+                scope.launch { repository.setVisibleField(toggle, visible) }
+            },
+            onDismiss = { showCustomizeFields = false },
+        )
+    }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(if (recordId > 0L) "Edit Expense" else "New Expense") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                actions = {
+                    TextButton(onClick = { showCustomizeFields = true }) {
+                        Text("Customize")
+                    }
+                },
             )
         },
     ) { padding ->
@@ -152,14 +175,16 @@ fun ExpenseEditorScreen(
                             label = { Text("Total Cost") },
                             singleLine = true,
                         )
-                        OutlinedTextField(
-                            value = paymentType,
-                            onValueChange = { paymentType = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Payment Type") },
-                            singleLine = true,
-                        )
-                        SuggestionRow(paymentSuggestions, onSelect = { paymentType = it })
+                        if (showPaymentType) {
+                            OutlinedTextField(
+                                value = paymentType,
+                                onValueChange = { paymentType = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Payment Type") },
+                                singleLine = true,
+                            )
+                            SuggestionRow(paymentSuggestions, onSelect = { paymentType = it })
+                        }
                     }
                 }
             }
@@ -186,33 +211,39 @@ fun ExpenseEditorScreen(
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
-                            value = centerName,
-                            onValueChange = { centerName = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Expense Center") },
-                            singleLine = true,
-                        )
-                        SuggestionRow(centerSuggestions, onSelect = { centerName = it })
-                        OutlinedTextField(
-                            value = centerAddress,
-                            onValueChange = { centerAddress = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Expense Center Address") },
-                        )
-                        OutlinedTextField(
-                            value = tagsText,
-                            onValueChange = { tagsText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Tags") },
-                        )
-                        OutlinedTextField(
-                            value = notesText,
-                            onValueChange = { notesText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Notes") },
-                            minLines = 3,
-                        )
+                        if (showExpenseCenter) {
+                            OutlinedTextField(
+                                value = centerName,
+                                onValueChange = { centerName = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Expense Center") },
+                                singleLine = true,
+                            )
+                            SuggestionRow(centerSuggestions, onSelect = { centerName = it })
+                            OutlinedTextField(
+                                value = centerAddress,
+                                onValueChange = { centerAddress = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Expense Center Address") },
+                            )
+                        }
+                        if (showTags) {
+                            OutlinedTextField(
+                                value = tagsText,
+                                onValueChange = { tagsText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Tags") },
+                            )
+                        }
+                        if (showNotes) {
+                            OutlinedTextField(
+                                value = notesText,
+                                onValueChange = { notesText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Notes") },
+                                minLines = 3,
+                            )
+                        }
                     }
                 }
             }

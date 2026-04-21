@@ -170,6 +170,9 @@ fun GarageLedgerApp(
                 onBack = { navController.popBackStack() },
                 onBrowseRecords = { navController.navigate("browse/$vehicleId") },
                 onOpenStats = { navController.navigate("stats/$vehicleId") },
+                onOpenRecordDetail = { family, recordId ->
+                    navController.navigate("record/${family.routeSegment()}/$vehicleId/$recordId")
+                },
                 onEditFuelUp = { navController.navigate("fuelup/$vehicleId/$it") },
                 onEditService = { navController.navigate("service/$vehicleId/$it") },
                 onEditExpense = { navController.navigate("expense/$vehicleId/$it") },
@@ -190,14 +193,40 @@ fun GarageLedgerApp(
                 preselectedVehicleId = vehicleId.takeIf { it > 0L },
                 onBack = { navController.popBackStack() },
                 onOpenRecord = { item ->
-                    val route = when (item.family) {
-                        com.garageledger.domain.model.RecordFamily.FILL_UP -> "fuelup/${item.vehicleId}/${item.recordId}"
-                        com.garageledger.domain.model.RecordFamily.SERVICE -> "service/${item.vehicleId}/${item.recordId}"
-                        com.garageledger.domain.model.RecordFamily.EXPENSE -> "expense/${item.vehicleId}/${item.recordId}"
-                        com.garageledger.domain.model.RecordFamily.TRIP -> "trip/${item.vehicleId}/${item.recordId}"
-                    }
-                    navController.navigate(route)
+                    navController.navigate("record/${item.family.routeSegment()}/${item.vehicleId}/${item.recordId}")
                 },
+            )
+        }
+        composable(
+            route = "record/{family}/{vehicleId}/{recordId}",
+            arguments = listOf(
+                navArgument("family") { type = NavType.StringType },
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("recordId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            val family = recordFamilyFromRouteSegment(backStackEntry.arguments?.getString("family")) ?: return@composable
+            val detailVehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L
+            val detailRecordId = backStackEntry.arguments?.getLong("recordId") ?: 0L
+            val detailRoute = "record/${family.routeSegment()}/$detailVehicleId/$detailRecordId"
+            RecordDetailScreen(
+                repository = repository,
+                family = family,
+                vehicleId = detailVehicleId,
+                recordId = detailRecordId,
+                onBack = { navController.popBackStack() },
+                onEdit = {
+                    val route = when (family) {
+                        com.garageledger.domain.model.RecordFamily.FILL_UP -> "fuelup/$detailVehicleId/$detailRecordId"
+                        com.garageledger.domain.model.RecordFamily.SERVICE -> "service/$detailVehicleId/$detailRecordId"
+                        com.garageledger.domain.model.RecordFamily.EXPENSE -> "expense/$detailVehicleId/$detailRecordId"
+                        com.garageledger.domain.model.RecordFamily.TRIP -> "trip/$detailVehicleId/$detailRecordId"
+                    }
+                    navController.navigate(route) {
+                        popUpTo(detailRoute) { inclusive = true }
+                    }
+                },
+                onDeleted = { navController.popBackStack() },
             )
         }
         composable(
@@ -572,6 +601,7 @@ private fun VehicleDetailScreen(
     onBack: () -> Unit,
     onBrowseRecords: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenRecordDetail: (com.garageledger.domain.model.RecordFamily, Long) -> Unit,
     onEditFuelUp: (Long) -> Unit,
     onEditService: (Long) -> Unit,
     onEditExpense: (Long) -> Unit,
@@ -656,7 +686,9 @@ private fun VehicleDetailScreen(
                             } else {
                                 data.recentFillUps.forEach { record ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onOpenRecordDetail(com.garageledger.domain.model.RecordFamily.FILL_UP, record.id) },
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
@@ -682,7 +714,9 @@ private fun VehicleDetailScreen(
                             } else {
                                 data.recentServices.forEach { record ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onOpenRecordDetail(com.garageledger.domain.model.RecordFamily.SERVICE, record.id) },
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
@@ -713,7 +747,9 @@ private fun VehicleDetailScreen(
                             } else {
                                 data.recentExpenses.forEach { record ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onOpenRecordDetail(com.garageledger.domain.model.RecordFamily.EXPENSE, record.id) },
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
@@ -744,7 +780,9 @@ private fun VehicleDetailScreen(
                             } else {
                                 data.recentTrips.forEach { record ->
                                     Row(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { onOpenRecordDetail(com.garageledger.domain.model.RecordFamily.TRIP, record.id) },
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {

@@ -166,7 +166,7 @@ internal fun AttachmentEditorCard(
     }
 }
 
-private fun android.content.Context.openAttachment(attachment: RecordAttachment) {
+internal fun android.content.Context.openAttachment(attachment: RecordAttachment) {
     runCatching {
         startActivity(
             Intent(Intent.ACTION_VIEW)
