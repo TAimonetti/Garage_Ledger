@@ -82,23 +82,21 @@ fun StatisticsScreen(
     }
     val dashboard by dashboardFlow.collectAsStateWithLifecycle(initialValue = null)
 
-    fun runExport(uri: Uri?) {
+    fun runExport(
+        uri: Uri?,
+        successMessage: String,
+        exporter: suspend (java.io.OutputStream) -> Unit,
+    ) {
         if (uri == null) return
         scope.launch {
             runCatching {
                 val stream = context.contentResolver.openOutputStream(uri)
                     ?: error("Unable to create the selected statistics export file.")
-                stream.use {
-                    repository.exportStatisticsCsv(
-                        outputStream = it,
-                        filter = StatisticsFilter(
-                            vehicleId = selectedVehicleId.takeIf { id -> id > 0L },
-                            timeframe = timeframe,
-                        ),
-                    )
+                stream.use { outputStream ->
+                    exporter(outputStream)
                 }
             }.onSuccess {
-                exportMessage = "Statistics CSV export saved."
+                exportMessage = successMessage
                 exportError = null
             }.onFailure { error ->
                 exportError = error.message
@@ -107,7 +105,34 @@ fun StatisticsScreen(
     }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        runExport(uri)
+        runExport(
+            uri = uri,
+            successMessage = "Statistics CSV export saved.",
+            exporter = {
+                repository.exportStatisticsCsv(
+                    outputStream = it,
+                    filter = StatisticsFilter(
+                        vehicleId = selectedVehicleId.takeIf { id -> id > 0L },
+                        timeframe = timeframe,
+                    ),
+                )
+            },
+        )
+    }
+    val htmlExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri ->
+        runExport(
+            uri = uri,
+            successMessage = "Statistics HTML export saved.",
+            exporter = {
+                repository.exportStatisticsHtml(
+                    outputStream = it,
+                    filter = StatisticsFilter(
+                        vehicleId = selectedVehicleId.takeIf { id -> id > 0L },
+                        timeframe = timeframe,
+                    ),
+                )
+            },
+        )
     }
 
     Scaffold(
@@ -179,8 +204,13 @@ fun StatisticsScreen(
                                 dashboard?.let { "${it.scopeLabel} | ${it.periodDescription}" } ?: "Preparing statistics...",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Button(onClick = { exportLauncher.launch("garage-ledger-statistics.csv") }) {
-                                Text("Export CSV")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { exportLauncher.launch("garage-ledger-statistics.csv") }) {
+                                    Text("Export CSV")
+                                }
+                                Button(onClick = { htmlExportLauncher.launch("garage-ledger-statistics.html") }) {
+                                    Text("Export HTML")
+                                }
                             }
                         }
                     }

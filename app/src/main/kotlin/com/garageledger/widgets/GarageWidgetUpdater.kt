@@ -10,5 +10,7 @@ class GarageWidgetUpdater(
     suspend fun refreshAll() {
         QuickAddWidgetProvider.refreshAll(appContext)
         ReminderWidgetProvider.refreshAll(appContext)
+        FuelEfficiencyWidgetProvider.refreshAll(appContext)
+        FuelPriceWidgetProvider.refreshAll(appContext)
     }
 }

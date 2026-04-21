@@ -92,6 +92,17 @@ Behavior:
 - Uses the current local preference snapshot for currency/unit formatting
 - Resolves normalized service, expense, and trip type names into the exported text
 
+### Statistics HTML
+
+The app can also export the current statistics dashboard as a standalone HTML file.
+
+Behavior:
+
+- Uses the same vehicle/timeframe filter state as the on-screen statistics view
+- Includes overall, fill-up, service, expense, and trip summary sections
+- Embeds simple inline SVG charts so the report stays local and self-contained
+- Includes chart data tables in the HTML so the export remains open and inspectable
+
 ### Open zipped JSON backup
 
 The app exports a ZIP with two entries:
