@@ -49,7 +49,9 @@ class AppContainer(context: Context) {
         backupManager = backupManager,
     )
 
-    private val workScheduler = GarageWorkScheduler(appContext)
+    private val workScheduler by lazy(LazyThreadSafetyMode.NONE) {
+        GarageWorkScheduler(appContext)
+    }
 
     fun start() {
         NotificationChannels.ensureCreated(appContext)
