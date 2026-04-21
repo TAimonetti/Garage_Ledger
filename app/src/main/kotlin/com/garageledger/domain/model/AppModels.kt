@@ -341,8 +341,25 @@ data class BrowseRecordItem(
     val amount: Double? = null,
     val odometerReading: Double? = null,
     val tags: List<String> = emptyList(),
+    val subtypeNames: List<String> = emptyList(),
+    val paymentType: String = "",
+    val eventPlaceName: String = "",
+    val fuelBrand: String = "",
+    val fuelTypeLabel: String = "",
+    val fuelAdditiveName: String = "",
+    val drivingMode: String = "",
+    val tripPurpose: String = "",
+    val tripClient: String = "",
+    val tripLocations: List<String> = emptyList(),
+    val tripPaidStatus: BrowseTripPaidStatus? = null,
+    val notes: String = "",
     val searchText: String = "",
 )
+
+enum class BrowseTripPaidStatus {
+    PAID,
+    UNPAID,
+}
 
 data class BrowseRecordFilter(
     val vehicleId: Long? = null,
@@ -351,4 +368,15 @@ data class BrowseRecordFilter(
     val tag: String = "",
     val fromDate: LocalDate? = null,
     val toDate: LocalDate? = null,
+    val subtype: String = "",
+    val paymentType: String = "",
+    val eventPlace: String = "",
+    val fuelBrand: String = "",
+    val fuelType: String = "",
+    val fuelAdditive: String = "",
+    val drivingMode: String = "",
+    val tripPurpose: String = "",
+    val tripClient: String = "",
+    val tripLocation: String = "",
+    val tripPaidStatus: BrowseTripPaidStatus? = null,
 )

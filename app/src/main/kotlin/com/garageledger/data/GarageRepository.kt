@@ -496,19 +496,25 @@ class GarageRepository(
             )
         },
         combine(
-            dao.observeServiceTypes(),
-            dao.observeExpenseTypes(),
-            dao.observeTripTypes(),
-            dao.observeServiceRecordCrossRefs(),
-            dao.observeExpenseRecordCrossRefs(),
-        ) { serviceTypes, expenseTypes, tripTypes, serviceCrossRefs, expenseCrossRefs ->
-            BrowseSecondarySnapshot(
-                serviceTypes = serviceTypes,
-                expenseTypes = expenseTypes,
-                tripTypes = tripTypes,
-                serviceCrossRefs = serviceCrossRefs,
-                expenseCrossRefs = expenseCrossRefs,
-            )
+            combine(
+                dao.observeServiceTypes(),
+                dao.observeExpenseTypes(),
+                dao.observeTripTypes(),
+                dao.observeServiceRecordCrossRefs(),
+                dao.observeExpenseRecordCrossRefs(),
+            ) { serviceTypes, expenseTypes, tripTypes, serviceCrossRefs, expenseCrossRefs ->
+                BrowseSecondarySnapshot(
+                    serviceTypes = serviceTypes,
+                    expenseTypes = expenseTypes,
+                    tripTypes = tripTypes,
+                    fuelTypes = emptyList(),
+                    serviceCrossRefs = serviceCrossRefs,
+                    expenseCrossRefs = expenseCrossRefs,
+                )
+            },
+            dao.observeFuelTypes(),
+        ) { secondary, fuelTypes ->
+            secondary.copy(fuelTypes = fuelTypes)
         },
     ) { primary, secondary ->
         buildBrowseRecords(primary, secondary)
@@ -1210,6 +1216,7 @@ class GarageRepository(
         val serviceTypeNames = secondary.serviceTypes.associate { it.id to it.name }
         val expenseTypeNames = secondary.expenseTypes.associate { it.id to it.name }
         val tripTypeNames = secondary.tripTypes.associate { it.id to it.name }
+        val fuelTypeNames = secondary.fuelTypes.associate { it.id to it.toDomain().displayName }
         val serviceTypeNamesByRecord = secondary.serviceCrossRefs
             .groupBy(ServiceRecordTypeCrossRef::serviceRecordId, ServiceRecordTypeCrossRef::serviceTypeId)
             .mapValues { (_, ids) -> ids.mapNotNull(serviceTypeNames::get).distinct().sorted() }
@@ -1218,6 +1225,7 @@ class GarageRepository(
             .mapValues { (_, ids) -> ids.mapNotNull(expenseTypeNames::get).distinct().sorted() }
 
         val fuelUps = primary.fillUps.map { fillUp ->
+            val fuelTypeLabel = fillUp.fuelTypeId?.let(fuelTypeNames::get) ?: fillUp.importedFuelTypeText.orEmpty()
             BrowseRecordItem(
                 recordId = fillUp.id,
                 vehicleId = fillUp.vehicleId,
@@ -1229,13 +1237,22 @@ class GarageRepository(
                 amount = fillUp.totalCost,
                 odometerReading = fillUp.odometerReading,
                 tags = fillUp.tags,
+                paymentType = fillUp.paymentType,
+                eventPlaceName = fillUp.stationAddress,
+                fuelBrand = fillUp.fuelBrand,
+                fuelTypeLabel = fuelTypeLabel,
+                fuelAdditiveName = fillUp.fuelAdditiveName,
+                drivingMode = fillUp.drivingMode,
+                notes = fillUp.notes,
                 searchText = buildSearchText(
                     vehicleNamesById[fillUp.vehicleId],
                     fillUp.paymentType,
                     fillUp.fuelBrand,
                     fillUp.stationAddress,
                     fillUp.notes,
-                    fillUp.importedFuelTypeText,
+                    fuelTypeLabel,
+                    fillUp.fuelAdditiveName,
+                    fillUp.drivingMode,
                     fillUp.tags,
                 ),
             )
@@ -1253,6 +1270,13 @@ class GarageRepository(
                 amount = service.totalCost,
                 odometerReading = service.odometerReading,
                 tags = service.tags,
+                subtypeNames = typeNames,
+                paymentType = service.paymentType,
+                eventPlaceName = listOfNotNull(
+                    service.serviceCenterName.takeIf { it.isNotBlank() },
+                    service.serviceCenterAddress.takeIf { it.isNotBlank() },
+                ).joinToString(" | "),
+                notes = service.notes,
                 searchText = buildSearchText(
                     vehicleNamesById[service.vehicleId],
                     service.paymentType,
@@ -1277,6 +1301,13 @@ class GarageRepository(
                 amount = expense.totalCost,
                 odometerReading = expense.odometerReading,
                 tags = expense.tags,
+                subtypeNames = typeNames,
+                paymentType = expense.paymentType,
+                eventPlaceName = listOfNotNull(
+                    expense.expenseCenterName.takeIf { it.isNotBlank() },
+                    expense.expenseCenterAddress.takeIf { it.isNotBlank() },
+                ).joinToString(" | "),
+                notes = expense.notes,
                 searchText = buildSearchText(
                     vehicleNamesById[expense.vehicleId],
                     expense.paymentType,
@@ -1290,6 +1321,10 @@ class GarageRepository(
         }
         val trips = primary.trips.map { trip ->
             val typeName = trip.tripTypeId?.let(tripTypeNames::get)
+            val tripLocations = listOfNotNull(
+                trip.startLocation.takeIf { it.isNotBlank() },
+                trip.endLocation.takeIf { it.isNotBlank() },
+            )
             BrowseRecordItem(
                 recordId = trip.id,
                 vehicleId = trip.vehicleId,
@@ -1297,13 +1332,16 @@ class GarageRepository(
                 family = RecordFamily.TRIP,
                 occurredAt = trip.startDateTime,
                 title = typeName ?: "Trip",
-                subtitle = listOfNotNull(
-                    trip.startLocation.takeIf { it.isNotBlank() },
-                    trip.endLocation.takeIf { it.isNotBlank() },
-                ).joinToString(" -> "),
+                subtitle = tripLocations.joinToString(" -> "),
                 amount = trip.reimbursementAmount ?: trip.taxDeductionAmount,
                 odometerReading = trip.startOdometerReading,
                 tags = trip.tags,
+                subtypeNames = listOfNotNull(typeName),
+                tripPurpose = trip.purpose,
+                tripClient = trip.client,
+                tripLocations = tripLocations,
+                tripPaidStatus = if (trip.paid) com.garageledger.domain.model.BrowseTripPaidStatus.PAID else com.garageledger.domain.model.BrowseTripPaidStatus.UNPAID,
+                notes = trip.notes,
                 searchText = buildSearchText(
                     vehicleNamesById[trip.vehicleId],
                     trip.purpose,
@@ -1415,6 +1453,7 @@ class GarageRepository(
         val serviceTypes: List<ServiceTypeEntity>,
         val expenseTypes: List<ExpenseTypeEntity>,
         val tripTypes: List<TripTypeEntity>,
+        val fuelTypes: List<FuelTypeEntity>,
         val serviceCrossRefs: List<ServiceRecordTypeCrossRef>,
         val expenseCrossRefs: List<ExpenseRecordTypeCrossRef>,
     )

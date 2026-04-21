@@ -24,6 +24,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Vehicle profile photos plus add/edit, retire/reactivate, and destructive delete flows
 - Trip helpers for return trips, last-destination starts, open-trip finishing, and end-odometer distance entry
 - Local coordinate capture and map-open actions for imported and newly entered records
+- Browse filters for subtype, payment type, event place, fuel facets, and trip-specific criteria
 
 ## Not complete yet
 
