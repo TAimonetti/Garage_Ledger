@@ -346,12 +346,11 @@ fun VehicleEditorScreen(
                                 label = { Text("Purchase Odometer") },
                                 singleLine = true,
                             )
-                            OutlinedTextField(
+                            PickerDateField(
                                 value = purchaseDateText,
                                 onValueChange = { purchaseDateText = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Purchase Date (yyyy-MM-dd)") },
-                                singleLine = true,
+                                label = "Purchase Date (yyyy-MM-dd)",
                             )
                         }
                     }
@@ -376,12 +375,11 @@ fun VehicleEditorScreen(
                                 label = { Text("Selling Odometer") },
                                 singleLine = true,
                             )
-                            OutlinedTextField(
+                            PickerDateField(
                                 value = sellingDateText,
                                 onValueChange = { sellingDateText = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Selling Date (yyyy-MM-dd)") },
-                                singleLine = true,
+                                label = "Selling Date (yyyy-MM-dd)",
                             )
                         }
                     }

@@ -4,7 +4,7 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 22 open-backup restore is in place:
+Phase 23 picker-backed date entry is in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
@@ -17,6 +17,7 @@ Phase 22 open-backup restore is in place:
 - WorkManager-backed periodic reminder checks and local backup scheduling
 - Android notification channel + reminder alert delivery, with runtime permission enablement from the app
 - Open zipped JSON backup export plus full restore/import, alongside scheduled local rotating backups in app documents storage
+- Picker-backed date and date/time entry across record editors, reminder due dates, browse filters, and vehicle purchase/selling fields
 - Local attachment support for photos and PDFs across fuel-up, service, expense, and trip editors
 - Launcher quick actions with home-screen pin requests and a vehicle chooser for fast entry
 - Classic Android home-screen widgets for quick add and service reminders

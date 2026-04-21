@@ -1,18 +1,28 @@
 package com.garageledger.ui
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,6 +43,28 @@ internal fun parseEditorDateTime(raw: String): LocalDateTime? = runCatching {
 internal fun parseFilterDate(raw: String): LocalDate? = runCatching {
     LocalDate.parse(raw.trim(), FilterDateFormatter)
 }.getOrNull()
+
+internal fun applyPickedDateToEditorDateTime(
+    raw: String,
+    pickedDate: LocalDate,
+    fallback: LocalDateTime = LocalDateTime.now(),
+): String = (parseEditorDateTime(raw) ?: fallback)
+    .withYear(pickedDate.year)
+    .withMonth(pickedDate.monthValue)
+    .withDayOfMonth(pickedDate.dayOfMonth)
+    .format(EditorDateFormatter)
+
+internal fun applyPickedTimeToEditorDateTime(
+    raw: String,
+    hour: Int,
+    minute: Int,
+    fallback: LocalDateTime = LocalDateTime.now(),
+): String = (parseEditorDateTime(raw) ?: fallback)
+    .withHour(hour)
+    .withMinute(minute)
+    .format(EditorDateFormatter)
+
+internal fun coerceDateText(pickedDate: LocalDate): String = pickedDate.format(FilterDateFormatter)
 
 internal fun Double.toStableString(): String = if (this % 1.0 == 0.0) {
     this.toInt().toString()
@@ -184,6 +216,107 @@ internal fun SummaryChip(label: String, value: String) {
             )
         }
     }
+}
+
+@Composable
+internal fun PickerDateTimeField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = {
+            Row {
+                IconButton(
+                    onClick = {
+                        val seed = parseEditorDateTime(value) ?: LocalDateTime.now()
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                onValueChange(
+                                    applyPickedDateToEditorDateTime(
+                                        raw = value,
+                                        pickedDate = LocalDate.of(year, month + 1, dayOfMonth),
+                                        fallback = seed,
+                                    ),
+                                )
+                            },
+                            seed.year,
+                            seed.monthValue - 1,
+                            seed.dayOfMonth,
+                        ).show()
+                    },
+                ) {
+                    Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick date")
+                }
+                IconButton(
+                    onClick = {
+                        val seed = parseEditorDateTime(value) ?: LocalDateTime.now()
+                        TimePickerDialog(
+                            context,
+                            { _, hour, minute ->
+                                onValueChange(
+                                    applyPickedTimeToEditorDateTime(
+                                        raw = value,
+                                        hour = hour,
+                                        minute = minute,
+                                        fallback = seed,
+                                    ),
+                                )
+                            },
+                            seed.hour,
+                            seed.minute,
+                            true,
+                        ).show()
+                    },
+                ) {
+                    Icon(Icons.Outlined.AccessTime, contentDescription = "Pick time")
+                }
+            }
+        },
+    )
+}
+
+@Composable
+internal fun PickerDateField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = {
+            IconButton(
+                onClick = {
+                    val seed = parseFilterDate(value) ?: LocalDate.now()
+                    DatePickerDialog(
+                        context,
+                        { _, year, month, dayOfMonth ->
+                            onValueChange(coerceDateText(LocalDate.of(year, month + 1, dayOfMonth)))
+                        },
+                        seed.year,
+                        seed.monthValue - 1,
+                        seed.dayOfMonth,
+                    ).show()
+                },
+            ) {
+                Icon(Icons.Outlined.CalendarMonth, contentDescription = "Pick date")
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

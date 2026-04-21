@@ -7,6 +7,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Local `.abp`, sectioned CSV, and open zipped backup import
 - Local sectioned CSV export and open zipped JSON backup export
 - Dense console-style start screen
+- Picker-backed date and date/time entry across record editors, reminder due dates, browse filters, and vehicle purchase/selling fields
 - Vehicle browsing, vehicle detail, and browse/filter across all record families
 - Fuel-up add/edit with two-of-three cost math
 - Service, expense, and trip add/edit screens
@@ -38,7 +39,7 @@ This build is intentionally focused on data fidelity and the most important work
 
 ## Intentional differences in the current build
 
-- The editors use text-based date/time entry (`yyyy-MM-dd HH:mm`) for now instead of a classic dialog-heavy aCar flow.
+- The editors keep manual ISO-style text entry available even though picker buttons are now built in.
 - Preferences are stored as one DataStore snapshot object internally rather than many separate preference keys.
 - The app recalculates efficiency and reminder state after import instead of preserving stale derived backup values as authoritative.
 - Browse filtering is currently local and text-driven rather than a full advanced query builder.
