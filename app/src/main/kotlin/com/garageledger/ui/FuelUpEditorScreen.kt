@@ -68,6 +68,18 @@ fun FuelUpEditorScreen(
     val brandSuggestions by produceState(initialValue = emptyList<String>()) {
         value = repository.getFuelBrandSuggestions()
     }
+    val stationSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getFuelStationSuggestions()
+    }
+    val additiveSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getFuelAdditiveSuggestions()
+    }
+    val drivingModeSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getDrivingModeSuggestions()
+    }
+    val tagSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getFillUpTagSuggestions()
+    }
 
     var initialized by rememberSaveable(recordId) { mutableStateOf(false) }
     var dateTimeText by rememberSaveable { mutableStateOf(LocalDateTime.now().format(EditorDateFormatter)) }
@@ -134,7 +146,10 @@ fun FuelUpEditorScreen(
             .maxByOrNull { it.dateTime }
     }
 
-    val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Fuel-Up"
+    val selectedVehicle = vehicles.firstOrNull { it.id == vehicleId }
+    val vehicleName = selectedVehicle?.name ?: "Fuel-Up"
+    val distanceUnit = selectedVehicle?.distanceUnitOverride ?: preferences.distanceUnit
+    val volumeUnit = selectedVehicle?.volumeUnitOverride ?: preferences.volumeUnit
     val visibleFields = preferences.visibleFields
     val showPaymentType = com.garageledger.domain.model.OptionalFieldToggle.PAYMENT_TYPE in visibleFields
     val showFuelType = com.garageledger.domain.model.OptionalFieldToggle.FUEL_TYPE in visibleFields
@@ -205,9 +220,9 @@ fun FuelUpEditorScreen(
                                     label = {
                                         Text(
                                             if (distanceMode) {
-                                                "Distance From Previous (${preferences.distanceUnit.storageValue})"
+                                                "Distance From Previous (${distanceUnit.storageValue})"
                                             } else {
-                                                "Odometer (${preferences.distanceUnit.storageValue})"
+                                                "Odometer (${distanceUnit.storageValue})"
                                             },
                                         )
                                     },
@@ -215,7 +230,7 @@ fun FuelUpEditorScreen(
                                 )
                                 previousFillUp?.let { previous ->
                                     Text(
-                                        "Previous fill-up: ${previous.odometerReading.toInt()} ${previous.distanceUnit.storageValue}",
+                                        "Previous fill-up: ${previous.odometerReading.toInt()} ${distanceUnit.storageValue}",
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
@@ -250,7 +265,7 @@ fun FuelUpEditorScreen(
                                 totalText = solved.total
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Volume (${preferences.volumeUnit.storageValue})") },
+                            label = { Text("Volume (${volumeUnit.storageValue})") },
                             singleLine = true,
                         )
                         OutlinedTextField(
@@ -314,6 +329,7 @@ fun FuelUpEditorScreen(
                                     label = { Text("Fuel Additive Name") },
                                     singleLine = true,
                                 )
+                                SuggestionRow(additiveSuggestions) { fuelAdditiveName = it }
                             }
                         }
                         if (showFuelingStation) {
@@ -331,6 +347,7 @@ fun FuelUpEditorScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("Station Address") },
                             )
+                            SuggestionRow(stationSuggestions) { stationAddress = it }
                         }
                         if (showDrivingMode) {
                             OutlinedTextField(
@@ -340,6 +357,7 @@ fun FuelUpEditorScreen(
                                 label = { Text("Driving Mode") },
                                 singleLine = true,
                             )
+                            SuggestionRow(drivingModeSuggestions) { drivingMode = it }
                         }
                         if (showAverageSpeed) {
                             OutlinedTextField(
@@ -373,6 +391,9 @@ fun FuelUpEditorScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("Tags") },
                             )
+                            SuggestionRow(tagSuggestions) { suggestion ->
+                                tagsText = mergeCommaSuggestion(tagsText, suggestion)
+                            }
                         }
                         if (showNotes) {
                             OutlinedTextField(
@@ -423,9 +444,9 @@ fun FuelUpEditorScreen(
                                         vehicleId = vehicleId,
                                         dateTime = parsedDateTime,
                                         odometerReading = absoluteOdometer,
-                                        distanceUnit = preferences.distanceUnit,
+                                        distanceUnit = distanceUnit,
                                         volume = volume,
-                                        volumeUnit = preferences.volumeUnit,
+                                        volumeUnit = volumeUnit,
                                         pricePerUnit = price,
                                         totalCost = total,
                                         paymentType = paymentType,
@@ -498,4 +519,12 @@ private fun autoCompleteFuelCostFields(
             FuelCostForm(price = (totalValue / volumeValue).toStableString(), volume = volume, total = total)
         else -> FuelCostForm(price = price, volume = volume, total = total)
     }
+}
+
+private fun mergeCommaSuggestion(current: String, suggestion: String): String {
+    val values = current.split(",").map(String::trim).filter(String::isNotBlank).toMutableList()
+    if (values.none { it.equals(suggestion, ignoreCase = true) }) {
+        values += suggestion
+    }
+    return values.joinToString(", ")
 }

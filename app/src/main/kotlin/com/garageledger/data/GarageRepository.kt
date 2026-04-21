@@ -1,7 +1,6 @@
 package com.garageledger.data
 
 import androidx.room.withTransaction
-import com.garageledger.core.model.FuelEfficiencyAssignmentMethod
 import com.garageledger.data.export.ExportSnapshot
 import com.garageledger.data.export.OpenJsonBackupExporter
 import com.garageledger.data.export.SectionedCsvExporter
@@ -213,6 +212,16 @@ class GarageRepository(
 
     suspend fun getFuelBrandSuggestions(): List<String> = dao.getFuelBrandSuggestions()
 
+    suspend fun getFuelStationSuggestions(): List<String> = dao.getFuelStationSuggestions()
+
+    suspend fun getFuelAdditiveSuggestions(): List<String> = dao.getFuelAdditiveSuggestions()
+
+    suspend fun getDrivingModeSuggestions(): List<String> = dao.getDrivingModeSuggestions()
+
+    suspend fun getFillUpTagSuggestions(): List<String> = normalizeSuggestions(
+        dao.getAllFillUps().flatMap(FillUpRecordEntity::tags),
+    )
+
     suspend fun getServiceCenterSuggestions(): List<String> = dao.getServiceCenterSuggestions()
 
     suspend fun getExpenseCenterSuggestions(): List<String> = dao.getExpenseCenterSuggestions()
@@ -245,7 +254,17 @@ class GarageRepository(
     }
 
     suspend fun updatePreferences(transform: (AppPreferenceSnapshot) -> AppPreferenceSnapshot) {
-        preferencesRepository.update(transform)
+        val current = preferencesRepository.currentSnapshot()
+        val updated = transform(current)
+        preferencesRepository.replace(updated)
+        if (
+            current.fuelEfficiencyAssignmentMethod != updated.fuelEfficiencyAssignmentMethod ||
+            current.fuelEfficiencyUnit != updated.fuelEfficiencyUnit
+        ) {
+            dao.getVehicles().forEach { vehicle ->
+                recalculateVehicleFillUps(vehicle.id, updated)
+            }
+        }
         onLedgerChanged()
     }
 
@@ -1070,11 +1089,18 @@ class GarageRepository(
         )
     }
 
-    private suspend fun recalculateVehicleFillUps(vehicleId: Long) {
+    private suspend fun recalculateVehicleFillUps(
+        vehicleId: Long,
+        preferencesSnapshot: AppPreferenceSnapshot? = null,
+    ) {
         val fillUps = dao.getVehicleFillUpsAscending(vehicleId).map(FillUpRecordEntity::toDomain)
         if (fillUps.isEmpty()) return
-        val assignmentMethod = preferences.first().fuelEfficiencyAssignmentMethod
-        val recalculated = FuelEfficiencyCalculator.recalculate(fillUps, assignmentMethod)
+        val resolvedPreferences = preferencesSnapshot ?: preferencesRepository.currentSnapshot()
+        val recalculated = FuelEfficiencyCalculator.recalculate(
+            records = fillUps,
+            assignmentMethod = resolvedPreferences.fuelEfficiencyAssignmentMethod,
+            fuelEfficiencyUnit = resolvedPreferences.fuelEfficiencyUnit,
+        )
         dao.updateFillUps(recalculated.map(FillUpRecord::toEntity))
     }
 
@@ -1248,6 +1274,17 @@ class GarageRepository(
             else -> listOf(value.toString())
         }
     }.joinToString(" ").lowercase()
+
+    private fun normalizeSuggestions(values: List<String>): List<String> {
+        val distinct = linkedMapOf<String, String>()
+        values.forEach { value ->
+            val normalized = value.trim()
+            if (normalized.isNotBlank()) {
+                distinct.putIfAbsent(normalized.lowercase(), normalized)
+            }
+        }
+        return distinct.values.sortedBy(String::lowercase)
+    }
 
     private fun Double.toPrettyNumber(): String = if (this % 1.0 == 0.0) {
         this.toInt().toString()

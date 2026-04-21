@@ -158,6 +158,15 @@ interface GarageDao {
     @Query("SELECT DISTINCT fuelBrand FROM fillup_records WHERE fuelBrand <> '' ORDER BY fuelBrand COLLATE NOCASE")
     suspend fun getFuelBrandSuggestions(): List<String>
 
+    @Query("SELECT DISTINCT stationAddress FROM fillup_records WHERE stationAddress <> '' ORDER BY stationAddress COLLATE NOCASE")
+    suspend fun getFuelStationSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT fuelAdditiveName FROM fillup_records WHERE fuelAdditiveName <> '' ORDER BY fuelAdditiveName COLLATE NOCASE")
+    suspend fun getFuelAdditiveSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT drivingMode FROM fillup_records WHERE drivingMode <> '' ORDER BY drivingMode COLLATE NOCASE")
+    suspend fun getDrivingModeSuggestions(): List<String>
+
     @Query("SELECT DISTINCT serviceCenterName FROM service_records WHERE serviceCenterName <> '' ORDER BY serviceCenterName COLLATE NOCASE")
     suspend fun getServiceCenterSuggestions(): List<String>
 
