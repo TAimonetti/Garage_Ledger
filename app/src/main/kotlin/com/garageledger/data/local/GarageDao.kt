@@ -18,6 +18,9 @@ interface GarageDao {
     @Query("SELECT * FROM vehicles WHERE id = :vehicleId")
     fun observeVehicle(vehicleId: Long): Flow<VehicleEntity?>
 
+    @Query("SELECT * FROM vehicles WHERE id = :vehicleId")
+    suspend fun getVehicleEntity(vehicleId: Long): VehicleEntity?
+
     @Query("SELECT * FROM vehicle_parts WHERE vehicleId = :vehicleId ORDER BY name COLLATE NOCASE")
     fun observeVehicleParts(vehicleId: Long): Flow<List<VehiclePartEntity>>
 

@@ -564,7 +564,8 @@ private fun ActionGrid(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatsRow(detail: VehicleDetailBundle) {
-    val fuelEfficiencyUnitLabel = detail.recentFillUps.firstNotNullOfOrNull { it.fuelEfficiencyUnit?.storageValue }
+    val fuelEfficiencyUnitLabel = detail.vehicle.fuelEfficiencyUnitOverride?.storageValue
+        ?: detail.recentFillUps.firstNotNullOfOrNull { it.fuelEfficiencyUnit?.storageValue }
     val tripDistanceUnitLabel = detail.vehicle.distanceUnitOverride?.storageValue
         ?: detail.recentTrips.firstOrNull()?.distanceUnit?.storageValue
         ?: detail.recentFillUps.firstOrNull()?.distanceUnit?.storageValue
@@ -705,6 +706,33 @@ private fun VehicleDetailScreen(
                 item {
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Vehicle Parts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            if (data.parts.isEmpty()) {
+                                Text("No vehicle parts recorded.")
+                            } else {
+                                data.parts.forEach { part ->
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(part.name, fontWeight = FontWeight.Medium)
+                                        val partSummary = listOfNotNull(
+                                            part.type.takeIf { it.isNotBlank() },
+                                            part.brand.takeIf { it.isNotBlank() },
+                                            part.partNumber.takeIf { it.isNotBlank() },
+                                        ).joinToString(" | ")
+                                        if (partSummary.isNotBlank()) {
+                                            Text(partSummary)
+                                        }
+                                        if (part.notes.isNotBlank()) {
+                                            Text(part.notes, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Card {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             if (data.upcomingReminders.isEmpty()) {
                                 Text("No reminder schedules available for this vehicle.")
@@ -741,7 +769,7 @@ private fun VehicleDetailScreen(
                                     ) {
                                         Column(Modifier.weight(1f)) {
                                             Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
-                                            Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} • ${record.totalCost.asCurrency()}")
+                                            Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} | ${record.totalCost.asCurrency()}")
                                         }
                                         IconButton(onClick = { onEditFuelUp(record.id) }) {
                                             Icon(Icons.Outlined.Edit, contentDescription = "Edit fuel-up")
@@ -773,7 +801,7 @@ private fun VehicleDetailScreen(
                                                 listOfNotNull(
                                                     record.serviceCenterName.takeIf { it.isNotBlank() },
                                                     record.totalCost.asCurrency(),
-                                                ).joinToString(" • "),
+                                                ).joinToString(" | "),
                                             )
                                         }
                                         IconButton(onClick = { onEditService(record.id) }) {
@@ -806,7 +834,7 @@ private fun VehicleDetailScreen(
                                                 listOfNotNull(
                                                     record.expenseCenterName.takeIf { it.isNotBlank() },
                                                     record.totalCost.asCurrency(),
-                                                ).joinToString(" • "),
+                                                ).joinToString(" | "),
                                             )
                                         }
                                         IconButton(onClick = { onEditExpense(record.id) }) {
@@ -840,9 +868,9 @@ private fun VehicleDetailScreen(
                                                     listOf(
                                                         record.startLocation.takeIf { it.isNotBlank() },
                                                         record.endLocation.takeIf { it.isNotBlank() },
-                                                    ).filterNotNull().takeIf { it.isNotEmpty() }?.joinToString(" → "),
+                                                    ).filterNotNull().takeIf { it.isNotEmpty() }?.joinToString(" -> "),
                                                     record.distance?.let { "${it.toStableString()} ${record.distanceUnit.storageValue}" },
-                                                ).joinToString(" • "),
+                                                ).joinToString(" | "),
                                             )
                                         }
                                         IconButton(onClick = { onEditTrip(record.id) }) {
