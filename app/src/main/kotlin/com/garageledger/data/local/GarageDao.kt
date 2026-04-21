@@ -213,6 +213,9 @@ interface GarageDao {
     suspend fun insertVehicles(items: List<VehicleEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVehicle(item: VehicleEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVehicleParts(items: List<VehiclePartEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -264,6 +267,9 @@ interface GarageDao {
     suspend fun insertTrip(item: TripRecordEntity): Long
 
     @Update
+    suspend fun updateVehicle(item: VehicleEntity)
+
+    @Update
     suspend fun updateFuelType(item: FuelTypeEntity)
 
     @Update
@@ -311,6 +317,43 @@ interface GarageDao {
     @Query("DELETE FROM record_attachments WHERE recordFamily = :recordFamily AND recordId = :recordId")
     suspend fun deleteRecordAttachmentsForRecord(recordFamily: com.garageledger.domain.model.RecordFamily, recordId: Long)
 
+    @Query("DELETE FROM record_attachments WHERE vehicleId = :vehicleId")
+    suspend fun deleteRecordAttachmentsForVehicle(vehicleId: Long)
+
+    @Query(
+        """
+        DELETE FROM service_record_types
+        WHERE serviceRecordId IN (SELECT id FROM service_records WHERE vehicleId = :vehicleId)
+        """,
+    )
+    suspend fun deleteServiceCrossRefsForVehicle(vehicleId: Long)
+
+    @Query(
+        """
+        DELETE FROM expense_record_types
+        WHERE expenseRecordId IN (SELECT id FROM expense_records WHERE vehicleId = :vehicleId)
+        """,
+    )
+    suspend fun deleteExpenseCrossRefsForVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM service_reminders WHERE vehicleId = :vehicleId")
+    suspend fun deleteServiceRemindersForVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM fillup_records WHERE vehicleId = :vehicleId")
+    suspend fun deleteFillUpsForVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM service_records WHERE vehicleId = :vehicleId")
+    suspend fun deleteServicesForVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM expense_records WHERE vehicleId = :vehicleId")
+    suspend fun deleteExpensesForVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM trip_records WHERE vehicleId = :vehicleId")
+    suspend fun deleteTripsForVehicle(vehicleId: Long)
+
+    @Query("DELETE FROM vehicle_parts WHERE vehicleId = :vehicleId")
+    suspend fun deleteVehiclePartsForVehicle(vehicleId: Long)
+
     @Query("DELETE FROM fillup_records WHERE id = :recordId")
     suspend fun deleteFillUp(recordId: Long)
 
@@ -334,6 +377,9 @@ interface GarageDao {
 
     @Query("DELETE FROM trip_types WHERE id = :typeId")
     suspend fun deleteTripType(typeId: Long)
+
+    @Query("DELETE FROM vehicles WHERE id = :vehicleId")
+    suspend fun deleteVehicle(vehicleId: Long)
 
     @Query("SELECT COUNT(*) FROM fillup_records WHERE fuelTypeId = :typeId")
     suspend fun countFuelTypeUsage(typeId: Long): Int
