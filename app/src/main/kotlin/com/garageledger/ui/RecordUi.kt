@@ -38,6 +38,19 @@ internal val FuelUpVisibleFieldOptions: List<VisibleFieldOption> = listOf(
     VisibleFieldOption(OptionalFieldToggle.NOTES, "Notes"),
 )
 
+internal val VehicleVisibleFieldOptions: List<VisibleFieldOption> = listOf(
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_LICENSE_PLATE, "License Plate"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_VIN, "VIN"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_INSURANCE_POLICY, "Insurance Policy"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_BODY_STYLE, "Body Style"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_COLOR, "Color"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_ENGINE_DISPLACEMENT, "Engine Displacement"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_FUEL_TANK_CAPACITY, "Fuel Tank Capacity"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_PURCHASE_INFO, "Purchase Info"),
+    VisibleFieldOption(OptionalFieldToggle.VEHICLE_SELLING_INFO, "Selling Info"),
+    VisibleFieldOption(OptionalFieldToggle.NOTES, "Notes"),
+)
+
 internal val ServiceVisibleFieldOptions: List<VisibleFieldOption> = listOf(
     VisibleFieldOption(OptionalFieldToggle.PAYMENT_TYPE, "Payment Type"),
     VisibleFieldOption(OptionalFieldToggle.SERVICE_CENTER, "Service Center"),

@@ -64,6 +64,7 @@ import com.garageledger.domain.model.TripRecord
 import com.garageledger.domain.model.TripType
 import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
+import com.garageledger.domain.model.VehicleLifecycle
 import com.garageledger.domain.model.VehicleStatistics
 import java.io.InputStream
 import java.io.OutputStream
@@ -183,6 +184,8 @@ class GarageRepository(
     }
 
     suspend fun getTrip(recordId: Long): TripRecord? = dao.getTrip(recordId)?.toDomain()
+
+    suspend fun getVehicle(vehicleId: Long): Vehicle? = dao.getVehicleEntity(vehicleId)?.toDomain()
 
     suspend fun getRecordAttachments(recordFamily: RecordFamily, recordId: Long): List<RecordAttachment> =
         dao.getRecordAttachments(recordFamily, recordId).map(com.garageledger.data.local.RecordAttachmentEntity::toDomain)
@@ -538,6 +541,47 @@ class GarageRepository(
             ),
             replaceExisting = false,
         )
+    }
+
+    suspend fun saveVehicle(vehicle: Vehicle): Long {
+        require(vehicle.name.isNotBlank()) { "Vehicle name is required." }
+        return database.withTransaction {
+            if (vehicle.id == 0L) {
+                dao.insertVehicle(vehicle.toEntity(idOverride = 0L))
+            } else {
+                dao.updateVehicle(vehicle.toEntity())
+                vehicle.id
+            }
+        }.also { onLedgerChanged() }
+    }
+
+    suspend fun setVehicleLifecycle(
+        vehicleId: Long,
+        lifecycle: VehicleLifecycle,
+    ) {
+        val vehicle = dao.getVehicleEntity(vehicleId)?.toDomain() ?: return
+        if (vehicle.lifecycle == lifecycle) return
+        database.withTransaction {
+            dao.updateVehicle(vehicle.copy(lifecycle = lifecycle).toEntity())
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteVehicle(vehicleId: Long) {
+        if (dao.getVehicleEntity(vehicleId) == null) return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForVehicle(vehicleId)
+            dao.deleteServiceCrossRefsForVehicle(vehicleId)
+            dao.deleteExpenseCrossRefsForVehicle(vehicleId)
+            dao.deleteServiceRemindersForVehicle(vehicleId)
+            dao.deleteFillUpsForVehicle(vehicleId)
+            dao.deleteServicesForVehicle(vehicleId)
+            dao.deleteExpensesForVehicle(vehicleId)
+            dao.deleteTripsForVehicle(vehicleId)
+            dao.deleteVehiclePartsForVehicle(vehicleId)
+            dao.deleteVehicle(vehicleId)
+        }
+        onLedgerChanged()
     }
 
     suspend fun saveFillUp(record: FillUpRecord): Long {

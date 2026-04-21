@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -82,8 +83,10 @@ import com.garageledger.domain.model.FuellyCsvImportConfig
 import com.garageledger.domain.model.FuellyCsvPreview
 import com.garageledger.domain.model.FuellyImportField
 import com.garageledger.domain.model.ImportReport
+import com.garageledger.domain.model.OptionalFieldToggle
 import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
+import com.garageledger.domain.model.VehicleLifecycle
 import com.garageledger.shortcuts.LaunchRequest
 import com.garageledger.shortcuts.QuickActionShortcutManager
 import com.garageledger.shortcuts.QuickActionTarget
@@ -118,6 +121,7 @@ fun GarageLedgerApp(
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenTypes = { navController.navigate("types") },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
+                onAddVehicle = { navController.navigate("vehicle-edit/-1") },
                 onAddFuelUp = { navController.navigate("fuelup/$it/-1") },
                 onAddService = { navController.navigate("service/$it/-1") },
                 onAddExpense = { navController.navigate("expense/$it/-1") },
@@ -166,6 +170,25 @@ fun GarageLedgerApp(
                 repository = repository,
                 onBack = { navController.popBackStack() },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
+                onAddVehicle = { navController.navigate("vehicle-edit/-1") },
+            )
+        }
+        composable(
+            route = "vehicle-edit/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val editVehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: -1L
+            val editRoute = "vehicle-edit/$editVehicleId"
+            VehicleEditorScreen(
+                repository = repository,
+                vehicleId = editVehicleId,
+                onBack = { navController.popBackStack() },
+                onSaved = { savedVehicleId ->
+                    navController.navigate("vehicle/$savedVehicleId") {
+                        popUpTo(editRoute) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
             )
         }
         composable(
@@ -197,6 +220,8 @@ fun GarageLedgerApp(
                 onEditService = { navController.navigate("service/$vehicleId/$it") },
                 onEditExpense = { navController.navigate("expense/$vehicleId/$it") },
                 onEditTrip = { navController.navigate("trip/$vehicleId/$it") },
+                onEditVehicle = { navController.navigate("vehicle-edit/$vehicleId") },
+                onDeletedVehicle = { navController.popBackStack() },
                 onAddFuelUp = { navController.navigate("fuelup/$vehicleId/-1") },
                 onAddService = { navController.navigate("service/$vehicleId/-1") },
                 onAddExpense = { navController.navigate("expense/$vehicleId/-1") },
@@ -319,6 +344,7 @@ private fun ConsoleScreen(
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
     onOpenVehicle: (Long) -> Unit,
+    onAddVehicle: () -> Unit,
     onAddFuelUp: (Long) -> Unit,
     onAddService: (Long) -> Unit,
     onAddExpense: (Long) -> Unit,
@@ -413,6 +439,7 @@ private fun ConsoleScreen(
                     onOpenSettings = onOpenSettings,
                     onOpenTypes = onOpenTypes,
                     onOpenVehicle = { selectedVehicle?.id?.let(onOpenVehicle) },
+                    onAddVehicle = onAddVehicle,
                     onAddFuelUp = { selectedVehicle?.id?.let(onAddFuelUp) },
                     onAddService = { selectedVehicle?.id?.let(onAddService) },
                     onAddExpense = { selectedVehicle?.id?.let(onAddExpense) },
@@ -517,6 +544,7 @@ private fun ActionGrid(
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
     onOpenVehicle: () -> Unit,
+    onAddVehicle: () -> Unit,
     onAddFuelUp: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
@@ -529,7 +557,8 @@ private fun ActionGrid(
         DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats),
         DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
         DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
-        DashboardAction("Vehicle Details", Icons.Outlined.DirectionsCar, onOpenVehicle),
+        DashboardAction("Add Vehicle", Icons.Outlined.DirectionsCar, onAddVehicle),
+        DashboardAction("Vehicle Details", Icons.Outlined.Edit, onOpenVehicle, enabled = hasSelectedVehicle),
         DashboardAction("Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
         DashboardAction("Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
         DashboardAction("Expense", Icons.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
@@ -601,6 +630,7 @@ private fun VehiclesScreen(
     repository: GarageRepository,
     onBack: () -> Unit,
     onOpenVehicle: (Long) -> Unit,
+    onAddVehicle: () -> Unit,
 ) {
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     Scaffold(
@@ -609,6 +639,9 @@ private fun VehiclesScreen(
                 title = { Text("Vehicles") },
                 navigationIcon = {
                     TextButton(onClick = onBack) { Text("Back") }
+                },
+                actions = {
+                    TextButton(onClick = onAddVehicle) { Text("Add") }
                 },
             )
         },
@@ -654,12 +687,17 @@ private fun VehicleDetailScreen(
     onEditService: (Long) -> Unit,
     onEditExpense: (Long) -> Unit,
     onEditTrip: (Long) -> Unit,
+    onEditVehicle: () -> Unit,
+    onDeletedVehicle: () -> Unit,
     onAddFuelUp: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
     onAddTrip: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     val detail by repository.observeVehicleDetail(vehicleId).collectAsStateWithLifecycle(initialValue = null)
+    val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
+    var showDeleteDialog by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -669,6 +707,44 @@ private fun VehicleDetailScreen(
         },
     ) { padding ->
         detail?.let { data ->
+            val visibleFields = preferences.visibleFields
+            val showLicensePlate = OptionalFieldToggle.VEHICLE_LICENSE_PLATE in visibleFields
+            val showVin = OptionalFieldToggle.VEHICLE_VIN in visibleFields
+            val showInsurance = OptionalFieldToggle.VEHICLE_INSURANCE_POLICY in visibleFields
+            val showBodyStyle = OptionalFieldToggle.VEHICLE_BODY_STYLE in visibleFields
+            val showColor = OptionalFieldToggle.VEHICLE_COLOR in visibleFields
+            val showEngineDisplacement = OptionalFieldToggle.VEHICLE_ENGINE_DISPLACEMENT in visibleFields
+            val showFuelTankCapacity = OptionalFieldToggle.VEHICLE_FUEL_TANK_CAPACITY in visibleFields
+            val showPurchaseInfo = OptionalFieldToggle.VEHICLE_PURCHASE_INFO in visibleFields
+            val showSellingInfo = OptionalFieldToggle.VEHICLE_SELLING_INFO in visibleFields
+            if (showDeleteDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDeleteDialog = false },
+                    title = { Text("Delete Vehicle?") },
+                    text = {
+                        Text(
+                            "This permanently deletes ${data.vehicle.name} and all of its local history, including " +
+                                "${data.stats.fillUpCount} fill-ups, ${data.recentServices.size} recent services shown, " +
+                                "${data.recentExpenses.size} recent expenses shown, ${data.recentTrips.size} recent trips shown, " +
+                                "${data.parts.size} parts, reminders, and attachments.",
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    repository.deleteVehicle(data.vehicle.id)
+                                    showDeleteDialog = false
+                                    onDeletedVehicle()
+                                }
+                            },
+                        ) { Text("Delete") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                    },
+                )
+            }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -681,7 +757,32 @@ private fun VehicleDetailScreen(
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Vehicle Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(listOfNotNull(data.vehicle.year?.toString(), data.vehicle.make, data.vehicle.model, data.vehicle.submodel).joinToString(" "))
-                            if (data.vehicle.licensePlate.isNotBlank()) Text("Plate: ${data.vehicle.licensePlate}")
+                            Text("Lifecycle: ${data.vehicle.lifecycle.name.lowercase().replaceFirstChar(Char::uppercase)}")
+                            data.vehicle.type.takeIf { it.isNotBlank() }?.let { Text("Type: $it") }
+                            data.vehicle.country.takeIf { it.isNotBlank() }?.let { Text("Country: $it") }
+                            if (showLicensePlate && data.vehicle.licensePlate.isNotBlank()) Text("Plate: ${data.vehicle.licensePlate}")
+                            if (showVin && data.vehicle.vin.isNotBlank()) Text("VIN: ${data.vehicle.vin}")
+                            if (showInsurance && data.vehicle.insurancePolicy.isNotBlank()) Text("Insurance: ${data.vehicle.insurancePolicy}")
+                            if (showBodyStyle && data.vehicle.bodyStyle.isNotBlank()) Text("Body Style: ${data.vehicle.bodyStyle}")
+                            if (showColor && data.vehicle.color.isNotBlank()) Text("Color: ${data.vehicle.color}")
+                            if (showEngineDisplacement && data.vehicle.engineDisplacement.isNotBlank()) Text("Engine: ${data.vehicle.engineDisplacement}")
+                            if (showFuelTankCapacity && data.vehicle.fuelTankCapacity != null) Text("Tank: ${data.vehicle.fuelTankCapacity.toStableString()}")
+                            if (showPurchaseInfo) {
+                                val purchaseSummary = listOfNotNull(
+                                    data.vehicle.purchaseDate?.toString(),
+                                    data.vehicle.purchasePrice?.let(Double::asCurrency),
+                                    data.vehicle.purchaseOdometer?.let(Double::toStableString),
+                                ).joinToString(" | ")
+                                if (purchaseSummary.isNotBlank()) Text("Purchase: $purchaseSummary")
+                            }
+                            if (showSellingInfo) {
+                                val sellingSummary = listOfNotNull(
+                                    data.vehicle.sellingDate?.toString(),
+                                    data.vehicle.sellingPrice?.let(Double::asCurrency),
+                                    data.vehicle.sellingOdometer?.let(Double::toStableString),
+                                ).joinToString(" | ")
+                                if (sellingSummary.isNotBlank()) Text("Selling: $sellingSummary")
+                            }
                             if (data.vehicle.notes.isNotBlank()) Text(data.vehicle.notes)
                         }
                     }
@@ -694,6 +795,19 @@ private fun VehicleDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            AssistChip(onClick = onEditVehicle, label = { Text("Edit Vehicle") })
+                            AssistChip(
+                                onClick = {
+                                    scope.launch {
+                                        repository.setVehicleLifecycle(
+                                            data.vehicle.id,
+                                            if (data.vehicle.lifecycle == VehicleLifecycle.ACTIVE) VehicleLifecycle.RETIRED else VehicleLifecycle.ACTIVE,
+                                        )
+                                    }
+                                },
+                                label = { Text(if (data.vehicle.lifecycle == VehicleLifecycle.ACTIVE) "Retire" else "Reactivate") },
+                            )
+                            AssistChip(onClick = { showDeleteDialog = true }, label = { Text("Delete Vehicle") })
                             AssistChip(onClick = onAddFuelUp, label = { Text("New Fuel-Up") })
                             AssistChip(onClick = onAddService, label = { Text("New Service") })
                             AssistChip(onClick = onAddExpense, label = { Text("New Expense") })
