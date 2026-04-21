@@ -93,3 +93,4 @@ Key schema choices:
 18. Preview Fuelly CSV headers locally, map non-standard columns, choose units, and import fill-ups into an existing vehicle.
 19. Surface fuel efficiency and fuel price snapshots on the home screen with classic RemoteViews widgets.
 20. Export the current statistics dashboard as standalone HTML in addition to CSV.
+21. Manage browsed records directly with per-record action menus, including trip copy/finish shortcuts and retired-vehicle edit protection.
