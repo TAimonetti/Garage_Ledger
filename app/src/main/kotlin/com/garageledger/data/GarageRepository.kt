@@ -42,6 +42,8 @@ import com.garageledger.domain.model.ReminderWidgetItem
 import com.garageledger.domain.model.ExpenseRecord
 import com.garageledger.domain.model.ExpenseType
 import com.garageledger.domain.model.FillUpRecord
+import com.garageledger.domain.model.FuellyCsvImportConfig
+import com.garageledger.domain.model.FuellyCsvPreview
 import com.garageledger.domain.model.FuelType
 import com.garageledger.domain.model.ImportIssue
 import com.garageledger.domain.model.ImportReport
@@ -432,15 +434,19 @@ class GarageRepository(
         replaceExisting = true,
     )
 
+    suspend fun previewFuellyCsv(inputStream: InputStream): FuellyCsvPreview = fuellyCsvImporter.preview(inputStream)
+
     suspend fun importFuellyCsv(
         inputStream: InputStream,
-        vehicleId: Long,
-        fieldMapping: Map<String, String> = emptyMap(),
+        config: FuellyCsvImportConfig,
     ): ImportReport {
-        val fillUps = fuellyCsvImporter.importFillUps(inputStream, vehicleId, fieldMapping)
+        val imported = fuellyCsvImporter.importFillUps(inputStream, config)
         return persistImportedData(
             sourceLabel = "Fuelly CSV",
-            imported = ImportedGarageData(fillUpRecords = fillUps),
+            imported = ImportedGarageData(
+                fillUpRecords = imported.fillUpRecords,
+                issues = imported.issues,
+            ),
             replaceExisting = false,
         )
     }

@@ -4,14 +4,14 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 8 settings and type management are in place:
+Phase 9 Fuelly CSV mapping import is in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
 - DataStore-backed preference snapshot import
 - aCar sectioned CSV importer
 - aCar `.abp` ZIP/XML importer
-- Fuelly CSV fill-up importer
+- Fuelly CSV fill-up importer with preview, unit selection, and field-mapping UI for non-standard headers
 - Pure Kotlin calculation engine for fuel efficiency, reminders, trip costs, and chrono/odometer validation
 - End-to-end flows for import/export, vehicle browsing, vehicle detail, fuel-up/service/expense/trip entry, and record browsing/filtering
 - WorkManager-backed periodic reminder checks and local backup scheduling

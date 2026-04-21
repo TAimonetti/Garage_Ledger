@@ -90,3 +90,4 @@ Key schema choices:
 15. Toggle optional editor fields on and off with the same imported visible-field preferences used for aCar migration.
 16. Adjust app settings locally for units, formats, notification thresholds, and backup policy with no account dependency.
 17. Manage fuel, service, expense, and trip type catalogs directly on-device through a dedicated type management screen.
+18. Preview Fuelly CSV headers locally, map non-standard columns, choose units, and import fill-ups into an existing vehicle.
