@@ -1,8 +1,11 @@
 package com.garageledger.notifications
 
+import android.content.pm.PackageManager
+import android.os.Build
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.garageledger.MainActivity
@@ -51,6 +54,11 @@ class ReminderNotifier(
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, PostNotificationsPermission) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         NotificationManagerCompat.from(context).notify(SERVICE_REMINDER_NOTIFICATION_ID, notification)
     }
 
@@ -60,5 +68,6 @@ class ReminderNotifier(
 
     private companion object {
         const val SERVICE_REMINDER_NOTIFICATION_ID: Int = 4200
+        const val PostNotificationsPermission: String = "android.permission.POST_NOTIFICATIONS"
     }
 }

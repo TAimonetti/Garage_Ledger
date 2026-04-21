@@ -39,6 +39,7 @@ This build is intentionally focused on data fidelity and the most important work
 ## Not complete yet
 
 - No major documented parity gaps remain in the current milestone.
+- Real device and emulator QA is still a release task rather than something fully automated inside the repo.
 
 ## Intentional differences in the current build
 

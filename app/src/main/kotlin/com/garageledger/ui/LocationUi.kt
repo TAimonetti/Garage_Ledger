@@ -37,7 +37,7 @@ internal fun buildGeoMapUriString(
     longitude: Double,
     label: String,
 ): String {
-    val encodedLabel = URLEncoder.encode(label.ifBlank { "Location" }, StandardCharsets.UTF_8)
+    val encodedLabel = URLEncoder.encode(label.ifBlank { "Location" }, StandardCharsets.UTF_8.name())
         .replace("+", "%20")
     return "geo:0,0?q=$latitude,$longitude($encodedLabel)"
 }

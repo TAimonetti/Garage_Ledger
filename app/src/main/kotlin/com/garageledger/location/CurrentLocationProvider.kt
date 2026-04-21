@@ -1,8 +1,10 @@
 package com.garageledger.location
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
@@ -32,9 +34,7 @@ class CurrentLocationProvider(
         ).filter { provider ->
             runCatching { locationManager.isProviderEnabled(provider) }.getOrDefault(false)
         }
-        val freshestLastKnown = enabledProviders.asSequence()
-            .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
-            .maxByOrNull { it.time }
+        val freshestLastKnown = freshestLastKnownLocation(locationManager, enabledProviders)
         if (freshestLastKnown != null) {
             return CoordinateSnapshot(
                 latitude = freshestLastKnown.latitude,
@@ -43,7 +43,22 @@ class CurrentLocationProvider(
         }
         val provider = enabledProviders.firstOrNull()
             ?: error("Enable device location services to capture coordinates.")
-        return suspendCancellableCoroutine { continuation ->
+        return requestCurrentLocation(locationManager, provider)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun freshestLastKnownLocation(
+        locationManager: LocationManager,
+        enabledProviders: List<String>,
+    ): Location? = enabledProviders.asSequence()
+        .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
+        .maxByOrNull { it.time }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun requestCurrentLocation(
+        locationManager: LocationManager,
+        provider: String,
+    ): CoordinateSnapshot = suspendCancellableCoroutine { continuation ->
             val cancellationSignal = CancellationSignal()
             continuation.invokeOnCancellation { cancellationSignal.cancel() }
             LocationManagerCompat.getCurrentLocation(
@@ -67,7 +82,6 @@ class CurrentLocationProvider(
                 }
             }
         }
-    }
 
     companion object {
         fun hasLocationPermission(context: Context): Boolean = listOf(

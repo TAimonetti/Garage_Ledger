@@ -96,6 +96,8 @@ import java.io.InputStream
 import java.io.OutputStream
 import kotlinx.coroutines.launch
 
+private const val PostNotificationsPermission: String = "android.permission.POST_NOTIFICATIONS"
+
 @Composable
 fun GarageLedgerApp(
     repository: GarageRepository,
@@ -1406,7 +1408,7 @@ private fun ImportScreen(
     }
 
     fun notificationPermissionGranted(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(context, PostNotificationsPermission) == PackageManager.PERMISSION_GRANTED
 
     val fuellyConfig = fuellySelectedVehicleId?.let { vehicleId ->
         FuellyCsvImportConfig(
@@ -1498,7 +1500,7 @@ private fun ImportScreen(
                                         exportMessage = "Reminder notifications enabled."
                                     }
 
-                                    else -> notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    else -> notificationPermissionLauncher.launch(PostNotificationsPermission)
                                 }
                             },
                         ) {

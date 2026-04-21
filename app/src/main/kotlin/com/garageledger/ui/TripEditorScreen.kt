@@ -601,7 +601,9 @@ fun TripEditorScreen(
                         Text(
                             "Duration: " + (
                                 durationPreview?.let { duration ->
-                                    "${duration.toHours()}h ${duration.toMinutesPart()}m"
+                                    val hours = duration.toHours()
+                                    val minutes = duration.toMinutes() - (hours * 60)
+                                    "${hours}h ${minutes}m"
                                 } ?: "Open trip"
                             ),
                         )
