@@ -8,6 +8,14 @@ data class ReminderDisplayItem(
     val serviceTypeName: String,
 )
 
+data class ReminderCenterItem(
+    val reminder: ServiceReminder,
+    val vehicleName: String,
+    val serviceTypeName: String,
+    val distanceUnitLabel: String,
+    val currentOdometer: Double?,
+)
+
 data class ReminderWidgetItem(
     val reminderId: Long,
     val vehicleName: String,

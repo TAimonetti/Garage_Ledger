@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.LocalGasStation
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -119,12 +120,13 @@ fun GarageLedgerApp(
                 onOpenVehicles = { navController.navigate("vehicles") },
                 onOpenBrowse = { navController.navigate("browse/-1") },
                 onOpenStats = { navController.navigate("stats/$it") },
+                onOpenReminders = { navController.navigate("reminders/$it") },
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenTypes = { navController.navigate("types") },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
                 onAddVehicle = { navController.navigate("vehicle-edit/-1") },
                 onAddFuelUp = { navController.navigate("fuelup/$it/-1") },
-                onAddService = { navController.navigate("service/$it/-1") },
+                onAddService = { navController.navigate(serviceEditorRoute(it, -1L)) },
                 onAddExpense = { navController.navigate("expense/$it/-1") },
                 onAddTrip = { navController.navigate("trip/$it/-1") },
                 onEditTrip = { vehicleId, tripId -> navController.navigate("trip/$vehicleId/$tripId") },
@@ -194,6 +196,71 @@ fun GarageLedgerApp(
             )
         }
         composable(
+            route = "vehicle-parts/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L
+            VehiclePartsScreen(
+                repository = repository,
+                vehicleId = vehicleId,
+                onBack = { navController.popBackStack() },
+                onAddPart = { navController.navigate("vehicle-part/$vehicleId/-1") },
+                onEditPart = { navController.navigate("vehicle-part/$vehicleId/$it") },
+            )
+        }
+        composable(
+            route = "vehicle-part/{vehicleId}/{partId}",
+            arguments = listOf(
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("partId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L
+            VehiclePartEditorScreen(
+                repository = repository,
+                vehicleId = vehicleId,
+                partId = backStackEntry.arguments?.getLong("partId") ?: -1L,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "reminders/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: -1L
+            RemindersCenterScreen(
+                repository = repository,
+                preselectedVehicleId = vehicleId.takeIf { it > 0L },
+                onBack = { navController.popBackStack() },
+                onAddReminder = { selectedVehicleId ->
+                    navController.navigate("reminder-edit/$selectedVehicleId/-1")
+                },
+                onEditReminder = { selectedVehicleId, reminderId ->
+                    navController.navigate("reminder-edit/$selectedVehicleId/$reminderId")
+                },
+                onCreateService = { selectedVehicleId, serviceTypeId ->
+                    navController.navigate(serviceEditorRoute(selectedVehicleId, -1L, serviceTypeId))
+                },
+            )
+        }
+        composable(
+            route = "reminder-edit/{vehicleId}/{reminderId}",
+            arguments = listOf(
+                navArgument("vehicleId") { type = NavType.LongType },
+                navArgument("reminderId") { type = NavType.LongType },
+            ),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: -1L
+            ReminderEditorScreen(
+                repository = repository,
+                vehicleId = vehicleId,
+                reminderId = backStackEntry.arguments?.getLong("reminderId") ?: -1L,
+                onBack = { navController.popBackStack() },
+                onSaved = { navController.popBackStack() },
+            )
+        }
+        composable(
             route = "stats/{vehicleId}",
             arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
         ) { backStackEntry ->
@@ -219,15 +286,24 @@ fun GarageLedgerApp(
                     navController.navigate("record/${family.routeSegment()}/$vehicleId/$recordId")
                 },
                 onEditFuelUp = { navController.navigate("fuelup/$vehicleId/$it") },
-                onEditService = { navController.navigate("service/$vehicleId/$it") },
+                onEditService = { navController.navigate(serviceEditorRoute(vehicleId, it)) },
                 onEditExpense = { navController.navigate("expense/$vehicleId/$it") },
                 onEditTrip = { navController.navigate("trip/$vehicleId/$it") },
+                onEditPart = { navController.navigate("vehicle-part/$vehicleId/$it") },
+                onEditReminder = { navController.navigate("reminder-edit/$vehicleId/$it") },
                 onEditVehicle = { navController.navigate("vehicle-edit/$vehicleId") },
                 onDeletedVehicle = { navController.popBackStack() },
+                onManageParts = { navController.navigate("vehicle-parts/$vehicleId") },
+                onManageReminders = { navController.navigate("reminders/$vehicleId") },
                 onAddFuelUp = { navController.navigate("fuelup/$vehicleId/-1") },
-                onAddService = { navController.navigate("service/$vehicleId/-1") },
+                onAddService = { navController.navigate(serviceEditorRoute(vehicleId, -1L)) },
                 onAddExpense = { navController.navigate("expense/$vehicleId/-1") },
                 onAddTrip = { navController.navigate("trip/$vehicleId/-1") },
+                onAddPart = { navController.navigate("vehicle-part/$vehicleId/-1") },
+                onAddReminder = { navController.navigate("reminder-edit/$vehicleId/-1") },
+                onCreateServiceFromReminder = { serviceTypeId ->
+                    navController.navigate(serviceEditorRoute(vehicleId, -1L, serviceTypeId))
+                },
             )
         }
         composable(
@@ -265,7 +341,7 @@ fun GarageLedgerApp(
                 onEdit = {
                     val route = when (family) {
                         com.garageledger.domain.model.RecordFamily.FILL_UP -> "fuelup/$detailVehicleId/$detailRecordId"
-                        com.garageledger.domain.model.RecordFamily.SERVICE -> "service/$detailVehicleId/$detailRecordId"
+                        com.garageledger.domain.model.RecordFamily.SERVICE -> serviceEditorRoute(detailVehicleId, detailRecordId)
                         com.garageledger.domain.model.RecordFamily.EXPENSE -> "expense/$detailVehicleId/$detailRecordId"
                         com.garageledger.domain.model.RecordFamily.TRIP -> "trip/$detailVehicleId/$detailRecordId"
                     }
@@ -291,16 +367,21 @@ fun GarageLedgerApp(
             )
         }
         composable(
-            route = "service/{vehicleId}/{recordId}",
+            route = "service/{vehicleId}/{recordId}?seedTypeId={seedTypeId}",
             arguments = listOf(
                 navArgument("vehicleId") { type = NavType.LongType },
                 navArgument("recordId") { type = NavType.LongType },
+                navArgument("seedTypeId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                },
             ),
         ) { backStackEntry ->
             ServiceEditorScreen(
                 repository = repository,
                 vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L,
                 recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L,
+                seedServiceTypeId = backStackEntry.arguments?.getLong("seedTypeId")?.takeIf { it > 0L },
                 onBack = { navController.popBackStack() },
             )
         }
@@ -343,6 +424,7 @@ private fun ConsoleScreen(
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenStats: (Long) -> Unit,
+    onOpenReminders: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
     onOpenVehicle: (Long) -> Unit,
@@ -355,6 +437,7 @@ private fun ConsoleScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
+    val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
     var selectedVehicleId by rememberSaveable { mutableLongStateOf(0L) }
     var menuExpanded by remember { mutableStateOf(false) }
     var shortcutStatus by remember { mutableStateOf<String?>(null) }
@@ -440,6 +523,7 @@ private fun ConsoleScreen(
                     onOpenVehicles = onOpenVehicles,
                     onOpenBrowse = onOpenBrowse,
                     onOpenStats = { onOpenStats(selectedVehicle?.id ?: -1L) },
+                    onOpenReminders = { onOpenReminders(selectedVehicle?.id ?: -1L) },
                     onOpenSettings = onOpenSettings,
                     onOpenTypes = onOpenTypes,
                     onOpenVehicle = { selectedVehicle?.id?.let(onOpenVehicle) },
@@ -509,7 +593,7 @@ private fun ConsoleScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { onOpenVehicle(detail!!.vehicle.id) },
+                                            .clickable { onOpenReminders(detail!!.vehicle.id) },
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
                                         Column(Modifier.weight(1f)) {
@@ -517,11 +601,15 @@ private fun ConsoleScreen(
                                             Text(
                                                 listOfNotNull(
                                                     item.reminder.dueDate?.let { "Due $it" },
-                                                    item.reminder.dueDistance?.let { "At ${it.toInt()} mi" },
-                                                ).joinToString(" • ").ifBlank { "Scheduled" },
+                                                    item.reminder.dueDistance?.let {
+                                                        val distanceUnitLabel = detail!!.vehicle.distanceUnitOverride?.storageValue
+                                                            ?: preferences.distanceUnit.storageValue
+                                                        "At ${it.toInt()} $distanceUnitLabel"
+                                                    },
+                                                ).joinToString(" | ").ifBlank { "Scheduled" },
                                             )
                                         }
-                                        Text("Open")
+                                        Text("Manage")
                                     }
                                 }
                             }
@@ -544,7 +632,7 @@ private fun ConsoleScreen(
                                     ) {
                                         Column {
                                             Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
-                                            Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} • ${record.volume} ${record.volumeUnit.storageValue}")
+                                            Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} | ${record.volume} ${record.volumeUnit.storageValue}")
                                         }
                                         Text(record.totalCost.asCurrency())
                                     }
@@ -565,6 +653,7 @@ private fun ActionGrid(
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenReminders: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
     onOpenVehicle: () -> Unit,
@@ -579,6 +668,7 @@ private fun ActionGrid(
         DashboardAction("Vehicles", Icons.Outlined.Storage, onOpenVehicles),
         DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
         DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats),
+        DashboardAction("Reminders", Icons.Outlined.Notifications, onOpenReminders),
         DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
         DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
         DashboardAction("Add Vehicle", Icons.Outlined.DirectionsCar, onAddVehicle),
@@ -589,7 +679,7 @@ private fun ActionGrid(
         DashboardAction("Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
-        modifier = Modifier.height(520.dp),
+        modifier = Modifier.height(600.dp),
         columns = GridCells.Fixed(3),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -716,12 +806,19 @@ private fun VehicleDetailScreen(
     onEditService: (Long) -> Unit,
     onEditExpense: (Long) -> Unit,
     onEditTrip: (Long) -> Unit,
+    onEditPart: (Long) -> Unit,
+    onEditReminder: (Long) -> Unit,
     onEditVehicle: () -> Unit,
     onDeletedVehicle: () -> Unit,
+    onManageParts: () -> Unit,
+    onManageReminders: () -> Unit,
     onAddFuelUp: () -> Unit,
     onAddService: () -> Unit,
     onAddExpense: () -> Unit,
     onAddTrip: () -> Unit,
+    onAddPart: () -> Unit,
+    onAddReminder: () -> Unit,
+    onCreateServiceFromReminder: (Long) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val detail by repository.observeVehicleDetail(vehicleId).collectAsStateWithLifecycle(initialValue = null)
@@ -854,9 +951,13 @@ private fun VehicleDetailScreen(
                             AssistChip(onClick = onAddService, label = { Text("New Service") })
                             AssistChip(onClick = onAddExpense, label = { Text("New Expense") })
                             AssistChip(onClick = onAddTrip, label = { Text("New Trip") })
+                            AssistChip(onClick = onAddPart, label = { Text("New Part") })
+                            AssistChip(onClick = onAddReminder, label = { Text("New Reminder") })
                             if (openTrip != null) {
                                 AssistChip(onClick = { onEditTrip(openTrip.id) }, label = { Text("Finish Open Trip") })
                             }
+                            AssistChip(onClick = onManageParts, label = { Text("Manage Parts") })
+                            AssistChip(onClick = onManageReminders, label = { Text("Reminders") })
                             AssistChip(onClick = onBrowseRecords, label = { Text("Browse Records") })
                             AssistChip(onClick = onOpenStats, label = { Text("Statistics & Charts") })
                         }
@@ -883,10 +984,14 @@ private fun VehicleDetailScreen(
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Vehicle Parts", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AssistChip(onClick = onAddPart, label = { Text("Add Part") })
+                                AssistChip(onClick = onManageParts, label = { Text("Manage Parts") })
+                            }
                             if (data.parts.isEmpty()) {
                                 Text("No vehicle parts recorded.")
                             } else {
-                                data.parts.forEach { part ->
+                                data.parts.take(4).forEach { part ->
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(part.name, fontWeight = FontWeight.Medium)
                                         val partSummary = listOfNotNull(
@@ -900,7 +1005,13 @@ private fun VehicleDetailScreen(
                                         if (part.notes.isNotBlank()) {
                                             Text(part.notes, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            AssistChip(onClick = { onEditPart(part.id) }, label = { Text("Edit") })
+                                        }
                                     }
+                                }
+                                if (data.parts.size > 4) {
+                                    Text("Showing 4 of ${data.parts.size} parts.")
                                 }
                             }
                         }
@@ -910,19 +1021,35 @@ private fun VehicleDetailScreen(
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text("Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                AssistChip(onClick = onAddReminder, label = { Text("Add Reminder") })
+                                AssistChip(onClick = onManageReminders, label = { Text("Manage Reminders") })
+                            }
                             if (data.upcomingReminders.isEmpty()) {
                                 Text("No reminder schedules available for this vehicle.")
                             } else {
-                                data.upcomingReminders.forEach { reminder ->
+                                data.upcomingReminders.take(4).forEach { reminder ->
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(reminder.serviceTypeName)
                                         Text(
                                             listOfNotNull(
                                                 reminder.reminder.dueDate?.let { "Due $it" },
-                                                reminder.reminder.dueDistance?.let { "At ${it.toInt()} ${data.vehicle.distanceUnitOverride?.storageValue ?: "mi"}" },
+                                                reminder.reminder.dueDistance?.let {
+                                                    "At ${it.toInt()} ${data.vehicle.distanceUnitOverride?.storageValue ?: preferences.distanceUnit.storageValue}"
+                                                },
                                             ).joinToString(" | ").ifBlank { "Scheduled" },
                                         )
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            AssistChip(onClick = { onEditReminder(reminder.reminder.id) }, label = { Text("Edit") })
+                                            AssistChip(
+                                                onClick = { onCreateServiceFromReminder(reminder.reminder.serviceTypeId) },
+                                                label = { Text("New Service") },
+                                            )
+                                        }
                                     }
+                                }
+                                if (data.upcomingReminders.size > 4) {
+                                    Text("Showing 4 of ${data.upcomingReminders.size} reminders.")
                                 }
                             }
                         }
@@ -1424,6 +1551,21 @@ private fun formatBackupCadence(hours: Int): String = when {
     }
 
     else -> "Every $hours hours"
+}
+
+private fun serviceEditorRoute(
+    vehicleId: Long,
+    recordId: Long,
+    seedTypeId: Long? = null,
+): String = buildString {
+    append("service/")
+    append(vehicleId)
+    append("/")
+    append(recordId)
+    seedTypeId?.takeIf { it > 0L }?.let {
+        append("?seedTypeId=")
+        append(it)
+    }
 }
 
 private data class DashboardAction(

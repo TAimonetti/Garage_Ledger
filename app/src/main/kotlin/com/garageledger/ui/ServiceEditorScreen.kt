@@ -43,6 +43,7 @@ fun ServiceEditorScreen(
     repository: GarageRepository,
     vehicleId: Long,
     recordId: Long,
+    seedServiceTypeId: Long? = null,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -98,6 +99,9 @@ fun ServiceEditorScreen(
             selectedTypeIds = record.serviceTypeIds.toSet()
         } else {
             dateTimeText = java.time.LocalDateTime.now().format(EditorDateFormatter)
+            if (seedServiceTypeId != null && seedServiceTypeId > 0L) {
+                selectedTypeIds = setOf(seedServiceTypeId)
+            }
         }
         initialized = true
     }
