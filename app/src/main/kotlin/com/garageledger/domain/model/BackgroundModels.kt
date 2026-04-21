@@ -38,6 +38,30 @@ data class FuelWidgetItem(
     val unitLabel: String,
 )
 
+data class VehiclePredictionSummary(
+    val vehicleId: Long,
+    val vehicleName: String,
+    val nextFillUpDateTime: LocalDateTime?,
+    val nextFillUpOdometerReading: Double?,
+    val carRange: Double?,
+    val tripCostPerDay: Double?,
+    val tripCostPerDistanceUnit: Double?,
+    val tripCostPer100DistanceUnit: Double?,
+    val distanceUnitLabel: String,
+    val currencySymbol: String,
+)
+
+data class PredictionWidgetItem(
+    val vehicleId: Long,
+    val vehicleName: String,
+    val nextFillUpDateTime: LocalDateTime?,
+    val nextFillUpOdometerReading: Double?,
+    val carRange: Double?,
+    val tripCostPer100DistanceUnit: Double?,
+    val distanceUnitLabel: String,
+    val currencySymbol: String,
+)
+
 data class ReminderAlert(
     val reminderId: Long,
     val vehicleId: Long,

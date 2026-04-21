@@ -24,6 +24,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Vehicle profile photos plus add/edit, retire/reactivate, and destructive delete flows
 - Vehicle part management with local add/edit/delete flows
 - Reminder center with local add/edit/delete, default seeding, silence toggles, and direct service creation
+- Predictions screen and home-screen widget backed by local fill-up cadence and cost history
 - Trip helpers for return trips, last-destination starts, open-trip finishing, and end-odometer distance entry
 - Local coordinate capture and map-open actions for imported and newly entered records
 - Browse filters for subtype, payment type, event place, fuel facets, and trip-specific criteria

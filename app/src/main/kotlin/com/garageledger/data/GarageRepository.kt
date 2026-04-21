@@ -29,6 +29,7 @@ import com.garageledger.data.preferences.AppPreferencesRepository
 import com.garageledger.core.model.FuelEfficiencyUnit
 import com.garageledger.domain.calc.ChronoOdometerRecord
 import com.garageledger.domain.calc.FuelEfficiencyCalculator
+import com.garageledger.domain.calc.PredictionsCalculator
 import com.garageledger.domain.calc.RecordConsistencyValidator
 import com.garageledger.domain.calc.ReminderAlertEvaluator
 import com.garageledger.domain.calc.ReminderScheduler
@@ -53,6 +54,7 @@ import com.garageledger.domain.model.ImportIssue
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.ImportedGarageData
 import com.garageledger.domain.model.OptionalFieldToggle
+import com.garageledger.domain.model.PredictionWidgetItem
 import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.RecordAttachment
 import com.garageledger.domain.model.ServiceRecord
@@ -68,6 +70,7 @@ import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
 import com.garageledger.domain.model.VehicleLifecycle
 import com.garageledger.domain.model.VehiclePart
+import com.garageledger.domain.model.VehiclePredictionSummary
 import com.garageledger.domain.model.VehicleStatistics
 import java.io.InputStream
 import java.io.OutputStream
@@ -146,6 +149,36 @@ class GarageRepository(
             expenses = odometer.expenses,
             trips = odometer.trips,
             defaultDistanceUnitLabel = preferences.distanceUnit.storageValue,
+        )
+    }
+
+    fun observePredictions(vehicleId: Long? = null): Flow<List<VehiclePredictionSummary>> = combine(
+        combine(
+            dao.observeVehicles(),
+            dao.observeAllFillUps(),
+            dao.observeAllServices(),
+            dao.observeAllExpenses(),
+            dao.observeAllTrips(),
+        ) { vehicles, fillUps, services, expenses, trips ->
+            PredictionPrimarySnapshot(
+                vehicles = vehicles,
+                fillUps = fillUps,
+                services = services,
+                expenses = expenses,
+                trips = trips,
+            )
+        },
+        preferencesRepository.preferences,
+    ) { primary, preferences ->
+        buildPredictionSummaries(
+            vehicleId = vehicleId,
+            vehicles = primary.vehicles,
+            fillUps = primary.fillUps,
+            services = primary.services,
+            expenses = primary.expenses,
+            trips = primary.trips,
+            currencySymbol = preferences.currencySymbol,
+            now = LocalDateTime.now(),
         )
     }
 
@@ -578,6 +611,43 @@ class GarageRepository(
                     ?: LocalDateTime.MIN
             }
             .take(limit.coerceAtLeast(1))
+    }
+
+    suspend fun getPredictionWidgets(limit: Int = 1): List<PredictionWidgetItem> {
+        val preferences = preferencesRepository.currentSnapshot()
+        val vehicles = dao.getVehicles()
+        val activeVehicleIds = vehicles.filter { it.lifecycle == VehicleLifecycle.ACTIVE.name }.map(VehicleEntity::id).toSet()
+        val predictions = buildPredictionSummaries(
+            vehicleId = null,
+            vehicles = vehicles,
+            fillUps = dao.getAllFillUps(),
+            services = dao.getAllServices(),
+            expenses = dao.getAllExpenses(),
+            trips = dao.getAllTrips(),
+            currencySymbol = preferences.currencySymbol,
+            now = LocalDateTime.now(),
+        )
+        return predictions
+            .filter {
+                it.nextFillUpDateTime != null ||
+                    it.nextFillUpOdometerReading != null ||
+                    it.carRange != null ||
+                    it.tripCostPer100DistanceUnit != null
+            }
+            .sortedWith(compareBy<VehiclePredictionSummary> { it.vehicleId !in activeVehicleIds }.thenBy { it.nextFillUpDateTime ?: LocalDateTime.MAX })
+            .take(limit.coerceAtLeast(1))
+            .map { summary ->
+                PredictionWidgetItem(
+                    vehicleId = summary.vehicleId,
+                    vehicleName = summary.vehicleName,
+                    nextFillUpDateTime = summary.nextFillUpDateTime,
+                    nextFillUpOdometerReading = summary.nextFillUpOdometerReading,
+                    carRange = summary.carRange,
+                    tripCostPer100DistanceUnit = summary.tripCostPer100DistanceUnit,
+                    distanceUnitLabel = summary.distanceUnitLabel,
+                    currencySymbol = summary.currencySymbol,
+                )
+            }
     }
 
     suspend fun markReminderAlertsDelivered(
@@ -1670,6 +1740,46 @@ class GarageRepository(
             .toList()
     }
 
+    private fun buildPredictionSummaries(
+        vehicleId: Long?,
+        vehicles: List<VehicleEntity>,
+        fillUps: List<FillUpRecordEntity>,
+        services: List<ServiceRecordEntity>,
+        expenses: List<ExpenseRecordEntity>,
+        trips: List<TripRecordEntity>,
+        currencySymbol: String,
+        now: LocalDateTime,
+    ): List<VehiclePredictionSummary> {
+        val fillUpsByVehicle = fillUps.groupBy(FillUpRecordEntity::vehicleId)
+        val servicesByVehicle = services.groupBy(ServiceRecordEntity::vehicleId)
+        val expensesByVehicle = expenses.groupBy(ExpenseRecordEntity::vehicleId)
+        val tripsByVehicle = trips.groupBy(TripRecordEntity::vehicleId)
+
+        return vehicles
+            .asSequence()
+            .map(VehicleEntity::toDomain)
+            .filter { vehicleId == null || it.id == vehicleId }
+            .map { vehicle ->
+                PredictionsCalculator.build(
+                    vehicle = vehicle,
+                    fillUps = fillUpsByVehicle[vehicle.id].orEmpty().map(FillUpRecordEntity::toDomain),
+                    services = servicesByVehicle[vehicle.id].orEmpty().map { it.toDomain(emptyList()) },
+                    expenses = expensesByVehicle[vehicle.id].orEmpty().map { it.toDomain(emptyList()) },
+                    trips = tripsByVehicle[vehicle.id].orEmpty().map(TripRecordEntity::toDomain),
+                    now = now,
+                    currencySymbol = currencySymbol,
+                ).copy(
+                    distanceUnitLabel = vehicle.distanceUnitOverride?.storageValue
+                        ?: fillUpsByVehicle[vehicle.id].orEmpty().lastOrNull()?.distanceUnit
+                        ?: "mi",
+                )
+            }
+            .sortedBy { summary ->
+                summary.nextFillUpDateTime ?: LocalDateTime.MAX
+            }
+            .toList()
+    }
+
     private data class VehicleDetailPrimarySnapshot(
         val vehicle: VehicleEntity?,
         val parts: List<VehiclePartEntity>,
@@ -1699,6 +1809,14 @@ class GarageRepository(
     )
 
     private data class ReminderCenterOdometerSnapshot(
+        val fillUps: List<FillUpRecordEntity>,
+        val services: List<ServiceRecordEntity>,
+        val expenses: List<ExpenseRecordEntity>,
+        val trips: List<TripRecordEntity>,
+    )
+
+    private data class PredictionPrimarySnapshot(
+        val vehicles: List<VehicleEntity>,
         val fillUps: List<FillUpRecordEntity>,
         val services: List<ServiceRecordEntity>,
         val expenses: List<ExpenseRecordEntity>,

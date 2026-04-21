@@ -120,6 +120,7 @@ fun GarageLedgerApp(
                 onOpenVehicles = { navController.navigate("vehicles") },
                 onOpenBrowse = { navController.navigate("browse/-1") },
                 onOpenStats = { navController.navigate("stats/$it") },
+                onOpenPredictions = { navController.navigate("predictions/$it") },
                 onOpenReminders = { navController.navigate("reminders/$it") },
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenTypes = { navController.navigate("types") },
@@ -261,6 +262,17 @@ fun GarageLedgerApp(
             )
         }
         composable(
+            route = "predictions/{vehicleId}",
+            arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
+        ) { backStackEntry ->
+            val vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: -1L
+            PredictionsScreen(
+                repository = repository,
+                preselectedVehicleId = vehicleId.takeIf { it > 0L },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
             route = "stats/{vehicleId}",
             arguments = listOf(navArgument("vehicleId") { type = NavType.LongType }),
         ) { backStackEntry ->
@@ -282,6 +294,7 @@ fun GarageLedgerApp(
                 onBack = { navController.popBackStack() },
                 onBrowseRecords = { navController.navigate("browse/$vehicleId") },
                 onOpenStats = { navController.navigate("stats/$vehicleId") },
+                onOpenPredictions = { navController.navigate("predictions/$vehicleId") },
                 onOpenRecordDetail = { family, recordId ->
                     navController.navigate("record/${family.routeSegment()}/$vehicleId/$recordId")
                 },
@@ -424,6 +437,7 @@ private fun ConsoleScreen(
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenStats: (Long) -> Unit,
+    onOpenPredictions: (Long) -> Unit,
     onOpenReminders: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
@@ -454,6 +468,12 @@ private fun ConsoleScreen(
     }
     val detail by (detailFlow?.collectAsStateWithLifecycle(initialValue = null)
         ?: remember { mutableStateOf<VehicleDetailBundle?>(null) })
+    val predictionsFlow = remember(selectedVehicle?.id) {
+        selectedVehicle?.id?.let(repository::observePredictions)
+    }
+    val predictions by (predictionsFlow?.collectAsStateWithLifecycle(initialValue = emptyList())
+        ?: remember { mutableStateOf(emptyList()) })
+    val prediction = predictions.firstOrNull()
     val openTrip = detail?.recentTrips?.firstOrNull { it.endDateTime == null || it.endOdometerReading == null }
 
     Scaffold(
@@ -523,6 +543,7 @@ private fun ConsoleScreen(
                     onOpenVehicles = onOpenVehicles,
                     onOpenBrowse = onOpenBrowse,
                     onOpenStats = { onOpenStats(selectedVehicle?.id ?: -1L) },
+                    onOpenPredictions = { onOpenPredictions(selectedVehicle?.id ?: -1L) },
                     onOpenReminders = { onOpenReminders(selectedVehicle?.id ?: -1L) },
                     onOpenSettings = onOpenSettings,
                     onOpenTypes = onOpenTypes,
@@ -616,6 +637,34 @@ private fun ConsoleScreen(
                         }
                     }
                 }
+                prediction?.let { predictionSummary ->
+                    item {
+                        Card(
+                            modifier = Modifier.clickable { onOpenPredictions(predictionSummary.vehicleId) },
+                        ) {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Predictions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    listOfNotNull(
+                                        predictionSummary.nextFillUpDateTime?.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                                        predictionSummary.nextFillUpOdometerReading?.let {
+                                            "${it.toStableString()} ${predictionSummary.distanceUnitLabel}"
+                                        },
+                                    ).joinToString(" | ").ifBlank { "Not enough fill-up history yet." },
+                                )
+                                Text(
+                                    listOfNotNull(
+                                        predictionSummary.carRange?.let { "Range ${it.formatOneDecimal()} ${predictionSummary.distanceUnitLabel}" },
+                                        predictionSummary.tripCostPer100DistanceUnit?.let {
+                                            "${it.asCurrency(predictionSummary.currencySymbol)}/100${predictionSummary.distanceUnitLabel}"
+                                        },
+                                    ).joinToString(" | ").ifBlank { "Open the predictions screen for more detail." },
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
                 item {
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -653,6 +702,7 @@ private fun ActionGrid(
     onOpenVehicles: () -> Unit,
     onOpenBrowse: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenPredictions: () -> Unit,
     onOpenReminders: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
@@ -668,6 +718,7 @@ private fun ActionGrid(
         DashboardAction("Vehicles", Icons.Outlined.Storage, onOpenVehicles),
         DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
         DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats),
+        DashboardAction("Predictions", Icons.Outlined.LocalGasStation, onOpenPredictions, enabled = hasSelectedVehicle),
         DashboardAction("Reminders", Icons.Outlined.Notifications, onOpenReminders),
         DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
         DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
@@ -679,7 +730,7 @@ private fun ActionGrid(
         DashboardAction("Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
-        modifier = Modifier.height(600.dp),
+        modifier = Modifier.height(680.dp),
         columns = GridCells.Fixed(3),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -801,6 +852,7 @@ private fun VehicleDetailScreen(
     onBack: () -> Unit,
     onBrowseRecords: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenPredictions: () -> Unit,
     onOpenRecordDetail: (com.garageledger.domain.model.RecordFamily, Long) -> Unit,
     onEditFuelUp: (Long) -> Unit,
     onEditService: (Long) -> Unit,
@@ -960,6 +1012,7 @@ private fun VehicleDetailScreen(
                             AssistChip(onClick = onManageReminders, label = { Text("Reminders") })
                             AssistChip(onClick = onBrowseRecords, label = { Text("Browse Records") })
                             AssistChip(onClick = onOpenStats, label = { Text("Statistics & Charts") })
+                            AssistChip(onClick = onOpenPredictions, label = { Text("Predictions") })
                         }
                     }
                 }
