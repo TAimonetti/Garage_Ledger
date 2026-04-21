@@ -44,3 +44,4 @@ Imported preference expectations:
 - Use the `.abp` import first when possible because it carries the master catalogs, reminders, and preferences.
 - Use the sectioned CSV as a second validation path or as a merge source when a full backup is not available.
 - After import, verify per-vehicle fill-up counts and a few known MPG values before adding new records.
+- Run `scripts/run-sample-fixture-regression.ps1` to verify the supplied sample files directly, or pass `-DgarageLedger.fixture.abp=<path>` and `-DgarageLedger.fixture.csv=<path>` to `testDebugUnitTest` on another machine.

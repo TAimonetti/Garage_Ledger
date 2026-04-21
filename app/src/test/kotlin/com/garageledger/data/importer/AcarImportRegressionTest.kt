@@ -3,6 +3,8 @@ package com.garageledger.data.importer
 import com.garageledger.LocalFixturePaths
 import com.google.common.truth.Truth.assertThat
 import java.nio.file.Files
+import org.junit.Assume.assumeNotNull
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class AcarImportRegressionTest {
@@ -11,7 +13,17 @@ class AcarImportRegressionTest {
 
     @Test
     fun abpSample_matchesExpectedCountsAndPreferences() {
-        Files.newInputStream(LocalFixturePaths.acarAbp).use { stream ->
+        val fixturePath = LocalFixturePaths.acarAbp
+        assumeNotNull(
+            LocalFixturePaths.describeMissingFixture(
+                name = "aCar ABP",
+                propertyName = "garageLedger.fixture.abp",
+                envName = "GARAGE_LEDGER_FIXTURE_ABP",
+            ),
+            fixturePath,
+        )
+        assumeTrue(Files.exists(fixturePath))
+        Files.newInputStream(fixturePath).use { stream ->
             val imported = abpImporter.import(stream)
             assertThat(imported.vehicles).hasSize(4)
             assertThat(imported.fillUpRecords).hasSize(328)
@@ -45,7 +57,17 @@ class AcarImportRegressionTest {
 
     @Test
     fun csvSample_matchesExpectedCounts() {
-        Files.newInputStream(LocalFixturePaths.acarCsv).use { stream ->
+        val fixturePath = LocalFixturePaths.acarCsv
+        assumeNotNull(
+            LocalFixturePaths.describeMissingFixture(
+                name = "aCar CSV",
+                propertyName = "garageLedger.fixture.csv",
+                envName = "GARAGE_LEDGER_FIXTURE_CSV",
+            ),
+            fixturePath,
+        )
+        assumeTrue(Files.exists(fixturePath))
+        Files.newInputStream(fixturePath).use { stream ->
             val imported = csvImporter.import(stream)
             assertThat(imported.vehicles).hasSize(4)
             assertThat(imported.fillUpRecords).hasSize(328)
