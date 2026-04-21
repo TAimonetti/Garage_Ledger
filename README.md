@@ -4,7 +4,7 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 27 sample fixture regression harness is in place:
+Phase 28 release hardening is in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
@@ -44,6 +44,7 @@ Phase 27 sample fixture regression harness is in place:
 - Browse quick date presets, active filter chips, and a collapsible advanced query builder for local record search
 - Saved browse searches with local save/load/delete flows and open-backup round-trip support
 - Configurable local sample-fixture regression test wiring plus a PowerShell runner for the supplied aCar CSV/ABP files
+- Full local verification script, lint-clean debug build, GitHub Actions CI, and a release checklist
 - Instrumented UI coverage for browse sort/menu behavior and browse-launched trip copy/finish flows
 - Parser/regression/unit tests, backup/export tests, reminder alert tests, and instrumented Compose tests for entry flows plus import/export center navigation
 
@@ -64,6 +65,7 @@ $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 .\gradlew.bat :app:compileDebugKotlin
 .\gradlew.bat testDebugUnitTest
 .\scripts\run-sample-fixture-regression.ps1
+.\scripts\run-full-verification.ps1
 ```
 
 ## Project layout
@@ -80,3 +82,4 @@ $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 - [`docs/import-formats.md`](D:/Code/Codex/Garage_Ledger/docs/import-formats.md): CSV/ABP/Fuelly format notes
 - [`docs/migration-notes.md`](D:/Code/Codex/Garage_Ledger/docs/migration-notes.md): migration assumptions and sample expectations
 - [`docs/known-differences-vs-acar.md`](D:/Code/Codex/Garage_Ledger/docs/known-differences-vs-acar.md): honest deltas from aCar today
+- [`docs/release-checklist.md`](D:/Code/Codex/Garage_Ledger/docs/release-checklist.md): final automated and device QA pass
