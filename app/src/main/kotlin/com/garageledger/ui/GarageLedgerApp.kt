@@ -523,21 +523,21 @@ private fun ActionGrid(
     onAddTrip: () -> Unit,
 ) {
     val actions = listOf(
-        DashboardAction("Import & Export", Icons.Outlined.Archive, onOpenImport),
-        DashboardAction("Browse Vehicles", Icons.Outlined.Storage, onOpenVehicles),
+        DashboardAction("Import/Export", Icons.Outlined.Archive, onOpenImport),
+        DashboardAction("Vehicles", Icons.Outlined.Storage, onOpenVehicles),
         DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
-        DashboardAction("Statistics & Charts", Icons.Outlined.BarChart, onOpenStats),
+        DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats),
         DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
-        DashboardAction("Type Management", Icons.Outlined.Category, onOpenTypes),
+        DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
         DashboardAction("Vehicle Details", Icons.Outlined.DirectionsCar, onOpenVehicle),
-        DashboardAction("New Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
-        DashboardAction("New Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
-        DashboardAction("New Expense", Icons.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
-        DashboardAction("New Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
+        DashboardAction("Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
+        DashboardAction("Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
+        DashboardAction("Expense", Icons.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
+        DashboardAction("Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
-        modifier = Modifier.height(700.dp),
-        columns = GridCells.Fixed(2),
+        modifier = Modifier.height(520.dp),
+        columns = GridCells.Fixed(3),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         userScrollEnabled = false,
@@ -550,11 +550,11 @@ private fun ActionGrid(
                 ),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(18.dp),
+                    modifier = Modifier.fillMaxSize().padding(14.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Icon(action.icon, contentDescription = null)
-                    Text(action.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(action.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -564,14 +564,33 @@ private fun ActionGrid(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatsRow(detail: VehicleDetailBundle) {
+    val fuelEfficiencyUnitLabel = detail.recentFillUps.firstNotNullOfOrNull { it.fuelEfficiencyUnit?.storageValue }
+    val tripDistanceUnitLabel = detail.vehicle.distanceUnitOverride?.storageValue
+        ?: detail.recentTrips.firstOrNull()?.distanceUnit?.storageValue
+        ?: detail.recentFillUps.firstOrNull()?.distanceUnit?.storageValue
     FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SummaryChip("Fill-Ups", detail.stats.fillUpCount.toString())
-        SummaryChip("Avg MPG", detail.stats.averageFuelEfficiency?.formatOneDecimal() ?: "n/a")
-        SummaryChip("Last MPG", detail.stats.lastFuelEfficiency?.formatOneDecimal() ?: "n/a")
+        SummaryChip(
+            "Avg Eff.",
+            detail.stats.averageFuelEfficiency?.formatOneDecimal()?.let { value ->
+                fuelEfficiencyUnitLabel?.let { "$value $it" } ?: value
+            } ?: "n/a",
+        )
+        SummaryChip(
+            "Last Eff.",
+            detail.stats.lastFuelEfficiency?.formatOneDecimal()?.let { value ->
+                fuelEfficiencyUnitLabel?.let { "$value $it" } ?: value
+            } ?: "n/a",
+        )
         SummaryChip("Fuel Cost", detail.stats.totalFuelCost.asCurrency())
         SummaryChip("Service Cost", detail.stats.serviceCostTotal.asCurrency())
         SummaryChip("Expense Cost", detail.stats.expenseCostTotal.asCurrency())
-        SummaryChip("Trip Miles", detail.stats.tripDistanceTotal.formatOneDecimal())
+        SummaryChip(
+            "Trip Distance",
+            detail.stats.tripDistanceTotal.formatOneDecimal().let { value ->
+                tripDistanceUnitLabel?.let { "$value $it" } ?: value
+            },
+        )
     }
 }
 
