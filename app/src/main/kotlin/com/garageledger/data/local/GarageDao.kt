@@ -24,11 +24,20 @@ interface GarageDao {
     @Query("SELECT * FROM vehicle_parts WHERE vehicleId = :vehicleId ORDER BY name COLLATE NOCASE")
     fun observeVehicleParts(vehicleId: Long): Flow<List<VehiclePartEntity>>
 
+    @Query("SELECT * FROM vehicle_parts WHERE id = :partId")
+    suspend fun getVehiclePart(partId: Long): VehiclePartEntity?
+
     @Query("SELECT * FROM service_reminders WHERE vehicleId = :vehicleId ORDER BY dueDate ASC, dueDistance ASC")
     fun observeVehicleReminders(vehicleId: Long): Flow<List<ServiceReminderEntity>>
 
+    @Query("SELECT * FROM service_reminders ORDER BY dueDate ASC, dueDistance ASC")
+    fun observeAllServiceReminders(): Flow<List<ServiceReminderEntity>>
+
     @Query("SELECT * FROM service_reminders ORDER BY vehicleId, dueDate ASC, dueDistance ASC")
     suspend fun getAllServiceReminders(): List<ServiceReminderEntity>
+
+    @Query("SELECT * FROM service_reminders WHERE id = :reminderId")
+    suspend fun getServiceReminder(reminderId: Long): ServiceReminderEntity?
 
     @Query("SELECT * FROM service_reminders WHERE id IN (:reminderIds)")
     suspend fun getServiceReminders(reminderIds: List<Long>): List<ServiceReminderEntity>
@@ -219,6 +228,9 @@ interface GarageDao {
     suspend fun insertVehicleParts(items: List<VehiclePartEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVehiclePart(item: VehiclePartEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFuelTypes(items: List<FuelTypeEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -232,6 +244,9 @@ interface GarageDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertServiceReminders(items: List<ServiceReminderEntity>): List<Long>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertServiceReminder(item: ServiceReminderEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFillUps(items: List<FillUpRecordEntity>): List<Long>
@@ -270,6 +285,9 @@ interface GarageDao {
     suspend fun updateVehicle(item: VehicleEntity)
 
     @Update
+    suspend fun updateVehiclePart(item: VehiclePartEntity)
+
+    @Update
     suspend fun updateFuelType(item: FuelTypeEntity)
 
     @Update
@@ -295,6 +313,9 @@ interface GarageDao {
 
     @Update
     suspend fun updateFillUps(items: List<FillUpRecordEntity>)
+
+    @Update
+    suspend fun updateReminder(item: ServiceReminderEntity)
 
     @Update
     suspend fun updateReminders(items: List<ServiceReminderEntity>)
@@ -366,6 +387,12 @@ interface GarageDao {
     @Query("DELETE FROM trip_records WHERE id = :recordId")
     suspend fun deleteTrip(recordId: Long)
 
+    @Query("DELETE FROM vehicle_parts WHERE id = :partId")
+    suspend fun deleteVehiclePart(partId: Long)
+
+    @Query("DELETE FROM service_reminders WHERE id = :reminderId")
+    suspend fun deleteServiceReminder(reminderId: Long)
+
     @Query("DELETE FROM fuel_types WHERE id = :typeId")
     suspend fun deleteFuelType(typeId: Long)
 
@@ -389,6 +416,9 @@ interface GarageDao {
 
     @Query("SELECT COUNT(*) FROM service_reminders WHERE serviceTypeId = :typeId")
     suspend fun countServiceTypeReminderUsage(typeId: Long): Int
+
+    @Query("SELECT COUNT(*) FROM service_reminders WHERE vehicleId = :vehicleId AND serviceTypeId = :serviceTypeId AND id != :excludedReminderId")
+    suspend fun countVehicleReminderDuplicates(vehicleId: Long, serviceTypeId: Long, excludedReminderId: Long = 0L): Int
 
     @Query("SELECT COUNT(*) FROM expense_record_types WHERE expenseTypeId = :typeId")
     suspend fun countExpenseTypeUsage(typeId: Long): Int
