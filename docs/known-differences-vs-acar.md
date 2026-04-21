@@ -8,6 +8,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Local sectioned CSV export and open zipped JSON backup export
 - Dense console-style start screen
 - Picker-backed date and date/time entry across record editors, reminder due dates, browse filters, and vehicle purchase/selling fields
+- Settings-backed date formats now affect browse rows, detail screens, dashboard cards, predictions, and reminder summaries
 - Vehicle browsing, vehicle detail, and browse/filter across all record families
 - Fuel-up add/edit with two-of-three cost math
 - Service, expense, and trip add/edit screens

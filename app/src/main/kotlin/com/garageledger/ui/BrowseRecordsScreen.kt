@@ -51,7 +51,6 @@ import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
 import kotlinx.coroutines.launch
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -539,7 +538,7 @@ fun BrowseRecordsScreen(
                                 Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     "${item.vehicleName} | ${item.family.displayLabel()} | ${
-                                        item.occurredAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
+                                        item.occurredAt.formatForDisplay(preferences)
                                     }",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

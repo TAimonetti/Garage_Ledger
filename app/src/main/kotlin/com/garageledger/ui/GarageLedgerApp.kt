@@ -94,7 +94,6 @@ import com.garageledger.shortcuts.QuickActionShortcutManager
 import com.garageledger.shortcuts.QuickActionTarget
 import java.io.InputStream
 import java.io.OutputStream
-import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 @Composable
@@ -596,7 +595,7 @@ private fun ConsoleScreen(
                                 Text("Open Trip", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     listOfNotNull(
-                                        trip.startDateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                                        trip.startDateTime.formatForDisplay(preferences),
                                         trip.startLocation.takeIf { it.isNotBlank() },
                                         trip.startOdometerReading.toStableString() + " " + trip.distanceUnit.storageValue,
                                     ).joinToString(" | "),
@@ -654,7 +653,7 @@ private fun ConsoleScreen(
                                             Text(item.serviceTypeName)
                                             Text(
                                                 listOfNotNull(
-                                                    item.reminder.dueDate?.let { "Due $it" },
+                                                    item.reminder.dueDate?.let { "Due ${it.formatForDisplay(preferences, compact = true)}" },
                                                     item.reminder.dueDistance?.let {
                                                         val distanceUnitLabel = detail!!.vehicle.distanceUnitOverride?.storageValue
                                                             ?: preferences.distanceUnit.storageValue
@@ -679,7 +678,7 @@ private fun ConsoleScreen(
                                 Text("Predictions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     listOfNotNull(
-                                        predictionSummary.nextFillUpDateTime?.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                                        predictionSummary.nextFillUpDateTime?.formatForDisplay(preferences),
                                         predictionSummary.nextFillUpOdometerReading?.let {
                                             "${it.toStableString()} ${predictionSummary.distanceUnitLabel}"
                                         },
@@ -713,7 +712,7 @@ private fun ConsoleScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
                                         Column {
-                                            Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(record.dateTime.formatForDisplay(preferences))
                                             Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} | ${record.volume} ${record.volumeUnit.storageValue}")
                                         }
                                         Text(record.totalCost.asCurrency())
@@ -992,7 +991,7 @@ private fun VehicleDetailScreen(
                                 if (showFuelTankCapacity && data.vehicle.fuelTankCapacity != null) Text("Tank: ${data.vehicle.fuelTankCapacity.toStableString()}")
                                 if (showPurchaseInfo) {
                                     val purchaseSummary = listOfNotNull(
-                                        data.vehicle.purchaseDate?.toString(),
+                                        data.vehicle.purchaseDate?.formatForDisplay(preferences),
                                         data.vehicle.purchasePrice?.let(Double::asCurrency),
                                         data.vehicle.purchaseOdometer?.let(Double::toStableString),
                                     ).joinToString(" | ")
@@ -1000,7 +999,7 @@ private fun VehicleDetailScreen(
                                 }
                                 if (showSellingInfo) {
                                     val sellingSummary = listOfNotNull(
-                                        data.vehicle.sellingDate?.toString(),
+                                        data.vehicle.sellingDate?.formatForDisplay(preferences),
                                         data.vehicle.sellingPrice?.let(Double::asCurrency),
                                         data.vehicle.sellingOdometer?.let(Double::toStableString),
                                     ).joinToString(" | ")
@@ -1056,7 +1055,7 @@ private fun VehicleDetailScreen(
                                 Text("Open Trip", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     listOfNotNull(
-                                        trip.startDateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                                        trip.startDateTime.formatForDisplay(preferences),
                                         trip.startLocation.takeIf { it.isNotBlank() },
                                         trip.startOdometerReading.toStableString() + " " + trip.distanceUnit.storageValue,
                                     ).joinToString(" | "),
@@ -1119,7 +1118,7 @@ private fun VehicleDetailScreen(
                                         Text(reminder.serviceTypeName)
                                         Text(
                                             listOfNotNull(
-                                                reminder.reminder.dueDate?.let { "Due $it" },
+                                                reminder.reminder.dueDate?.let { "Due ${it.formatForDisplay(preferences, compact = true)}" },
                                                 reminder.reminder.dueDistance?.let {
                                                     "At ${it.toInt()} ${data.vehicle.distanceUnitOverride?.storageValue ?: preferences.distanceUnit.storageValue}"
                                                 },
@@ -1157,7 +1156,7 @@ private fun VehicleDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(record.dateTime.formatForDisplay(preferences))
                                             Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} | ${record.totalCost.asCurrency()}")
                                         }
                                         IconButton(onClick = { onEditFuelUp(record.id) }) {
@@ -1185,7 +1184,7 @@ private fun VehicleDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(record.dateTime.formatForDisplay(preferences))
                                             Text(
                                                 listOfNotNull(
                                                     record.serviceCenterName.takeIf { it.isNotBlank() },
@@ -1218,7 +1217,7 @@ private fun VehicleDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(record.dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(record.dateTime.formatForDisplay(preferences))
                                             Text(
                                                 listOfNotNull(
                                                     record.expenseCenterName.takeIf { it.isNotBlank() },
@@ -1251,7 +1250,7 @@ private fun VehicleDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Column(Modifier.weight(1f)) {
-                                            Text(record.startDateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")))
+                                            Text(record.startDateTime.formatForDisplay(preferences))
                                             Text(
                                                 listOfNotNull(
                                                     listOf(

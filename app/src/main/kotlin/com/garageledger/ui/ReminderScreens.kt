@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
+import com.garageledger.domain.model.AppPreferenceSnapshot
 import com.garageledger.domain.model.ReminderCenterItem
 import com.garageledger.domain.model.ServiceReminder
 import com.garageledger.domain.model.ServiceType
@@ -56,6 +57,7 @@ fun RemindersCenterScreen(
 ) {
     val scope = rememberCoroutineScope()
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
+    val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
     var selectedVehicleId by rememberSaveable(preselectedVehicleId) { mutableLongStateOf(preselectedVehicleId ?: -1L) }
     val reminders by repository.observeReminderCenter(selectedVehicleId.takeIf { it > 0L })
         .collectAsStateWithLifecycle(initialValue = emptyList())
@@ -178,7 +180,7 @@ fun RemindersCenterScreen(
                             if (selectedVehicleId <= 0L) {
                                 Text(item.vehicleName)
                             }
-                            Text(formatReminderDueSummary(item))
+                            Text(formatReminderDueSummary(item, preferences))
                             Text(formatReminderIntervalSummary(item.reminder, item.distanceUnitLabel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             formatReminderStatusSummary(item)?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -511,8 +513,11 @@ private fun parseDueDate(raw: String): LocalDate? = runCatching {
     LocalDate.parse(raw.trim())
 }.getOrNull()
 
-private fun formatReminderDueSummary(item: ReminderCenterItem): String = listOfNotNull(
-    item.reminder.dueDate?.let { "Due $it" },
+private fun formatReminderDueSummary(
+    item: ReminderCenterItem,
+    preferences: AppPreferenceSnapshot,
+): String = listOfNotNull(
+    item.reminder.dueDate?.let { "Due ${it.formatForDisplay(preferences, compact = true)}" },
     item.reminder.dueDistance?.let { "At ${it.toStableString()} ${item.distanceUnitLabel}" },
 ).joinToString(" | ").ifBlank { "Scheduled" }
 

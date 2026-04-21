@@ -43,7 +43,6 @@ import com.garageledger.domain.model.RecordFamily
 import com.garageledger.domain.model.ServiceRecord
 import com.garageledger.domain.model.TripRecord
 import kotlinx.coroutines.launch
-import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,19 +195,26 @@ fun RecordDetailScreen(
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             when (family) {
-                                RecordFamily.FILL_UP -> FuelUpDetailContent(fillUp = fillUp!!, currencySymbol = preferences.currencySymbol)
+                                RecordFamily.FILL_UP -> FuelUpDetailContent(
+                                    fillUp = fillUp!!,
+                                    preferences = preferences,
+                                    currencySymbol = preferences.currencySymbol,
+                                )
                                 RecordFamily.SERVICE -> ServiceDetailContent(
                                     service = service!!,
+                                    preferences = preferences,
                                     currencySymbol = preferences.currencySymbol,
                                     serviceNames = serviceTypes.associate { it.id to it.name },
                                 )
                                 RecordFamily.EXPENSE -> ExpenseDetailContent(
                                     expense = expense!!,
+                                    preferences = preferences,
                                     currencySymbol = preferences.currencySymbol,
                                     expenseNames = expenseTypes.associate { it.id to it.name },
                                 )
                                 RecordFamily.TRIP -> TripDetailContent(
                                     trip = trip!!,
+                                    preferences = preferences,
                                     currencySymbol = preferences.currencySymbol,
                                     tripNames = tripTypes.associate { it.id to it.name },
                                 )
@@ -305,9 +311,10 @@ fun RecordDetailScreen(
 @Composable
 private fun FuelUpDetailContent(
     fillUp: FillUpRecord,
+    preferences: com.garageledger.domain.model.AppPreferenceSnapshot,
     currencySymbol: String,
 ) {
-    DetailValue("Date / Time", fillUp.dateTime.format(DetailDateFormatter))
+    DetailValue("Date / Time", fillUp.dateTime.formatForDisplay(preferences))
     DetailValue("Odometer", "${fillUp.odometerReading.toStableString()} ${fillUp.distanceUnit.storageValue}")
     DetailValue("Volume", "${fillUp.volume.toStableString()} ${fillUp.volumeUnit.storageValue}")
     DetailValue("Price / Unit", fillUp.pricePerUnit.asCurrency(currencySymbol))
@@ -339,10 +346,11 @@ private fun FuelUpDetailContent(
 @Composable
 private fun ServiceDetailContent(
     service: ServiceRecord,
+    preferences: com.garageledger.domain.model.AppPreferenceSnapshot,
     currencySymbol: String,
     serviceNames: Map<Long, String>,
 ) {
-    DetailValue("Date / Time", service.dateTime.format(DetailDateFormatter))
+    DetailValue("Date / Time", service.dateTime.formatForDisplay(preferences))
     DetailValue("Odometer", "${service.odometerReading.toStableString()} ${service.distanceUnit.storageValue}")
     DetailValue("Total Cost", service.totalCost.asCurrency(currencySymbol))
     if (service.serviceTypeIds.isNotEmpty()) {
@@ -364,10 +372,11 @@ private fun ServiceDetailContent(
 @Composable
 private fun ExpenseDetailContent(
     expense: ExpenseRecord,
+    preferences: com.garageledger.domain.model.AppPreferenceSnapshot,
     currencySymbol: String,
     expenseNames: Map<Long, String>,
 ) {
-    DetailValue("Date / Time", expense.dateTime.format(DetailDateFormatter))
+    DetailValue("Date / Time", expense.dateTime.formatForDisplay(preferences))
     DetailValue("Odometer", "${expense.odometerReading.toStableString()} ${expense.distanceUnit.storageValue}")
     DetailValue("Total Cost", expense.totalCost.asCurrency(currencySymbol))
     if (expense.expenseTypeIds.isNotEmpty()) {
@@ -389,10 +398,11 @@ private fun ExpenseDetailContent(
 @Composable
 private fun TripDetailContent(
     trip: TripRecord,
+    preferences: com.garageledger.domain.model.AppPreferenceSnapshot,
     currencySymbol: String,
     tripNames: Map<Long, String>,
 ) {
-    DetailValue("Start", trip.startDateTime.format(DetailDateFormatter))
+    DetailValue("Start", trip.startDateTime.formatForDisplay(preferences))
     DetailValue("Start Odometer", "${trip.startOdometerReading.toStableString()} ${trip.distanceUnit.storageValue}")
     trip.startLocation.takeIf(String::isNotBlank)?.let { DetailValue("Start Location", it) }
     LocationDetailValue(
@@ -401,7 +411,7 @@ private fun TripDetailContent(
         longitude = trip.startLongitude,
         mapLabel = trip.startLocation.ifBlank { "Trip Start" },
     )
-    trip.endDateTime?.let { DetailValue("End", it.format(DetailDateFormatter)) }
+    trip.endDateTime?.let { DetailValue("End", it.formatForDisplay(preferences)) }
     trip.endOdometerReading?.let { DetailValue("End Odometer", "${it.toStableString()} ${trip.distanceUnit.storageValue}") }
     trip.endLocation.takeIf(String::isNotBlank)?.let { DetailValue("End Location", it) }
     LocationDetailValue(
@@ -453,5 +463,3 @@ private fun LocationDetailValue(
         Text("Open Map")
     }
 }
-
-private val DetailDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")
