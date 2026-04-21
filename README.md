@@ -30,6 +30,7 @@ Phase 10 fuel widgets and HTML statistics export are in place:
 - Type Management screen for local fuel, service, expense, and trip type catalogs
 - Vehicle add/edit, retire/reactivate, destructive delete, and local profile photo support
 - Trip entry helpers for open-trip finishing, last-destination/return-trip starts, and end-odometer absolute vs trip-distance entry
+- Local latitude/longitude capture plus map-open actions across fuel-up, service, expense, and trip records
 - Parser/regression/unit tests, backup/export tests, reminder alert tests, and instrumented Compose tests for entry flows plus import/export center navigation
 
 ## Build

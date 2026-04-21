@@ -290,6 +290,12 @@ private fun FuelUpDetailContent(
     }
     fillUp.fuelBrand.takeIf(String::isNotBlank)?.let { DetailValue("Fuel Brand", it) }
     fillUp.stationAddress.takeIf(String::isNotBlank)?.let { DetailValue("Station Address", it) }
+    LocationDetailValue(
+        label = "Coordinates",
+        latitude = fillUp.latitude,
+        longitude = fillUp.longitude,
+        mapLabel = fillUp.stationAddress.ifBlank { fillUp.fuelBrand.ifBlank { "Fuel-Up" } },
+    )
     fillUp.drivingMode.takeIf(String::isNotBlank)?.let { DetailValue("Driving Mode", it) }
     fillUp.averageSpeed?.let { DetailValue("Average Speed", it.toStableString()) }
     fillUp.cityDrivingPercentage?.let { DetailValue("City Driving %", it.toString()) }
@@ -315,6 +321,12 @@ private fun ServiceDetailContent(
     service.paymentType.takeIf(String::isNotBlank)?.let { DetailValue("Payment Type", it) }
     service.serviceCenterName.takeIf(String::isNotBlank)?.let { DetailValue("Service Center", it) }
     service.serviceCenterAddress.takeIf(String::isNotBlank)?.let { DetailValue("Service Address", it) }
+    LocationDetailValue(
+        label = "Coordinates",
+        latitude = service.latitude,
+        longitude = service.longitude,
+        mapLabel = service.serviceCenterAddress.ifBlank { service.serviceCenterName.ifBlank { "Service" } },
+    )
     if (service.tags.isNotEmpty()) DetailValue("Tags", service.tags.joinToString(", "))
     service.notes.takeIf(String::isNotBlank)?.let { DetailValue("Notes", it) }
 }
@@ -334,6 +346,12 @@ private fun ExpenseDetailContent(
     expense.paymentType.takeIf(String::isNotBlank)?.let { DetailValue("Payment Type", it) }
     expense.expenseCenterName.takeIf(String::isNotBlank)?.let { DetailValue("Expense Center", it) }
     expense.expenseCenterAddress.takeIf(String::isNotBlank)?.let { DetailValue("Expense Address", it) }
+    LocationDetailValue(
+        label = "Coordinates",
+        latitude = expense.latitude,
+        longitude = expense.longitude,
+        mapLabel = expense.expenseCenterAddress.ifBlank { expense.expenseCenterName.ifBlank { "Expense" } },
+    )
     if (expense.tags.isNotEmpty()) DetailValue("Tags", expense.tags.joinToString(", "))
     expense.notes.takeIf(String::isNotBlank)?.let { DetailValue("Notes", it) }
 }
@@ -347,9 +365,21 @@ private fun TripDetailContent(
     DetailValue("Start", trip.startDateTime.format(DetailDateFormatter))
     DetailValue("Start Odometer", "${trip.startOdometerReading.toStableString()} ${trip.distanceUnit.storageValue}")
     trip.startLocation.takeIf(String::isNotBlank)?.let { DetailValue("Start Location", it) }
+    LocationDetailValue(
+        label = "Start Coordinates",
+        latitude = trip.startLatitude,
+        longitude = trip.startLongitude,
+        mapLabel = trip.startLocation.ifBlank { "Trip Start" },
+    )
     trip.endDateTime?.let { DetailValue("End", it.format(DetailDateFormatter)) }
     trip.endOdometerReading?.let { DetailValue("End Odometer", "${it.toStableString()} ${trip.distanceUnit.storageValue}") }
     trip.endLocation.takeIf(String::isNotBlank)?.let { DetailValue("End Location", it) }
+    LocationDetailValue(
+        label = "End Coordinates",
+        latitude = trip.endLatitude,
+        longitude = trip.endLongitude,
+        mapLabel = trip.endLocation.ifBlank { "Trip End" },
+    )
     trip.tripTypeId?.let { id -> tripNames[id]?.let { DetailValue("Trip Type", it) } }
     trip.distance?.let { DetailValue("Distance", "${it.toStableString()} ${trip.distanceUnit.storageValue}") }
     trip.durationMillis?.let {
@@ -376,6 +406,21 @@ private fun DetailValue(
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun LocationDetailValue(
+    label: String,
+    latitude: Double?,
+    longitude: Double?,
+    mapLabel: String,
+) {
+    val context = LocalContext.current
+    if (latitude == null || longitude == null) return
+    DetailValue(label, formatCoordinates(latitude, longitude))
+    TextButton(onClick = { context.openCoordinatesOnMap(latitude, longitude, mapLabel) }) {
+        Text("Open Map")
     }
 }
 

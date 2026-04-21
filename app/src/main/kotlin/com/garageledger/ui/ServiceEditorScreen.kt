@@ -71,6 +71,8 @@ fun ServiceEditorScreen(
     var paymentType by rememberSaveable { mutableStateOf("") }
     var centerName by rememberSaveable { mutableStateOf("") }
     var centerAddress by rememberSaveable { mutableStateOf("") }
+    var latitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var longitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var tagsText by rememberSaveable { mutableStateOf("") }
     var notesText by rememberSaveable { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -89,6 +91,8 @@ fun ServiceEditorScreen(
             paymentType = record.paymentType
             centerName = record.serviceCenterName
             centerAddress = record.serviceCenterAddress
+            latitude = record.latitude
+            longitude = record.longitude
             tagsText = record.tags.joinToString(", ")
             notesText = record.notes
             selectedTypeIds = record.serviceTypeIds.toSet()
@@ -226,6 +230,23 @@ fun ServiceEditorScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 label = { Text("Service Center Address") },
                             )
+                            LocationActionSection(
+                                title = "Service Coordinates",
+                                locationEnabled = preferences.useLocation,
+                                latitude = latitude,
+                                longitude = longitude,
+                                mapLabel = centerAddress.ifBlank { centerName.ifBlank { "Service" } },
+                                captureLabel = "Use Current Location",
+                                onCaptured = { coordinate ->
+                                    latitude = coordinate.latitude
+                                    longitude = coordinate.longitude
+                                },
+                                onCleared = {
+                                    latitude = null
+                                    longitude = null
+                                },
+                                onError = { errorMessage = it },
+                            )
                         }
                         if (showTags) {
                             OutlinedTextField(
@@ -283,6 +304,8 @@ fun ServiceEditorScreen(
                                         paymentType = paymentType,
                                         serviceCenterName = centerName,
                                         serviceCenterAddress = centerAddress,
+                                        latitude = latitude,
+                                        longitude = longitude,
                                         tags = tagsText.split(",").map(String::trim).filter(String::isNotBlank),
                                         notes = notesText,
                                         serviceTypeIds = selectedTypeIds.toList().sorted(),
