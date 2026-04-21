@@ -59,7 +59,19 @@ Current support is fill-up focused and handles these common columns:
 - `missed_fuelup`
 - `partial_fuelup`
 
-The parser already accepts an explicit field-mapping dictionary so the UI can grow into a real mapping screen later without rewriting the importer.
+Importer behavior:
+
+- Opens through the Import & Export Center and targets an existing vehicle
+- Previews detected headers and sample rows before writing anything
+- Suggests field mappings from common Fuelly-style column names
+- Lets the user override distance and volume units when headers are ambiguous
+- Blocks import until odometer, volume, total price, and date are mapped cleanly
+- Skips malformed rows with an import note instead of silently inventing values
+
+Current assumptions:
+
+- Fuelly import still focuses on total-price CSVs, not separate price-per-unit exports
+- Ambiguous `odometer` or `volume` headers default to the current local unit setting until the user changes them
 
 ## Current export formats
 

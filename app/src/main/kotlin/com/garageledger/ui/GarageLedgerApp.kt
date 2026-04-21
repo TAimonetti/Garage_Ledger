@@ -74,9 +74,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.garageledger.core.model.VolumeUnit
 import com.garageledger.data.GarageRepository
 import com.garageledger.data.backup.LocalBackupManager
 import com.garageledger.domain.model.AppPreferenceSnapshot
+import com.garageledger.domain.model.FuellyCsvImportConfig
+import com.garageledger.domain.model.FuellyCsvPreview
+import com.garageledger.domain.model.FuellyImportField
 import com.garageledger.domain.model.ImportReport
 import com.garageledger.domain.model.Vehicle
 import com.garageledger.domain.model.VehicleDetailBundle
@@ -845,10 +849,24 @@ private fun ImportScreen(
 ) {
     val scope = rememberCoroutineScope()
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
+    val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     var lastReport by remember { mutableStateOf<ImportReport?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
     var exportMessage by remember { mutableStateOf<String?>(null) }
+    var fuellyPreview by remember { mutableStateOf<FuellyCsvPreview?>(null) }
+    var fuellyFileUri by remember { mutableStateOf<Uri?>(null) }
+    var fuellyFileLabel by remember { mutableStateOf<String?>(null) }
+    var fuellySelectedVehicleId by remember { mutableStateOf<Long?>(null) }
+    var fuellyFieldMapping by remember { mutableStateOf<Map<FuellyImportField, String?>>(emptyMap()) }
+    var fuellyDistanceUnit by remember { mutableStateOf(preferences.distanceUnit) }
+    var fuellyVolumeUnit by remember { mutableStateOf(if (preferences.volumeUnit == VolumeUnit.LITERS) VolumeUnit.LITERS else VolumeUnit.GALLONS_US) }
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(vehicles) {
+        if (vehicles.isNotEmpty() && vehicles.none { it.id == fuellySelectedVehicleId }) {
+            fuellySelectedVehicleId = vehicles.first().id
+        }
+    }
 
     fun runImport(importer: suspend (InputStream) -> ImportReport, uri: Uri?) {
         if (uri == null) return
@@ -861,6 +879,27 @@ private fun ImportScreen(
                 lastReport = it
                 importError = null
                 exportMessage = null
+            }.onFailure {
+                importError = it.message
+            }
+        }
+    }
+
+    fun runFuellyImport(uri: Uri?, config: FuellyCsvImportConfig) {
+        if (uri == null) return
+        scope.launch {
+            runCatching {
+                val stream = context.contentResolver.openInputStream(uri)
+                    ?: error("Unable to open selected Fuelly CSV.")
+                stream.use { repository.importFuellyCsv(it, config) }
+            }.onSuccess {
+                lastReport = it
+                importError = null
+                exportMessage = null
+                fuellyPreview = null
+                fuellyFileUri = null
+                fuellyFileLabel = null
+                fuellyFieldMapping = emptyMap()
             }.onFailure {
                 importError = it.message
             }
@@ -889,6 +928,28 @@ private fun ImportScreen(
     val acarCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         runImport(repository::importAcarCsv, uri)
     }
+    val fuellyCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                val stream = context.contentResolver.openInputStream(uri)
+                    ?: error("Unable to open selected Fuelly CSV.")
+                stream.use { repository.previewFuellyCsv(it) }
+            }.onSuccess { preview ->
+                fuellyFileUri = uri
+                fuellyFileLabel = uri.lastPathSegment?.substringAfterLast('/')
+                fuellyPreview = preview
+                fuellyFieldMapping = FuellyImportField.entries.associateWith { preview.suggestedMapping[it] }
+                fuellyDistanceUnit = preview.suggestedDistanceUnit ?: preferences.distanceUnit
+                fuellyVolumeUnit = preview.suggestedVolumeUnit
+                    ?: if (preferences.volumeUnit == VolumeUnit.LITERS) VolumeUnit.LITERS else VolumeUnit.GALLONS_US
+                importError = null
+                exportMessage = null
+            }.onFailure {
+                importError = it.message
+            }
+        }
+    }
     val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         runExport(repository::exportSectionedCsv, uri, "Readable CSV export saved.")
     }
@@ -908,6 +969,28 @@ private fun ImportScreen(
 
     fun notificationPermissionGranted(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    val fuellyConfig = fuellySelectedVehicleId?.let { vehicleId ->
+        FuellyCsvImportConfig(
+            vehicleId = vehicleId,
+            fieldMapping = fuellyFieldMapping.mapNotNull { (field, header) -> header?.let { field to it } }.toMap(),
+            distanceUnit = fuellyDistanceUnit,
+            volumeUnit = fuellyVolumeUnit,
+        )
+    }
+    val fuellyValidationErrors = fuellyPreview?.let { preview ->
+        buildList {
+            if (vehicles.isNotEmpty() && fuellySelectedVehicleId == null) {
+                add("Choose a vehicle for the imported Fuelly fill-ups.")
+            }
+            if (vehicles.isEmpty()) {
+                add("At least one vehicle must exist before Fuelly data can be imported.")
+            }
+            if (fuellyConfig != null) {
+                addAll(fuellyConfig.validationErrors(preview.headers))
+            }
+        }
+    }.orEmpty()
 
     Scaffold(
         topBar = {
@@ -1013,6 +1096,30 @@ private fun ImportScreen(
                         }
                     }
                 }
+            }
+            item {
+                FuellyImportCard(
+                    vehicles = vehicles,
+                    fileLabel = fuellyFileLabel,
+                    preview = fuellyPreview,
+                    selectedVehicleId = fuellySelectedVehicleId,
+                    onVehicleSelected = { fuellySelectedVehicleId = it },
+                    fieldMapping = fuellyFieldMapping,
+                    onFieldMapped = { field, header ->
+                        fuellyFieldMapping = fuellyFieldMapping.toMutableMap().apply { put(field, header) }
+                    },
+                    distanceUnit = fuellyDistanceUnit,
+                    onDistanceUnitSelected = { fuellyDistanceUnit = it },
+                    volumeUnit = fuellyVolumeUnit,
+                    onVolumeUnitSelected = { fuellyVolumeUnit = it },
+                    validationErrors = fuellyValidationErrors,
+                    onPickFile = { fuellyCsvLauncher.launch(arrayOf("text/*", "*/*")) },
+                    onImport = {
+                        fuellyConfig?.let { config ->
+                            runFuellyImport(fuellyFileUri, config)
+                        }
+                    },
+                )
             }
             item {
                 Card {

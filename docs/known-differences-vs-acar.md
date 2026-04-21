@@ -26,7 +26,6 @@ This build is intentionally focused on data fidelity and the most important work
 
 - Optional fuel-efficiency and fuel-price widgets
 - Optional HTML statistics export
-- Fuelly CSV import field-mapping UI
 
 ## Intentional differences in the current build
 
