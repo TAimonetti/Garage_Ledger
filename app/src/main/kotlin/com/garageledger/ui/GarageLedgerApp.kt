@@ -125,6 +125,7 @@ fun GarageLedgerApp(
                 onOpenReminders = { navController.navigate("reminders/$it") },
                 onOpenSettings = { navController.navigate("settings") },
                 onOpenTypes = { navController.navigate("types") },
+                onOpenVehicleParts = { navController.navigate("vehicle-parts/$it") },
                 onOpenVehicle = { navController.navigate("vehicle/$it") },
                 onAddVehicle = { navController.navigate("vehicle-edit/-1") },
                 onAddFuelUp = { navController.navigate("fuelup/$it/-1") },
@@ -475,6 +476,7 @@ private fun ConsoleScreen(
     onOpenReminders: (Long) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
+    onOpenVehicleParts: (Long) -> Unit,
     onOpenVehicle: (Long) -> Unit,
     onAddVehicle: () -> Unit,
     onAddFuelUp: (Long) -> Unit,
@@ -581,6 +583,7 @@ private fun ConsoleScreen(
                     onOpenReminders = { onOpenReminders(selectedVehicle?.id ?: -1L) },
                     onOpenSettings = onOpenSettings,
                     onOpenTypes = onOpenTypes,
+                    onOpenVehicleParts = { selectedVehicle?.id?.let(onOpenVehicleParts) },
                     onOpenVehicle = { selectedVehicle?.id?.let(onOpenVehicle) },
                     onAddVehicle = onAddVehicle,
                     onAddFuelUp = { selectedVehicle?.id?.let(onAddFuelUp) },
@@ -729,6 +732,7 @@ private fun ConsoleScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ActionGrid(
     hasSelectedVehicle: Boolean,
@@ -740,6 +744,7 @@ private fun ActionGrid(
     onOpenReminders: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTypes: () -> Unit,
+    onOpenVehicleParts: () -> Unit,
     onOpenVehicle: () -> Unit,
     onAddVehicle: () -> Unit,
     onAddFuelUp: () -> Unit,
@@ -748,31 +753,34 @@ private fun ActionGrid(
     onAddTrip: () -> Unit,
 ) {
     val actions = listOf(
-        DashboardAction("Import/Export", Icons.Outlined.Archive, onOpenImport),
-        DashboardAction("Vehicles", Icons.Outlined.Storage, onOpenVehicles),
-        DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
-        DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats),
-        DashboardAction("Predictions", Icons.Outlined.LocalGasStation, onOpenPredictions, enabled = hasSelectedVehicle),
-        DashboardAction("Reminders", Icons.Outlined.Notifications, onOpenReminders),
-        DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
-        DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
-        DashboardAction("Add Vehicle", Icons.Outlined.DirectionsCar, onAddVehicle),
-        DashboardAction("Vehicle Details", Icons.Outlined.Edit, onOpenVehicle, enabled = hasSelectedVehicle),
         DashboardAction("Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
         DashboardAction("Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
         DashboardAction("Expense", Icons.AutoMirrored.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
         DashboardAction("Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
+        DashboardAction("Add Vehicle", Icons.Outlined.DirectionsCar, onAddVehicle),
+        DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
+        DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats, enabled = hasSelectedVehicle),
+        DashboardAction("Charts", Icons.Outlined.BarChart, onOpenStats, enabled = hasSelectedVehicle),
+        DashboardAction("Vehicle Details", Icons.Outlined.Edit, onOpenVehicle, enabled = hasSelectedVehicle),
+        DashboardAction("Reminders", Icons.Outlined.Notifications, onOpenReminders, enabled = hasSelectedVehicle),
+        DashboardAction("Vehicle Parts", Icons.Outlined.Build, onOpenVehicleParts, enabled = hasSelectedVehicle),
+        DashboardAction("Predictions", Icons.Outlined.LocalGasStation, onOpenPredictions, enabled = hasSelectedVehicle),
+        DashboardAction("Import/Export", Icons.Outlined.Archive, onOpenImport),
+        DashboardAction("Vehicles", Icons.Outlined.Storage, onOpenVehicles),
+        DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
+        DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
     )
-    LazyVerticalGrid(
-        modifier = Modifier.height(680.dp),
-        columns = GridCells.Fixed(3),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        userScrollEnabled = false,
+        maxItemsInEachRow = 3,
     ) {
-        items(actions) { action ->
+        actions.forEach { action ->
             Card(
-                modifier = Modifier.fillMaxSize().clickable(enabled = action.enabled, onClick = action.onClick),
+                modifier = Modifier
+                    .size(width = 104.dp, height = 90.dp)
+                    .clickable(enabled = action.enabled, onClick = action.onClick),
                 colors = CardDefaults.cardColors(
                     containerColor = if (action.enabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
                 ),

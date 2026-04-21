@@ -3,6 +3,7 @@ package com.garageledger.ui
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -14,6 +15,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +25,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -236,6 +243,60 @@ internal fun SuggestionRow(
     ) {
         suggestions.take(limit).forEach { suggestion ->
             AssistChip(onClick = { onSelect(suggestion) }, label = { Text(suggestion) })
+        }
+    }
+}
+
+@Composable
+internal fun EditableSuggestionField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    suggestions: List<String>,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    onSuggestionSelected: (String) -> Unit = onValueChange,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val filteredSuggestions = remember(value, suggestions) {
+        val query = value.trim()
+        suggestions
+            .filter { query.isBlank() || it.contains(query, ignoreCase = true) }
+            .distinct()
+    }
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = suggestions.isNotEmpty()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(label) },
+            singleLine = singleLine,
+            minLines = minLines,
+            trailingIcon = {
+                if (suggestions.isNotEmpty()) {
+                    IconButton(onClick = { expanded = !expanded }) {
+                        Text(if (expanded) "▲" else "▼")
+                    }
+                }
+            },
+        )
+        DropdownMenu(
+            expanded = expanded && filteredSuggestions.isNotEmpty(),
+            onDismissRequest = { expanded = false },
+        ) {
+            filteredSuggestions.take(12).forEach { suggestion ->
+                DropdownMenuItem(
+                    text = { Text(suggestion) },
+                    onClick = {
+                        onSuggestionSelected(suggestion)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
