@@ -10,6 +10,7 @@ import com.garageledger.data.export.StatisticsHtmlExporter
 import com.garageledger.data.importer.AcarAbpImporter
 import com.garageledger.data.importer.AcarCsvImporter
 import com.garageledger.data.importer.FuellyCsvImporter
+import com.garageledger.data.importer.OpenJsonBackupImporter
 import com.garageledger.data.local.ExpenseRecordEntity
 import com.garageledger.data.local.ExpenseRecordTypeCrossRef
 import com.garageledger.data.local.FillUpRecordEntity
@@ -89,6 +90,7 @@ class GarageRepository(
     private val acarCsvImporter: AcarCsvImporter = AcarCsvImporter(),
     private val acarAbpImporter: AcarAbpImporter = AcarAbpImporter(),
     private val fuellyCsvImporter: FuellyCsvImporter = FuellyCsvImporter(),
+    private val openJsonBackupImporter: OpenJsonBackupImporter = OpenJsonBackupImporter(),
     private val browseRecordsCsvExporter: BrowseRecordsCsvExporter = BrowseRecordsCsvExporter(),
     private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
     private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
@@ -735,6 +737,12 @@ class GarageRepository(
         replaceExisting = true,
     )
 
+    suspend fun importOpenJsonBackup(inputStream: InputStream): ImportReport = persistImportedData(
+        sourceLabel = "Open Backup Zip",
+        imported = openJsonBackupImporter.import(inputStream),
+        replaceExisting = true,
+    )
+
     suspend fun previewFuellyCsv(inputStream: InputStream): FuellyCsvPreview = fuellyCsvImporter.preview(inputStream)
 
     suspend fun importFuellyCsv(
@@ -1085,6 +1093,7 @@ class GarageRepository(
         replaceExisting: Boolean,
     ): ImportReport {
         val affectedVehicleIds = mutableSetOf<Long>()
+        val persistenceIssues = mutableListOf<ImportIssue>()
         database.withTransaction {
             if (replaceExisting) {
                 dao.clearServiceCrossRefs()
@@ -1110,79 +1119,198 @@ class GarageRepository(
             val expenseTypeIdMap = upsertExpenseTypes(imported.expenseTypes, replaceExisting)
             val tripTypeIdMap = upsertTripTypes(imported.tripTypes, replaceExisting)
             val fuelTypeIdMap = upsertFuelTypes(imported.fuelTypes, replaceExisting)
+            val fillUpIdMap = mutableMapOf<Long, Long>()
+            val serviceIdMap = mutableMapOf<Long, Long>()
+            val expenseIdMap = mutableMapOf<Long, Long>()
+            val tripIdMap = mutableMapOf<Long, Long>()
 
             if (imported.vehicleParts.isNotEmpty()) {
-                dao.insertVehicleParts(
-                    imported.vehicleParts.mapNotNull { part ->
-                        val mappedVehicleId = vehicleIdMap[part.vehicleId] ?: return@mapNotNull null
+                val partEntities = imported.vehicleParts.mapNotNull { part ->
+                    val mappedVehicleId = vehicleIdMap[part.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped vehicle part '${part.name}' because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
                         part.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L)
-                    },
-                )
+                    }
+                }
+                if (partEntities.isNotEmpty()) {
+                    dao.insertVehicleParts(partEntities)
+                }
             }
 
             if (imported.fillUpRecords.isNotEmpty()) {
-                dao.insertFillUps(
-                    imported.fillUpRecords.mapNotNull { fillUp ->
-                        val mappedVehicleId = vehicleIdMap[fillUp.vehicleId] ?: return@mapNotNull null
-                        fillUp.toEntity(vehicleIdOverride = mappedVehicleId).copy(
+                val preparedFillUps = imported.fillUpRecords.mapNotNull { fillUp ->
+                    val mappedVehicleId = vehicleIdMap[fillUp.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped fill-up on ${fillUp.dateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        (fillUp.legacySourceId ?: fillUp.id) to fillUp.toEntity(vehicleIdOverride = mappedVehicleId).copy(
                             id = 0L,
                             fuelTypeId = fillUp.fuelTypeId?.let(fuelTypeIdMap::get),
                         )
-                    },
-                )
+                    }
+                }
+                if (preparedFillUps.isNotEmpty()) {
+                    val fillUpIds = dao.insertFillUps(preparedFillUps.map { it.second })
+                    preparedFillUps.zip(fillUpIds).forEach { (prepared, insertedId) ->
+                        if (prepared.first > 0L) {
+                            fillUpIdMap[prepared.first] = insertedId
+                        }
+                    }
+                }
             }
 
             if (imported.serviceRecords.isNotEmpty()) {
-                val serviceEntities = imported.serviceRecords.mapNotNull { record ->
-                    val mappedVehicleId = vehicleIdMap[record.vehicleId] ?: return@mapNotNull null
-                    record.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L)
+                val preparedServices = imported.serviceRecords.mapNotNull { record ->
+                    val mappedVehicleId = vehicleIdMap[record.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped service record on ${record.dateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        Triple(
+                            record.legacySourceId ?: record.id,
+                            record,
+                            record.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L),
+                        )
+                    }
                 }
-                val serviceIds = dao.insertServices(serviceEntities)
-                val crossRefs = imported.serviceRecords.zip(serviceIds).flatMap { (record, insertedId) ->
-                    record.serviceTypeIds.mapNotNull { legacyTypeId ->
+                val serviceIds = if (preparedServices.isNotEmpty()) dao.insertServices(preparedServices.map { it.third }) else emptyList()
+                preparedServices.zip(serviceIds).forEach { (prepared, insertedId) ->
+                    if (prepared.first > 0L) {
+                        serviceIdMap[prepared.first] = insertedId
+                    }
+                }
+                val crossRefs = preparedServices.zip(serviceIds).flatMap { (prepared, insertedId) ->
+                    prepared.second.serviceTypeIds.mapNotNull { legacyTypeId ->
                         serviceTypeIdMap[legacyTypeId]?.let { ServiceRecordTypeCrossRef(insertedId, it) }
                     }
                 }
-                dao.insertServiceCrossRefs(crossRefs)
+                if (crossRefs.isNotEmpty()) {
+                    dao.insertServiceCrossRefs(crossRefs)
+                }
             }
 
             if (imported.expenseRecords.isNotEmpty()) {
-                val expenseEntities = imported.expenseRecords.mapNotNull { record ->
-                    val mappedVehicleId = vehicleIdMap[record.vehicleId] ?: return@mapNotNull null
-                    record.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L)
+                val preparedExpenses = imported.expenseRecords.mapNotNull { record ->
+                    val mappedVehicleId = vehicleIdMap[record.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped expense record on ${record.dateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        Triple(
+                            record.legacySourceId ?: record.id,
+                            record,
+                            record.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L),
+                        )
+                    }
                 }
-                val expenseIds = dao.insertExpenses(expenseEntities)
-                val crossRefs = imported.expenseRecords.zip(expenseIds).flatMap { (record, insertedId) ->
-                    record.expenseTypeIds.mapNotNull { legacyTypeId ->
+                val expenseIds = if (preparedExpenses.isNotEmpty()) dao.insertExpenses(preparedExpenses.map { it.third }) else emptyList()
+                preparedExpenses.zip(expenseIds).forEach { (prepared, insertedId) ->
+                    if (prepared.first > 0L) {
+                        expenseIdMap[prepared.first] = insertedId
+                    }
+                }
+                val crossRefs = preparedExpenses.zip(expenseIds).flatMap { (prepared, insertedId) ->
+                    prepared.second.expenseTypeIds.mapNotNull { legacyTypeId ->
                         expenseTypeIdMap[legacyTypeId]?.let { ExpenseRecordTypeCrossRef(insertedId, it) }
                     }
                 }
-                dao.insertExpenseCrossRefs(crossRefs)
+                if (crossRefs.isNotEmpty()) {
+                    dao.insertExpenseCrossRefs(crossRefs)
+                }
             }
 
             if (imported.tripRecords.isNotEmpty()) {
-                dao.insertTrips(
-                    imported.tripRecords.mapNotNull { trip ->
-                        val mappedVehicleId = vehicleIdMap[trip.vehicleId] ?: return@mapNotNull null
-                        trip.toEntity(vehicleIdOverride = mappedVehicleId).copy(
+                val preparedTrips = imported.tripRecords.mapNotNull { trip ->
+                    val mappedVehicleId = vehicleIdMap[trip.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped trip starting ${trip.startDateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        (trip.legacySourceId ?: trip.id) to trip.toEntity(vehicleIdOverride = mappedVehicleId).copy(
                             id = 0L,
                             tripTypeId = trip.tripTypeId?.let(tripTypeIdMap::get),
                         )
-                    },
-                )
+                    }
+                }
+                if (preparedTrips.isNotEmpty()) {
+                    val tripIds = dao.insertTrips(preparedTrips.map { it.second })
+                    preparedTrips.zip(tripIds).forEach { (prepared, insertedId) ->
+                        if (prepared.first > 0L) {
+                            tripIdMap[prepared.first] = insertedId
+                        }
+                    }
+                }
             }
 
             if (imported.serviceReminders.isNotEmpty()) {
-                dao.insertServiceReminders(
-                    imported.serviceReminders.mapNotNull { reminder ->
-                        val mappedVehicleId = vehicleIdMap[reminder.vehicleId] ?: return@mapNotNull null
-                        val mappedServiceTypeId = serviceTypeIdMap[reminder.serviceTypeId] ?: return@mapNotNull null
+                val reminderEntities = imported.serviceReminders.mapNotNull { reminder ->
+                    val mappedVehicleId = vehicleIdMap[reminder.vehicleId]
+                    val mappedServiceTypeId = serviceTypeIdMap[reminder.serviceTypeId]
+                    if (mappedVehicleId == null || mappedServiceTypeId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped reminder for vehicle ${reminder.vehicleId} because one of its references could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
                         reminder.toEntity(
                             vehicleIdOverride = mappedVehicleId,
                             serviceTypeIdOverride = mappedServiceTypeId,
                         ).copy(id = 0L)
-                    },
-                )
+                    }
+                }
+                if (reminderEntities.isNotEmpty()) {
+                    dao.insertServiceReminders(reminderEntities)
+                }
+            }
+
+            if (imported.attachments.isNotEmpty()) {
+                val attachmentEntities = imported.attachments.mapNotNull { attachment ->
+                    val mappedVehicleId = vehicleIdMap[attachment.vehicleId]
+                    val mappedRecordId = when (attachment.recordFamily) {
+                        RecordFamily.FILL_UP -> fillUpIdMap[attachment.recordId]
+                        RecordFamily.SERVICE -> serviceIdMap[attachment.recordId]
+                        RecordFamily.EXPENSE -> expenseIdMap[attachment.recordId]
+                        RecordFamily.TRIP -> tripIdMap[attachment.recordId]
+                    }
+                    if (mappedVehicleId == null || mappedRecordId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped attachment '${attachment.displayName.ifBlank { attachment.uri }}' because its record reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        attachment.copy(vehicleId = mappedVehicleId, recordId = mappedRecordId).toEntity().copy(id = 0L)
+                    }
+                }
+                if (attachmentEntities.isNotEmpty()) {
+                    dao.insertRecordAttachments(attachmentEntities)
+                }
             }
         }
 
@@ -1203,12 +1331,13 @@ class GarageRepository(
             expenseRecordsImported = imported.expenseRecords.size,
             tripRecordsImported = imported.tripRecords.size,
             vehiclePartsImported = imported.vehicleParts.size,
+            attachmentsImported = imported.attachments.size,
             serviceTypesImported = imported.serviceTypes.size,
             expenseTypesImported = imported.expenseTypes.size,
             tripTypesImported = imported.tripTypes.size,
             fuelTypesImported = imported.fuelTypes.size,
-            skippedRows = imported.issues.count { it.severity == ImportIssue.Severity.ERROR },
-            issues = imported.issues,
+            skippedRows = (imported.issues + persistenceIssues).count { it.severity == ImportIssue.Severity.ERROR },
+            issues = imported.issues + persistenceIssues,
         )
     }
 

@@ -1364,6 +1364,9 @@ private fun ImportScreen(
     val acarCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         runImport(repository::importAcarCsv, uri)
     }
+    val openBackupImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        runImport(repository::importOpenJsonBackup, uri)
+    }
     val fuellyCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
@@ -1574,7 +1577,12 @@ private fun ImportScreen(
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Open Zipped Backup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Export the full local ledger to a documented zipped JSON bundle.")
+                        Text("Export the full local ledger to a documented zipped JSON bundle, or restore one back into local storage.")
+                        Button(onClick = { openBackupImportLauncher.launch(arrayOf("application/zip", "*/*")) }) {
+                            Icon(Icons.Outlined.FileUpload, contentDescription = null)
+                            Spacer(Modifier.size(8.dp))
+                            Text("Restore Backup Zip")
+                        }
                         Button(onClick = { exportBackupLauncher.launch("garage-ledger-backup.zip") }) {
                             Icon(Icons.Outlined.Archive, contentDescription = null)
                             Spacer(Modifier.size(8.dp))
@@ -1615,6 +1623,9 @@ private fun ImportScreen(
                             SummaryChip("Services", report.serviceRecordsImported.toString())
                             SummaryChip("Expenses", report.expenseRecordsImported.toString())
                             SummaryChip("Trips", report.tripRecordsImported.toString())
+                            if (report.attachmentsImported > 0) {
+                                SummaryChip("Attachments", report.attachmentsImported.toString())
+                            }
                             if (report.issues.isNotEmpty()) {
                                 Text("Import Notes", fontWeight = FontWeight.SemiBold)
                                 report.issues.take(8).forEach { issue ->

@@ -14,6 +14,7 @@ data class ImportedGarageData(
     val serviceRecords: List<ServiceRecord> = emptyList(),
     val expenseRecords: List<ExpenseRecord> = emptyList(),
     val tripRecords: List<TripRecord> = emptyList(),
+    val attachments: List<RecordAttachment> = emptyList(),
     val issues: List<ImportIssue> = emptyList(),
 )
 
@@ -38,6 +39,7 @@ data class ImportReport(
     val expenseRecordsImported: Int = 0,
     val tripRecordsImported: Int = 0,
     val vehiclePartsImported: Int = 0,
+    val attachmentsImported: Int = 0,
     val serviceTypesImported: Int = 0,
     val expenseTypesImported: Int = 0,
     val tripTypesImported: Int = 0,
