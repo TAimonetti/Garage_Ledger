@@ -52,6 +52,7 @@ fun FuelUpEditorScreen(
 ) {
     val scope = rememberCoroutineScope()
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
+    val fuelTypes by repository.observeFuelTypes().collectAsStateWithLifecycle(initialValue = emptyList())
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = com.garageledger.domain.model.AppPreferenceSnapshot())
     val fillUps by produceState(initialValue = emptyList<FillUpRecord>(), key1 = vehicleId) {
         value = repository.getVehicleFillUps(vehicleId)
@@ -92,6 +93,7 @@ fun FuelUpEditorScreen(
     var fuelBrand by rememberSaveable { mutableStateOf("") }
     var stationAddress by rememberSaveable { mutableStateOf("") }
     var fuelTypeText by rememberSaveable { mutableStateOf("") }
+    var selectedFuelTypeId by rememberSaveable { mutableStateOf<Long?>(null) }
     var hasFuelAdditive by rememberSaveable { mutableStateOf(false) }
     var fuelAdditiveName by rememberSaveable { mutableStateOf("") }
     var drivingMode by rememberSaveable { mutableStateOf("") }
@@ -121,6 +123,7 @@ fun FuelUpEditorScreen(
             fuelBrand = record.fuelBrand
             stationAddress = record.stationAddress
             fuelTypeText = record.importedFuelTypeText.orEmpty()
+            selectedFuelTypeId = record.fuelTypeId
             hasFuelAdditive = record.hasFuelAdditive
             fuelAdditiveName = record.fuelAdditiveName
             drivingMode = record.drivingMode
@@ -143,6 +146,12 @@ fun FuelUpEditorScreen(
         attachmentsInitialized = true
     }
 
+    LaunchedEffect(fuelTypes, selectedFuelTypeId) {
+        if (selectedFuelTypeId != null && fuelTypeText.isBlank()) {
+            fuelTypeText = fuelTypes.firstOrNull { it.id == selectedFuelTypeId }?.displayName.orEmpty()
+        }
+    }
+
     val editorDateTime = remember(dateTimeText) { parseEditorDateTime(dateTimeText) }
     val previousFillUp = remember(fillUps, editorDateTime, recordId) {
         fillUps
@@ -156,6 +165,7 @@ fun FuelUpEditorScreen(
     val volumeUnit = selectedVehicle?.volumeUnitOverride ?: preferences.volumeUnit
     val fuelEfficiencyUnit = selectedVehicle?.fuelEfficiencyUnitOverride ?: preferences.fuelEfficiencyUnit
     val visibleFields = preferences.visibleFields
+    val fuelTypeSuggestions = remember(fuelTypes) { fuelTypes.map { it.displayName } }
     val showPaymentType = com.garageledger.domain.model.OptionalFieldToggle.PAYMENT_TYPE in visibleFields
     val showFuelType = com.garageledger.domain.model.OptionalFieldToggle.FUEL_TYPE in visibleFields
     val showFuelAdditive = com.garageledger.domain.model.OptionalFieldToggle.FUEL_ADDITIVE in visibleFields
@@ -305,53 +315,63 @@ fun FuelUpEditorScreen(
                         ToggleRow("Partial Fill-Up", partial) { partial = it }
                         ToggleRow("Previous Missed Fill-Ups", missed) { missed = it }
                         if (showPaymentType) {
-                            OutlinedTextField(
+                            EditableSuggestionField(
                                 value = paymentType,
                                 onValueChange = { paymentType = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Payment Type") },
-                                singleLine = true,
+                                label = "Payment Type",
+                                suggestions = paymentSuggestions,
                             )
-                            SuggestionRow(paymentSuggestions) { paymentType = it }
                         }
                         if (showFuelType) {
-                            OutlinedTextField(
+                            EditableSuggestionField(
                                 value = fuelTypeText,
-                                onValueChange = { fuelTypeText = it },
+                                onValueChange = { typed ->
+                                    fuelTypeText = typed
+                                    selectedFuelTypeId = fuelTypes.firstOrNull {
+                                        it.displayName.equals(typed, ignoreCase = true)
+                                    }?.id
+                                },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Fuel Type") },
-                                singleLine = true,
+                                label = "Fuel Type",
+                                suggestions = fuelTypeSuggestions,
+                                onSuggestionSelected = { selected ->
+                                    fuelTypeText = selected
+                                    selectedFuelTypeId = fuelTypes.firstOrNull {
+                                        it.displayName.equals(selected, ignoreCase = true)
+                                    }?.id
+                                },
                             )
                         }
                         if (showFuelAdditive) {
                             ToggleRow("Fuel Additive", hasFuelAdditive) { hasFuelAdditive = it }
                             if (hasFuelAdditive) {
-                                OutlinedTextField(
+                                EditableSuggestionField(
                                     value = fuelAdditiveName,
                                     onValueChange = { fuelAdditiveName = it },
                                     modifier = Modifier.fillMaxWidth(),
-                                    label = { Text("Fuel Additive Name") },
-                                    singleLine = true,
+                                    label = "Fuel Additive Name",
+                                    suggestions = additiveSuggestions,
                                 )
-                                SuggestionRow(additiveSuggestions) { fuelAdditiveName = it }
                             }
                         }
                         if (showFuelingStation) {
-                            OutlinedTextField(
+                            EditableSuggestionField(
                                 value = fuelBrand,
                                 onValueChange = { fuelBrand = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Fuel Brand") },
-                                singleLine = true,
+                                label = "Fuel Brand",
+                                suggestions = brandSuggestions,
                             )
-                            SuggestionRow(brandSuggestions) { fuelBrand = it }
-                            OutlinedTextField(
+                            EditableSuggestionField(
                                 value = stationAddress,
                                 onValueChange = { stationAddress = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Station Address") },
+                                label = "Station Address",
+                                suggestions = stationSuggestions,
+                                singleLine = false,
+                                minLines = 2,
                             )
-                            SuggestionRow(stationSuggestions) { stationAddress = it }
                             LocationActionSection(
                                 title = "Fueling Coordinates",
                                 locationEnabled = preferences.useLocation,
@@ -371,14 +391,13 @@ fun FuelUpEditorScreen(
                             )
                         }
                         if (showDrivingMode) {
-                            OutlinedTextField(
+                            EditableSuggestionField(
                                 value = drivingMode,
                                 onValueChange = { drivingMode = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Driving Mode") },
-                                singleLine = true,
+                                label = "Driving Mode",
+                                suggestions = drivingModeSuggestions,
                             )
-                            SuggestionRow(drivingModeSuggestions) { drivingMode = it }
                         }
                         if (showAverageSpeed) {
                             OutlinedTextField(
@@ -474,8 +493,8 @@ fun FuelUpEditorScreen(
                                         partial = partial,
                                         previousMissedFillups = missed,
                                         fuelEfficiencyUnit = fuelEfficiencyUnit,
-                                        fuelTypeId = existingRecord?.fuelTypeId,
-                                        importedFuelTypeText = fuelTypeText.ifBlank { null },
+                                        fuelTypeId = selectedFuelTypeId,
+                                        importedFuelTypeText = fuelTypeText.takeIf { selectedFuelTypeId == null && it.isNotBlank() },
                                         hasFuelAdditive = hasFuelAdditive,
                                         fuelAdditiveName = fuelAdditiveName,
                                         fuelBrand = fuelBrand,
