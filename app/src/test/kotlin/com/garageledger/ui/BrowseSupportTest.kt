@@ -4,6 +4,7 @@ import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.VehicleLifecycle
 import com.google.common.truth.Truth.assertThat
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -131,5 +132,38 @@ class BrowseSupportTest {
         assertThat(options.tripPurposeSuggestions).containsExactly("Client Visit")
         assertThat(options.tripClientSuggestions).containsExactly("ACME", "Beta").inOrder()
         assertThat(options.tripLocationSuggestions).containsExactly("Phoenix", "Tempe").inOrder()
+    }
+
+    @Test
+    fun buildBrowseActionItems_matchesTripStateAndRetiredVehicles() {
+        val openTrip = BrowseRecordItem(
+            recordId = 9L,
+            vehicleId = 3L,
+            vehicleName = "Altima",
+            family = RecordFamily.TRIP,
+            occurredAt = LocalDateTime.parse("2024-05-01T08:00:00"),
+            title = "Trip",
+            tripOpen = true,
+            searchText = "",
+        )
+        val retiredTrip = openTrip.copy(
+            recordId = 10L,
+            tripOpen = false,
+            vehicleLifecycle = VehicleLifecycle.RETIRED,
+        )
+
+        val openActions = buildBrowseActionItems(openTrip)
+        val retiredActions = buildBrowseActionItems(retiredTrip)
+
+        assertThat(openActions.map { it.action }).containsExactly(
+            BrowseRecordAction.VIEW,
+            BrowseRecordAction.EDIT,
+            BrowseRecordAction.FINISH_TRIP,
+            BrowseRecordAction.DELETE,
+        ).inOrder()
+        assertThat(openActions.first { it.action == BrowseRecordAction.FINISH_TRIP }.enabled).isTrue()
+        assertThat(retiredActions.first { it.action == BrowseRecordAction.COPY_TRIP }.enabled).isFalse()
+        assertThat(retiredActions.first { it.action == BrowseRecordAction.EDIT }.enabled).isFalse()
+        assertThat(retiredActions.first { it.action == BrowseRecordAction.DELETE }.enabled).isFalse()
     }
 }

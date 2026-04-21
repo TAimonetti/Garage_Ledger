@@ -130,7 +130,7 @@ fun GarageLedgerApp(
                 onAddService = { navController.navigate(serviceEditorRoute(it, -1L)) },
                 onAddExpense = { navController.navigate("expense/$it/-1") },
                 onAddTrip = { navController.navigate("trip/$it/-1") },
-                onEditTrip = { vehicleId, tripId -> navController.navigate("trip/$vehicleId/$tripId") },
+                onEditTrip = { vehicleId, tripId -> navController.navigate(tripEditorRoute(vehicleId, tripId, finishMode = true)) },
             )
         }
         composable(
@@ -331,6 +331,21 @@ fun GarageLedgerApp(
                 onOpenRecord = { item ->
                     navController.navigate("record/${item.family.routeSegment()}/${item.vehicleId}/${item.recordId}")
                 },
+                onEditRecord = { item ->
+                    val route = when (item.family) {
+                        com.garageledger.domain.model.RecordFamily.FILL_UP -> "fuelup/${item.vehicleId}/${item.recordId}"
+                        com.garageledger.domain.model.RecordFamily.SERVICE -> serviceEditorRoute(item.vehicleId, item.recordId)
+                        com.garageledger.domain.model.RecordFamily.EXPENSE -> "expense/${item.vehicleId}/${item.recordId}"
+                        com.garageledger.domain.model.RecordFamily.TRIP -> tripEditorRoute(item.vehicleId, item.recordId)
+                    }
+                    navController.navigate(route)
+                },
+                onCopyTrip = { item ->
+                    navController.navigate(tripEditorRoute(item.vehicleId, -1L, copyFromId = item.recordId))
+                },
+                onFinishTrip = { item ->
+                    navController.navigate(tripEditorRoute(item.vehicleId, item.recordId, finishMode = true))
+                },
             )
         }
         composable(
@@ -363,6 +378,14 @@ fun GarageLedgerApp(
                     }
                 },
                 onDeleted = { navController.popBackStack() },
+                onCopyTrip = {
+                    navController.navigate(tripEditorRoute(detailVehicleId, -1L, copyFromId = detailRecordId))
+                },
+                onFinishTrip = {
+                    navController.navigate(tripEditorRoute(detailVehicleId, detailRecordId, finishMode = true)) {
+                        popUpTo(detailRoute) { inclusive = true }
+                    }
+                },
             )
         }
         composable(
@@ -413,16 +436,26 @@ fun GarageLedgerApp(
             )
         }
         composable(
-            route = "trip/{vehicleId}/{recordId}",
+            route = "trip/{vehicleId}/{recordId}?copyFromId={copyFromId}&finishMode={finishMode}",
             arguments = listOf(
                 navArgument("vehicleId") { type = NavType.LongType },
                 navArgument("recordId") { type = NavType.LongType },
+                navArgument("copyFromId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                },
+                navArgument("finishMode") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
             ),
         ) { backStackEntry ->
             TripEditorScreen(
                 repository = repository,
                 vehicleId = backStackEntry.arguments?.getLong("vehicleId") ?: 0L,
                 recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L,
+                copyFromTripId = backStackEntry.arguments?.getLong("copyFromId")?.takeIf { it > 0L },
+                finishMode = backStackEntry.arguments?.getBoolean("finishMode") == true,
                 onBack = { navController.popBackStack() },
             )
         }
@@ -1618,6 +1651,28 @@ private fun serviceEditorRoute(
     seedTypeId?.takeIf { it > 0L }?.let {
         append("?seedTypeId=")
         append(it)
+    }
+}
+
+private fun tripEditorRoute(
+    vehicleId: Long,
+    recordId: Long,
+    copyFromId: Long? = null,
+    finishMode: Boolean = false,
+): String = buildString {
+    append("trip/")
+    append(vehicleId)
+    append("/")
+    append(recordId)
+    var hasQuery = false
+    copyFromId?.takeIf { it > 0L }?.let {
+        append("?copyFromId=")
+        append(it)
+        hasQuery = true
+    }
+    if (finishMode) {
+        append(if (hasQuery) "&" else "?")
+        append("finishMode=true")
     }
 }
 

@@ -4,6 +4,20 @@ import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.RecordFamily
 
+internal enum class BrowseRecordAction {
+    VIEW,
+    EDIT,
+    FINISH_TRIP,
+    COPY_TRIP,
+    DELETE,
+}
+
+internal data class BrowseRecordActionItem(
+    val action: BrowseRecordAction,
+    val label: String,
+    val enabled: Boolean = true,
+)
+
 internal data class BrowseFilterOptions(
     val tagSuggestions: List<String> = emptyList(),
     val subtypeSuggestions: List<String> = emptyList(),
@@ -74,6 +88,24 @@ internal fun buildBrowseFilterOptions(
         tripClientSuggestions = distinctSuggestions(scoped.map(BrowseRecordItem::tripClient)),
         tripLocationSuggestions = distinctSuggestions(scoped.flatMap(BrowseRecordItem::tripLocations)),
     )
+}
+
+internal fun buildBrowseActionItems(record: BrowseRecordItem): List<BrowseRecordActionItem> {
+    val modificationsAllowed = record.vehicleLifecycle.allowsRecordModification()
+    return buildList {
+        add(BrowseRecordActionItem(BrowseRecordAction.VIEW, "View"))
+        add(BrowseRecordActionItem(BrowseRecordAction.EDIT, "Edit", enabled = modificationsAllowed))
+        if (record.family == RecordFamily.TRIP) {
+            add(
+                BrowseRecordActionItem(
+                    action = if (record.tripOpen) BrowseRecordAction.FINISH_TRIP else BrowseRecordAction.COPY_TRIP,
+                    label = if (record.tripOpen) "Finish Trip" else "Copy Trip",
+                    enabled = modificationsAllowed,
+                ),
+            )
+        }
+        add(BrowseRecordActionItem(BrowseRecordAction.DELETE, "Delete", enabled = modificationsAllowed))
+    }
 }
 
 private fun distinctSuggestions(values: List<String>): List<String> {

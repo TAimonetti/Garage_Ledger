@@ -354,6 +354,8 @@ data class BrowseRecordItem(
     val tripPaidStatus: BrowseTripPaidStatus? = null,
     val notes: String = "",
     val searchText: String = "",
+    val tripOpen: Boolean = false,
+    val vehicleLifecycle: VehicleLifecycle = VehicleLifecycle.ACTIVE,
 )
 
 enum class BrowseTripPaidStatus {

@@ -1483,6 +1483,7 @@ class GarageRepository(
         secondary: BrowseSecondarySnapshot,
     ): List<BrowseRecordItem> {
         val vehicleNamesById = primary.vehicles.associate { it.id to it.name }
+        val vehicleLifecyclesById = primary.vehicles.associate { it.id to it.toDomain().lifecycle }
         val serviceTypeNames = secondary.serviceTypes.associate { it.id to it.name }
         val expenseTypeNames = secondary.expenseTypes.associate { it.id to it.name }
         val tripTypeNames = secondary.tripTypes.associate { it.id to it.name }
@@ -1525,6 +1526,7 @@ class GarageRepository(
                     fillUp.drivingMode,
                     fillUp.tags,
                 ),
+                vehicleLifecycle = vehicleLifecyclesById[fillUp.vehicleId] ?: VehicleLifecycle.ACTIVE,
             )
         }
         val services = primary.services.map { service ->
@@ -1556,6 +1558,7 @@ class GarageRepository(
                     typeNames,
                     service.tags,
                 ),
+                vehicleLifecycle = vehicleLifecyclesById[service.vehicleId] ?: VehicleLifecycle.ACTIVE,
             )
         }
         val expenses = primary.expenses.map { expense ->
@@ -1587,6 +1590,7 @@ class GarageRepository(
                     typeNames,
                     expense.tags,
                 ),
+                vehicleLifecycle = vehicleLifecyclesById[expense.vehicleId] ?: VehicleLifecycle.ACTIVE,
             )
         }
         val trips = primary.trips.map { trip ->
@@ -1622,6 +1626,8 @@ class GarageRepository(
                     trip.notes,
                     trip.tags,
                 ),
+                tripOpen = trip.endDateTime == null || trip.endOdometerReading == null,
+                vehicleLifecycle = vehicleLifecyclesById[trip.vehicleId] ?: VehicleLifecycle.ACTIVE,
             )
         }
 

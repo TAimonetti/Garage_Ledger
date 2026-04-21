@@ -28,6 +28,8 @@ This build is intentionally focused on data fidelity and the most important work
 - Trip helpers for return trips, last-destination starts, open-trip finishing, and end-odometer distance entry
 - Local coordinate capture and map-open actions for imported and newly entered records
 - Browse filters for subtype, payment type, event place, fuel facets, and trip-specific criteria
+- Browse action menus for direct view/edit/delete plus trip copy/finish shortcuts
+- Retired vehicles keep history visible but block further record edits and deletes
 
 ## Not complete yet
 

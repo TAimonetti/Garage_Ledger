@@ -1,6 +1,10 @@
 package com.garageledger.ui
 
+import com.garageledger.core.model.DistanceUnit
+import com.garageledger.domain.model.TripRecord
+import com.garageledger.domain.model.VehicleLifecycle
 import com.google.common.truth.Truth.assertThat
+import java.time.LocalDateTime
 import org.junit.Test
 
 class TripEditorSupportTest {
@@ -38,5 +42,46 @@ class TripEditorSupportTest {
     fun buildReturnTripPurpose_prefixesExistingPurpose() {
         assertThat(buildReturnTripPurpose("Client Visit")).isEqualTo("Return: Client Visit")
         assertThat(buildReturnTripPurpose("  ")).isEmpty()
+    }
+
+    @Test
+    fun buildTripCopySeed_copiesReusableFieldsAndResetsEntryData() {
+        val seed = buildTripCopySeed(
+            source = TripRecord(
+                id = 4L,
+                vehicleId = 9L,
+                startDateTime = LocalDateTime.parse("2024-04-01T08:30:00"),
+                startOdometerReading = 1200.0,
+                startLocation = "Phoenix",
+                endDateTime = LocalDateTime.parse("2024-04-01T09:15:00"),
+                endOdometerReading = 1235.0,
+                endLocation = "Tempe",
+                distanceUnit = DistanceUnit.MILES,
+                purpose = "Client Visit",
+                client = "ACME",
+                taxDeductionRate = 0.67,
+                reimbursementRate = 0.45,
+                paid = true,
+                tags = listOf("client", "tax"),
+                notes = "Bring paperwork",
+            ),
+            now = LocalDateTime.parse("2024-04-05T10:00:00"),
+        )
+
+        assertThat(seed.startDateText).isEqualTo("2024-04-05 10:00")
+        assertThat(seed.startLocation).isEqualTo("Phoenix")
+        assertThat(seed.endLocation).isEqualTo("Tempe")
+        assertThat(seed.purpose).isEqualTo("Client Visit")
+        assertThat(seed.client).isEqualTo("ACME")
+        assertThat(seed.taxRateText).isEqualTo("0.67")
+        assertThat(seed.reimbursementRateText).isEqualTo("0.45")
+        assertThat(seed.tagsText).isEqualTo("client, tax")
+        assertThat(seed.notesText).isEqualTo("Bring paperwork")
+    }
+
+    @Test
+    fun allowsRecordModification_onlyAllowsActiveVehicles() {
+        assertThat(VehicleLifecycle.ACTIVE.allowsRecordModification()).isTrue()
+        assertThat(VehicleLifecycle.RETIRED.allowsRecordModification()).isFalse()
     }
 }

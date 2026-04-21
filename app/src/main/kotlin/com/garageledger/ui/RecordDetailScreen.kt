@@ -55,6 +55,8 @@ fun RecordDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDeleted: () -> Unit,
+    onCopyTrip: () -> Unit,
+    onFinishTrip: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -100,13 +102,16 @@ fun RecordDetailScreen(
         value = if (family == RecordFamily.TRIP) repository.getTripTypes() else emptyList()
     }
 
-    val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Vehicle"
+    val vehicle = vehicles.firstOrNull { it.id == vehicleId }
+    val vehicleName = vehicle?.name ?: "Vehicle"
+    val modificationsAllowed = vehicle?.lifecycle?.allowsRecordModification() ?: true
     val title = when (family) {
         RecordFamily.FILL_UP -> "Fuel-Up Details"
         RecordFamily.SERVICE -> "Service Details"
         RecordFamily.EXPENSE -> "Expense Details"
         RecordFamily.TRIP -> "Trip Details"
     }
+    val tripIsOpen = trip?.let { it.endDateTime == null || it.endOdometerReading == null } == true
 
     val recordFound = when (family) {
         RecordFamily.FILL_UP -> fillUp != null
@@ -243,26 +248,51 @@ fun RecordDetailScreen(
                         }
                     }
                 }
+                if (!modificationsAllowed) {
+                    item {
+                        Card {
+                            Text(
+                                "This vehicle is retired. History stays visible, but records can no longer be changed.",
+                                modifier = Modifier.padding(18.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
                 item {
                     Card {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Button(modifier = Modifier.weight(1f), onClick = onEdit) {
-                                Text("Edit")
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (family == RecordFamily.TRIP) {
+                                Button(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    onClick = if (tripIsOpen) onFinishTrip else onCopyTrip,
+                                    enabled = modificationsAllowed,
+                                ) {
+                                    Text(if (tripIsOpen) "Finish Trip" else "Copy Trip")
+                                }
                             }
-                            Button(
-                                modifier = Modifier.weight(1f),
-                                onClick = { confirmDelete = true },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                                ),
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                Text("Delete")
+                                Button(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = onEdit,
+                                    enabled = modificationsAllowed,
+                                ) {
+                                    Text("Edit")
+                                }
+                                Button(
+                                    modifier = Modifier.weight(1f),
+                                    onClick = { confirmDelete = true },
+                                    enabled = modificationsAllowed,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                    ),
+                                ) {
+                                    Text("Delete")
+                                }
                             }
                         }
                     }

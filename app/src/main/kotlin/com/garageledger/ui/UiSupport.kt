@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.TripRecord
+import com.garageledger.domain.model.VehicleLifecycle
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -84,6 +86,45 @@ internal fun buildReturnTripPurpose(previousPurpose: String): String = previousP
     .takeIf(String::isNotBlank)
     ?.let { "Return: $it" }
     .orEmpty()
+
+internal data class TripCopySeed(
+    val startDateText: String,
+    val startLocation: String,
+    val startLatitude: Double?,
+    val startLongitude: Double?,
+    val endLocation: String,
+    val endLatitude: Double?,
+    val endLongitude: Double?,
+    val purpose: String,
+    val client: String,
+    val taxRateText: String,
+    val reimbursementRateText: String,
+    val tagsText: String,
+    val notesText: String,
+    val tripTypeId: Long?,
+)
+
+internal fun buildTripCopySeed(
+    source: TripRecord,
+    now: LocalDateTime,
+): TripCopySeed = TripCopySeed(
+    startDateText = now.format(EditorDateFormatter),
+    startLocation = source.startLocation,
+    startLatitude = source.startLatitude,
+    startLongitude = source.startLongitude,
+    endLocation = source.endLocation,
+    endLatitude = source.endLatitude,
+    endLongitude = source.endLongitude,
+    purpose = source.purpose,
+    client = source.client,
+    taxRateText = source.taxDeductionRate?.toString().orEmpty(),
+    reimbursementRateText = source.reimbursementRate?.toString().orEmpty(),
+    tagsText = source.tags.joinToString(", "),
+    notesText = source.notes,
+    tripTypeId = source.tripTypeId,
+)
+
+internal fun VehicleLifecycle.allowsRecordModification(): Boolean = this == VehicleLifecycle.ACTIVE
 
 internal fun RecordFamily.displayLabel(): String = when (this) {
     RecordFamily.FILL_UP -> "Fuel-Ups"

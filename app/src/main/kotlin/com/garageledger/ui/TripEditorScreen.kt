@@ -47,6 +47,8 @@ fun TripEditorScreen(
     repository: GarageRepository,
     vehicleId: Long,
     recordId: Long,
+    copyFromTripId: Long? = null,
+    finishMode: Boolean = false,
     onBack: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -54,6 +56,9 @@ fun TripEditorScreen(
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = com.garageledger.domain.model.AppPreferenceSnapshot())
     val existingRecord by produceState<TripRecord?>(initialValue = null, key1 = recordId) {
         value = if (recordId > 0L) repository.getTrip(recordId) else null
+    }
+    val copySourceTrip by produceState<TripRecord?>(initialValue = null, key1 = copyFromTripId) {
+        value = copyFromTripId?.let { repository.getTrip(it) }
     }
     val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
         value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.TRIP, recordId) else emptyList()
@@ -74,7 +79,7 @@ fun TripEditorScreen(
         value = repository.getTripLocationSuggestions()
     }
 
-    var initialized by rememberSaveable(recordId) { mutableStateOf(false) }
+    var initialized by rememberSaveable(recordId, copyFromTripId, finishMode) { mutableStateOf(false) }
     var startDateText by rememberSaveable { mutableStateOf("") }
     var startOdometerText by rememberSaveable { mutableStateOf("") }
     var startLocation by rememberSaveable { mutableStateOf("") }
@@ -95,11 +100,11 @@ fun TripEditorScreen(
     var paid by rememberSaveable { mutableStateOf(false) }
     var tripTypeId by remember { mutableStateOf<Long?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var attachments by remember(recordId) { mutableStateOf(emptyList<RecordAttachment>()) }
-    var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
+    var attachments by remember(recordId, copyFromTripId) { mutableStateOf(emptyList<RecordAttachment>()) }
+    var attachmentsInitialized by remember(recordId, copyFromTripId) { mutableStateOf(false) }
     var showCustomizeFields by remember { mutableStateOf(false) }
 
-    LaunchedEffect(existingRecord) {
+    LaunchedEffect(existingRecord, copySourceTrip, finishMode) {
         if (initialized) return@LaunchedEffect
         val record = existingRecord
         if (record != null) {
@@ -122,8 +127,38 @@ fun TripEditorScreen(
             notesText = record.notes
             paid = record.paid
             tripTypeId = record.tripTypeId
+            if (finishMode && (record.endDateTime == null || record.endOdometerReading == null) && endDateText.isBlank()) {
+                endDateText = java.time.LocalDateTime.now().format(EditorDateFormatter)
+            }
         } else {
-            startDateText = java.time.LocalDateTime.now().format(EditorDateFormatter)
+            val sourceTrip = copySourceTrip
+            if (sourceTrip != null) {
+            val seed = buildTripCopySeed(
+                source = sourceTrip,
+                now = java.time.LocalDateTime.now(),
+            )
+            startDateText = seed.startDateText
+            startOdometerText = ""
+            startLocation = seed.startLocation
+            startLatitude = seed.startLatitude
+            startLongitude = seed.startLongitude
+            endDateText = ""
+            endOdometerText = ""
+            endOdometerModeName = TripEndOdometerMode.ABSOLUTE.name
+            endLocation = seed.endLocation
+            endLatitude = seed.endLatitude
+            endLongitude = seed.endLongitude
+            purpose = seed.purpose
+            client = seed.client
+            taxRateText = seed.taxRateText
+            reimbursementRateText = seed.reimbursementRateText
+            tagsText = seed.tagsText
+            notesText = seed.notesText
+            paid = false
+            tripTypeId = seed.tripTypeId
+            } else {
+                startDateText = java.time.LocalDateTime.now().format(EditorDateFormatter)
+            }
         }
         initialized = true
     }
@@ -135,6 +170,13 @@ fun TripEditorScreen(
     }
 
     val vehicleName = vehicles.firstOrNull { it.id == vehicleId }?.name ?: "Trip"
+    val isFinishingOpenTrip = finishMode && existingRecord?.let { it.endDateTime == null || it.endOdometerReading == null } == true
+    val screenTitle = when {
+        isFinishingOpenTrip -> "Finish Trip"
+        recordId > 0L -> "Edit Trip"
+        copySourceTrip != null -> "Copy Trip"
+        else -> "New Trip"
+    }
     val visibleFields = preferences.visibleFields
     val showTripLocation = com.garageledger.domain.model.OptionalFieldToggle.TRIP_LOCATION in visibleFields
     val showTripPurpose = com.garageledger.domain.model.OptionalFieldToggle.TRIP_PURPOSE in visibleFields
@@ -247,7 +289,7 @@ fun TripEditorScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(if (recordId > 0L) "Edit Trip" else "New Trip") },
+                title = { Text(screenTitle) },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
                     TextButton(onClick = { showCustomizeFields = true }) {
@@ -269,6 +311,20 @@ fun TripEditorScreen(
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(vehicleName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("Trips can stay open, inherit the last destination, or flip into a return trip.")
+                        val sourceTrip = copySourceTrip
+                        if (sourceTrip != null && recordId <= 0L) {
+                            Text(
+                                "Copied from ${sourceTrip.startDateTime.format(EditorDateFormatter)}. " +
+                                    "Start odometer and all end-trip values are reset for the new trip.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (isFinishingOpenTrip) {
+                            Text(
+                                "Finish this open trip by entering the arrival details and final odometer.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         if (recordId <= 0L && openTrip != null) {
                             Text(
                                 "An open trip from ${openTrip.startDateTime.format(EditorDateFormatter)} is still active. " +
@@ -600,7 +656,13 @@ fun TripEditorScreen(
                         }
                     },
                 ) {
-                    Text(if (recordId > 0L) "Save Trip" else "Add Trip")
+                    Text(
+                        when {
+                            isFinishingOpenTrip -> "Finish Trip"
+                            recordId > 0L -> "Save Trip"
+                            else -> "Add Trip"
+                        },
+                    )
                 }
             }
         }

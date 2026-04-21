@@ -1,5 +1,7 @@
 package com.garageledger.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,16 +9,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -39,6 +45,7 @@ import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
+import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -48,7 +55,11 @@ fun BrowseRecordsScreen(
     preselectedVehicleId: Long? = null,
     onBack: () -> Unit,
     onOpenRecord: (BrowseRecordItem) -> Unit,
+    onEditRecord: (BrowseRecordItem) -> Unit,
+    onCopyTrip: (BrowseRecordItem) -> Unit,
+    onFinishTrip: (BrowseRecordItem) -> Unit,
 ) {
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     val records by repository.observeBrowseRecords().collectAsStateWithLifecycle(initialValue = emptyList())
 
@@ -70,6 +81,9 @@ fun BrowseRecordsScreen(
     var tripClientText by rememberSaveable { mutableStateOf("") }
     var tripLocationText by rememberSaveable { mutableStateOf("") }
     var selectedTripPaidStatus by remember { mutableStateOf<BrowseTripPaidStatus?>(null) }
+    var actionMenuKey by remember { mutableStateOf<String?>(null) }
+    var recordPendingDelete by remember { mutableStateOf<BrowseRecordItem?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(selectedFamily) {
         if (selectedFamily != RecordFamily.TRIP) {
@@ -153,6 +167,43 @@ fun BrowseRecordsScreen(
         tripClientText = ""
         tripLocationText = ""
         selectedTripPaidStatus = null
+    }
+
+    if (recordPendingDelete != null) {
+        AlertDialog(
+            onDismissRequest = { recordPendingDelete = null },
+            title = { Text("Delete Record?") },
+            text = { Text("This action is permanent and cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = recordPendingDelete ?: return@TextButton
+                        scope.launch {
+                            runCatching {
+                                when (target.family) {
+                                    RecordFamily.FILL_UP -> repository.deleteFillUp(target.recordId)
+                                    RecordFamily.SERVICE -> repository.deleteService(target.recordId)
+                                    RecordFamily.EXPENSE -> repository.deleteExpense(target.recordId)
+                                    RecordFamily.TRIP -> repository.deleteTrip(target.recordId)
+                                }
+                            }.onSuccess {
+                                recordPendingDelete = null
+                                errorMessage = null
+                            }.onFailure {
+                                errorMessage = it.message
+                            }
+                        }
+                    },
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { recordPendingDelete = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -356,6 +407,9 @@ fun BrowseRecordsScreen(
                             Text("Clear Filters")
                         }
                         Text("${filteredRecords.size} matching records", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        errorMessage?.let { message ->
+                            Text(message, color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
@@ -371,32 +425,68 @@ fun BrowseRecordsScreen(
             } else {
                 items(filteredRecords.size) { index ->
                     val item = filteredRecords[index]
+                    val actionItems = remember(item) { buildBrowseActionItems(item) }
+                    val menuKey = remember(item.family, item.recordId) { "${item.family.name}:${item.recordId}" }
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenRecord(item) },
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "${item.vehicleName} | ${item.family.displayLabel()} | ${
-                                    item.occurredAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
-                                }",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            if (item.subtitle.isNotBlank()) {
-                                Text(item.subtitle)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onOpenRecord(item) },
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "${item.vehicleName} | ${item.family.displayLabel()} | ${
+                                        item.occurredAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
+                                    }",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (item.subtitle.isNotBlank()) {
+                                    Text(item.subtitle)
+                                }
+                                val metadata = buildList {
+                                    item.odometerReading?.let { add("${it.toStableString()} odometer") }
+                                    item.amount?.let { add(it.asCurrency()) }
+                                    if (item.tripOpen) add("Open Trip")
+                                    if (item.tags.isNotEmpty()) add(item.tags.joinToString(", "))
+                                }
+                                if (metadata.isNotEmpty()) {
+                                    Text(metadata.joinToString(" | "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
-                            val metadata = buildList {
-                                item.odometerReading?.let { add("${it.toStableString()} odometer") }
-                                item.amount?.let { add(it.asCurrency()) }
-                                if (item.tags.isNotEmpty()) add(item.tags.joinToString(", "))
-                            }
-                            if (metadata.isNotEmpty()) {
-                                Text(metadata.joinToString(" | "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Box {
+                                IconButton(onClick = { actionMenuKey = menuKey }) {
+                                    Icon(Icons.Outlined.MoreVert, contentDescription = "Record actions")
+                                }
+                                DropdownMenu(
+                                    expanded = actionMenuKey == menuKey,
+                                    onDismissRequest = { actionMenuKey = null },
+                                ) {
+                                    actionItems.forEach { actionItem ->
+                                        DropdownMenuItem(
+                                            text = { Text(actionItem.label) },
+                                            enabled = actionItem.enabled,
+                                            onClick = {
+                                                actionMenuKey = null
+                                                when (actionItem.action) {
+                                                    BrowseRecordAction.VIEW -> onOpenRecord(item)
+                                                    BrowseRecordAction.EDIT -> onEditRecord(item)
+                                                    BrowseRecordAction.FINISH_TRIP -> onFinishTrip(item)
+                                                    BrowseRecordAction.COPY_TRIP -> onCopyTrip(item)
+                                                    BrowseRecordAction.DELETE -> recordPendingDelete = item
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
