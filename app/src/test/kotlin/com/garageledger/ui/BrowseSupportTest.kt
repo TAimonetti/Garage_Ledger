@@ -189,4 +189,51 @@ class BrowseSupportTest {
         assertThat(browseSortLabel(descending = true)).isEqualTo("Newest First")
         assertThat(browseSortLabel(descending = false)).isEqualTo("Oldest First")
     }
+
+    @Test
+    fun buildBrowseFilterTokens_summarizesStructuredQuery() {
+        val tokens = buildBrowseFilterTokens(
+            filter = BrowseRecordFilter(
+                family = RecordFamily.FILL_UP,
+                query = "shell",
+                tag = "roadtrip",
+                fromDate = LocalDate.parse("2024-01-01"),
+                toDate = LocalDate.parse("2024-01-31"),
+                fuelBrand = "Shell",
+                paymentType = "Cash",
+            ),
+            vehicleName = "Tundra",
+        )
+
+        assertThat(tokens.map { it.label }).containsExactly(
+            "Vehicle: Tundra",
+            "Type: Fuel-Ups",
+            "Search: shell",
+            "Tag: roadtrip",
+            "From: 2024-01-01",
+            "To: 2024-01-31",
+            "Payment: Cash",
+            "Fuel Brand: Shell",
+        ).inOrder()
+    }
+
+    @Test
+    fun browseDatePresetRange_and_resolution_matchExpectedRanges() {
+        val today = LocalDate.parse("2024-04-20")
+
+        val lastThirty = browseDatePresetRange(BrowseDatePreset.LAST_30_DAYS, today)
+        val lastNinety = browseDatePresetRange(BrowseDatePreset.LAST_90_DAYS, today)
+        val thisYear = browseDatePresetRange(BrowseDatePreset.THIS_YEAR, today)
+
+        assertThat(lastThirty.first).isEqualTo(LocalDate.parse("2024-03-22"))
+        assertThat(lastThirty.second).isEqualTo(today)
+        assertThat(lastNinety.first).isEqualTo(LocalDate.parse("2024-01-22"))
+        assertThat(lastNinety.second).isEqualTo(today)
+        assertThat(thisYear.first).isEqualTo(LocalDate.parse("2024-01-01"))
+        assertThat(thisYear.second).isEqualTo(today)
+        assertThat(resolveBrowseDatePreset(lastThirty.first, lastThirty.second, today)).isEqualTo(BrowseDatePreset.LAST_30_DAYS)
+        assertThat(resolveBrowseDatePreset(lastNinety.first, lastNinety.second, today)).isEqualTo(BrowseDatePreset.LAST_90_DAYS)
+        assertThat(resolveBrowseDatePreset(thisYear.first, thisYear.second, today)).isEqualTo(BrowseDatePreset.THIS_YEAR)
+        assertThat(resolveBrowseDatePreset(null, null, today)).isNull()
+    }
 }

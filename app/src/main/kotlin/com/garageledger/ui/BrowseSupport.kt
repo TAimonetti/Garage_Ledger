@@ -3,6 +3,7 @@ package com.garageledger.ui
 import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.RecordFamily
+import java.time.LocalDate
 
 internal enum class BrowseRecordAction {
     VIEW,
@@ -30,6 +31,37 @@ internal data class BrowseFilterOptions(
     val tripPurposeSuggestions: List<String> = emptyList(),
     val tripClientSuggestions: List<String> = emptyList(),
     val tripLocationSuggestions: List<String> = emptyList(),
+)
+
+internal enum class BrowseDatePreset(val label: String) {
+    LAST_30_DAYS("Last 30 Days"),
+    LAST_90_DAYS("Last 90 Days"),
+    THIS_YEAR("This Year"),
+}
+
+internal enum class BrowseFilterTokenKey {
+    VEHICLE,
+    FAMILY,
+    QUERY,
+    TAG,
+    FROM_DATE,
+    TO_DATE,
+    SUBTYPE,
+    PAYMENT_TYPE,
+    EVENT_PLACE,
+    FUEL_BRAND,
+    FUEL_TYPE,
+    FUEL_ADDITIVE,
+    DRIVING_MODE,
+    TRIP_PURPOSE,
+    TRIP_CLIENT,
+    TRIP_LOCATION,
+    TRIP_PAID_STATUS,
+}
+
+internal data class BrowseFilterToken(
+    val key: BrowseFilterTokenKey,
+    val label: String,
 )
 
 internal fun applyBrowseRecordFilter(
@@ -121,6 +153,79 @@ internal fun browseSortLabel(descending: Boolean): String = if (descending) {
     "Newest First"
 } else {
     "Oldest First"
+}
+
+internal fun buildBrowseFilterTokens(
+    filter: BrowseRecordFilter,
+    vehicleName: String?,
+): List<BrowseFilterToken> = buildList {
+    vehicleName
+        ?.takeIf(String::isNotBlank)
+        ?.let { add(BrowseFilterToken(BrowseFilterTokenKey.VEHICLE, "Vehicle: $it")) }
+    filter.family?.let { add(BrowseFilterToken(BrowseFilterTokenKey.FAMILY, "Type: ${it.displayLabel()}")) }
+    filter.query.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.QUERY, "Search: $it"))
+    }
+    filter.tag.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.TAG, "Tag: $it"))
+    }
+    filter.fromDate?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.FROM_DATE, "From: $it"))
+    }
+    filter.toDate?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.TO_DATE, "To: $it"))
+    }
+    filter.subtype.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.SUBTYPE, "Subtype: $it"))
+    }
+    filter.paymentType.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.PAYMENT_TYPE, "Payment: $it"))
+    }
+    filter.eventPlace.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.EVENT_PLACE, "Place: $it"))
+    }
+    filter.fuelBrand.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.FUEL_BRAND, "Fuel Brand: $it"))
+    }
+    filter.fuelType.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.FUEL_TYPE, "Fuel Type: $it"))
+    }
+    filter.fuelAdditive.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.FUEL_ADDITIVE, "Additive: $it"))
+    }
+    filter.drivingMode.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.DRIVING_MODE, "Driving: $it"))
+    }
+    filter.tripPurpose.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.TRIP_PURPOSE, "Purpose: $it"))
+    }
+    filter.tripClient.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.TRIP_CLIENT, "Client: $it"))
+    }
+    filter.tripLocation.trim().takeIf(String::isNotBlank)?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.TRIP_LOCATION, "Location: $it"))
+    }
+    filter.tripPaidStatus?.let {
+        add(BrowseFilterToken(BrowseFilterTokenKey.TRIP_PAID_STATUS, "Paid: ${it.name.lowercase().replaceFirstChar(Char::uppercase)}"))
+    }
+}
+
+internal fun browseDatePresetRange(
+    preset: BrowseDatePreset,
+    today: LocalDate,
+): Pair<LocalDate, LocalDate> = when (preset) {
+    BrowseDatePreset.LAST_30_DAYS -> today.minusDays(29) to today
+    BrowseDatePreset.LAST_90_DAYS -> today.minusDays(89) to today
+    BrowseDatePreset.THIS_YEAR -> LocalDate.of(today.year, 1, 1) to today
+}
+
+internal fun resolveBrowseDatePreset(
+    fromDate: LocalDate?,
+    toDate: LocalDate?,
+    today: LocalDate,
+): BrowseDatePreset? = BrowseDatePreset.entries.firstOrNull { preset ->
+    val (expectedFrom, expectedTo) = browseDatePresetRange(preset, today)
+    fromDate == expectedFrom && toDate == expectedTo
 }
 
 private fun distinctSuggestions(values: List<String>): List<String> {
