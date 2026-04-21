@@ -23,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.garageledger.data.GarageRepository
+import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
+import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
 import java.time.format.DateTimeFormatter
 
@@ -56,20 +59,100 @@ fun BrowseRecordsScreen(
     var tagText by rememberSaveable { mutableStateOf("") }
     var fromDateText by rememberSaveable { mutableStateOf("") }
     var toDateText by rememberSaveable { mutableStateOf("") }
+    var subtypeText by rememberSaveable { mutableStateOf("") }
+    var paymentTypeText by rememberSaveable { mutableStateOf("") }
+    var eventPlaceText by rememberSaveable { mutableStateOf("") }
+    var fuelBrandText by rememberSaveable { mutableStateOf("") }
+    var fuelTypeText by rememberSaveable { mutableStateOf("") }
+    var fuelAdditiveText by rememberSaveable { mutableStateOf("") }
+    var drivingModeText by rememberSaveable { mutableStateOf("") }
+    var tripPurposeText by rememberSaveable { mutableStateOf("") }
+    var tripClientText by rememberSaveable { mutableStateOf("") }
+    var tripLocationText by rememberSaveable { mutableStateOf("") }
+    var selectedTripPaidStatus by remember { mutableStateOf<BrowseTripPaidStatus?>(null) }
 
-    val filteredRecords = remember(records, selectedVehicleId, selectedFamily, queryText, tagText, fromDateText, toDateText) {
-        val normalizedQuery = queryText.trim().lowercase()
-        val normalizedTag = tagText.trim().lowercase()
-        val fromDate = parseFilterDate(fromDateText)
-        val toDate = parseFilterDate(toDateText)
-        records.filter { item ->
-            (selectedVehicleId == 0L || item.vehicleId == selectedVehicleId) &&
-                (selectedFamily == null || item.family == selectedFamily) &&
-                (normalizedQuery.isBlank() || item.searchText.contains(normalizedQuery)) &&
-                (normalizedTag.isBlank() || item.tags.any { it.lowercase().contains(normalizedTag) }) &&
-                (fromDate == null || !item.occurredAt.toLocalDate().isBefore(fromDate)) &&
-                (toDate == null || !item.occurredAt.toLocalDate().isAfter(toDate))
+    LaunchedEffect(selectedFamily) {
+        if (selectedFamily != RecordFamily.TRIP) {
+            tripPurposeText = ""
+            tripClientText = ""
+            tripLocationText = ""
+            selectedTripPaidStatus = null
         }
+        if (selectedFamily != RecordFamily.FILL_UP) {
+            fuelBrandText = ""
+            fuelTypeText = ""
+            fuelAdditiveText = ""
+            drivingModeText = ""
+        }
+    }
+
+    val coreFilter = remember(selectedVehicleId, selectedFamily, queryText, fromDateText, toDateText) {
+        BrowseRecordFilter(
+            vehicleId = selectedVehicleId.takeIf { it > 0L },
+            family = selectedFamily,
+            query = queryText,
+            fromDate = parseFilterDate(fromDateText),
+            toDate = parseFilterDate(toDateText),
+        )
+    }
+    val scopedRecords = remember(records, coreFilter) {
+        applyBrowseRecordFilter(records, coreFilter)
+    }
+    val filterOptions = remember(scopedRecords, selectedFamily) {
+        buildBrowseFilterOptions(scopedRecords, selectedFamily)
+    }
+    val fullFilter = remember(
+        coreFilter,
+        tagText,
+        subtypeText,
+        paymentTypeText,
+        eventPlaceText,
+        fuelBrandText,
+        fuelTypeText,
+        fuelAdditiveText,
+        drivingModeText,
+        tripPurposeText,
+        tripClientText,
+        tripLocationText,
+        selectedTripPaidStatus,
+    ) {
+        coreFilter.copy(
+            tag = tagText,
+            subtype = subtypeText,
+            paymentType = paymentTypeText,
+            eventPlace = eventPlaceText,
+            fuelBrand = fuelBrandText,
+            fuelType = fuelTypeText,
+            fuelAdditive = fuelAdditiveText,
+            drivingMode = drivingModeText,
+            tripPurpose = tripPurposeText,
+            tripClient = tripClientText,
+            tripLocation = tripLocationText,
+            tripPaidStatus = selectedTripPaidStatus,
+        )
+    }
+    val filteredRecords = remember(records, fullFilter) {
+        applyBrowseRecordFilter(records, fullFilter)
+    }
+
+    fun clearFilters() {
+        selectedVehicleId = preselectedVehicleId ?: 0L
+        selectedFamily = null
+        queryText = ""
+        tagText = ""
+        fromDateText = ""
+        toDateText = ""
+        subtypeText = ""
+        paymentTypeText = ""
+        eventPlaceText = ""
+        fuelBrandText = ""
+        fuelTypeText = ""
+        fuelAdditiveText = ""
+        drivingModeText = ""
+        tripPurposeText = ""
+        tripClientText = ""
+        tripLocationText = ""
+        selectedTripPaidStatus = null
     }
 
     Scaffold(
@@ -144,12 +227,119 @@ fun BrowseRecordsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Search text") },
                         )
-                        OutlinedTextField(
+                        SuggestionFilterField(
                             value = tagText,
                             onValueChange = { tagText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Tag contains") },
+                            label = "Tag contains",
+                            suggestions = filterOptions.tagSuggestions,
                         )
+                        if (filterOptions.subtypeSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = subtypeText,
+                                onValueChange = { subtypeText = it },
+                                label = "Subtype",
+                                suggestions = filterOptions.subtypeSuggestions,
+                            )
+                        }
+                        if (filterOptions.paymentTypeSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = paymentTypeText,
+                                onValueChange = { paymentTypeText = it },
+                                label = "Payment Type",
+                                suggestions = filterOptions.paymentTypeSuggestions,
+                            )
+                        }
+                        if (filterOptions.eventPlaceSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = eventPlaceText,
+                                onValueChange = { eventPlaceText = it },
+                                label = "Event Place",
+                                suggestions = filterOptions.eventPlaceSuggestions,
+                            )
+                        }
+                        if (filterOptions.fuelBrandSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = fuelBrandText,
+                                onValueChange = { fuelBrandText = it },
+                                label = "Fuel Brand",
+                                suggestions = filterOptions.fuelBrandSuggestions,
+                            )
+                        }
+                        if (filterOptions.fuelTypeSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = fuelTypeText,
+                                onValueChange = { fuelTypeText = it },
+                                label = "Fuel Type",
+                                suggestions = filterOptions.fuelTypeSuggestions,
+                            )
+                        }
+                        if (filterOptions.fuelAdditiveSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = fuelAdditiveText,
+                                onValueChange = { fuelAdditiveText = it },
+                                label = "Fuel Additive",
+                                suggestions = filterOptions.fuelAdditiveSuggestions,
+                            )
+                        }
+                        if (filterOptions.drivingModeSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = drivingModeText,
+                                onValueChange = { drivingModeText = it },
+                                label = "Driving Mode",
+                                suggestions = filterOptions.drivingModeSuggestions,
+                            )
+                        }
+                        if (filterOptions.tripPurposeSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = tripPurposeText,
+                                onValueChange = { tripPurposeText = it },
+                                label = "Trip Purpose",
+                                suggestions = filterOptions.tripPurposeSuggestions,
+                            )
+                        }
+                        if (filterOptions.tripClientSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = tripClientText,
+                                onValueChange = { tripClientText = it },
+                                label = "Trip Client",
+                                suggestions = filterOptions.tripClientSuggestions,
+                            )
+                        }
+                        if (filterOptions.tripLocationSuggestions.isNotEmpty()) {
+                            SuggestionFilterField(
+                                value = tripLocationText,
+                                onValueChange = { tripLocationText = it },
+                                label = "Trip Location",
+                                suggestions = filterOptions.tripLocationSuggestions,
+                            )
+                        }
+                        if (selectedFamily == RecordFamily.TRIP || filterOptions.tripLocationSuggestions.isNotEmpty()) {
+                            Text("Trip Paid Status", style = MaterialTheme.typography.labelLarge)
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                FilterChip(
+                                    selected = selectedTripPaidStatus == null,
+                                    onClick = { selectedTripPaidStatus = null },
+                                    label = { Text("Any") },
+                                )
+                                FilterChip(
+                                    selected = selectedTripPaidStatus == BrowseTripPaidStatus.PAID,
+                                    onClick = {
+                                        selectedTripPaidStatus = if (selectedTripPaidStatus == BrowseTripPaidStatus.PAID) null else BrowseTripPaidStatus.PAID
+                                    },
+                                    label = { Text("Paid") },
+                                )
+                                FilterChip(
+                                    selected = selectedTripPaidStatus == BrowseTripPaidStatus.UNPAID,
+                                    onClick = {
+                                        selectedTripPaidStatus = if (selectedTripPaidStatus == BrowseTripPaidStatus.UNPAID) null else BrowseTripPaidStatus.UNPAID
+                                    },
+                                    label = { Text("Unpaid") },
+                                )
+                            }
+                        }
                         OutlinedTextField(
                             value = fromDateText,
                             onValueChange = { fromDateText = it },
@@ -162,6 +352,9 @@ fun BrowseRecordsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("To date (yyyy-MM-dd)") },
                         )
+                        TextButton(onClick = ::clearFilters) {
+                            Text("Clear Filters")
+                        }
                         Text("${filteredRecords.size} matching records", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -189,7 +382,7 @@ fun BrowseRecordsScreen(
                         ) {
                             Text(item.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             Text(
-                                "${item.vehicleName} • ${item.family.displayLabel()} • ${
+                                "${item.vehicleName} | ${item.family.displayLabel()} | ${
                                     item.occurredAt.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
                                 }",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -203,7 +396,7 @@ fun BrowseRecordsScreen(
                                 if (item.tags.isNotEmpty()) add(item.tags.joinToString(", "))
                             }
                             if (metadata.isNotEmpty()) {
-                                Text(metadata.joinToString(" • "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(metadata.joinToString(" | "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -211,4 +404,24 @@ fun BrowseRecordsScreen(
             }
         }
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SuggestionFilterField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    suggestions: List<String>,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+    )
+    SuggestionRow(
+        suggestions = suggestions.filter { value.isBlank() || it.contains(value, ignoreCase = true) },
+        onSelect = onValueChange,
+    )
 }
