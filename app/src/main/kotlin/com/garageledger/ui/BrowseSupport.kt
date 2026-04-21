@@ -3,6 +3,7 @@ package com.garageledger.ui
 import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.SavedBrowseSearch
 import java.time.LocalDate
 
 internal enum class BrowseRecordAction {
@@ -227,6 +228,52 @@ internal fun resolveBrowseDatePreset(
     val (expectedFrom, expectedTo) = browseDatePresetRange(preset, today)
     fromDate == expectedFrom && toDate == expectedTo
 }
+
+internal fun BrowseRecordFilter.toSavedBrowseSearch(name: String): SavedBrowseSearch = SavedBrowseSearch(
+    name = name.trim(),
+    vehicleId = vehicleId,
+    family = family,
+    query = query.trim(),
+    tag = tag.trim(),
+    fromDateIso = fromDate?.let(::coerceDateText),
+    toDateIso = toDate?.let(::coerceDateText),
+    subtype = subtype.trim(),
+    paymentType = paymentType.trim(),
+    eventPlace = eventPlace.trim(),
+    fuelBrand = fuelBrand.trim(),
+    fuelType = fuelType.trim(),
+    fuelAdditive = fuelAdditive.trim(),
+    drivingMode = drivingMode.trim(),
+    tripPurpose = tripPurpose.trim(),
+    tripClient = tripClient.trim(),
+    tripLocation = tripLocation.trim(),
+    tripPaidStatus = tripPaidStatus,
+)
+
+internal fun SavedBrowseSearch.toBrowseRecordFilter(): BrowseRecordFilter = BrowseRecordFilter(
+    vehicleId = vehicleId,
+    family = family,
+    query = query,
+    tag = tag,
+    fromDate = fromDateIso?.let(::parseFilterDate),
+    toDate = toDateIso?.let(::parseFilterDate),
+    subtype = subtype,
+    paymentType = paymentType,
+    eventPlace = eventPlace,
+    fuelBrand = fuelBrand,
+    fuelType = fuelType,
+    fuelAdditive = fuelAdditive,
+    drivingMode = drivingMode,
+    tripPurpose = tripPurpose,
+    tripClient = tripClient,
+    tripLocation = tripLocation,
+    tripPaidStatus = tripPaidStatus,
+)
+
+internal fun findSavedBrowseSearch(
+    searches: List<SavedBrowseSearch>,
+    name: String,
+): SavedBrowseSearch? = searches.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
 
 private fun distinctSuggestions(values: List<String>): List<String> {
     val normalized = linkedMapOf<String, String>()

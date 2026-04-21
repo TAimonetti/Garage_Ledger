@@ -17,8 +17,10 @@ import com.garageledger.data.local.TripTypeEntity
 import com.garageledger.data.local.VehicleEntity
 import com.garageledger.data.local.VehiclePartEntity
 import com.garageledger.domain.model.AppPreferenceSnapshot
+import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.OptionalFieldToggle
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.SavedBrowseSearch
 import com.google.common.truth.Truth.assertThat
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate
@@ -36,6 +38,21 @@ class OpenJsonBackupImporterTest {
                 localeTag = "en-US",
                 backupHistoryCount = 7,
                 visibleFields = setOf(OptionalFieldToggle.NOTES, OptionalFieldToggle.FUEL_TYPE),
+                savedBrowseSearches = listOf(
+                    SavedBrowseSearch(
+                        name = "Quarter Fill-Ups",
+                        vehicleId = 501L,
+                        family = RecordFamily.FILL_UP,
+                        fromDateIso = "2026-01-01",
+                        toDateIso = "2026-03-31",
+                        fuelBrand = "Chevron",
+                    ),
+                    SavedBrowseSearch(
+                        name = "Unpaid Trips",
+                        family = RecordFamily.TRIP,
+                        tripPaidStatus = BrowseTripPaidStatus.UNPAID,
+                    ),
+                ),
             ),
             vehicles = listOf(
                 VehicleEntity(
@@ -278,6 +295,21 @@ class OpenJsonBackupImporterTest {
             OptionalFieldToggle.FUEL_TYPE,
             OptionalFieldToggle.NOTES,
         )
+        assertThat(imported.preferences?.savedBrowseSearches).containsExactly(
+            SavedBrowseSearch(
+                name = "Quarter Fill-Ups",
+                vehicleId = 501L,
+                family = RecordFamily.FILL_UP,
+                fromDateIso = "2026-01-01",
+                toDateIso = "2026-03-31",
+                fuelBrand = "Chevron",
+            ),
+            SavedBrowseSearch(
+                name = "Unpaid Trips",
+                family = RecordFamily.TRIP,
+                tripPaidStatus = BrowseTripPaidStatus.UNPAID,
+            ),
+        ).inOrder()
         assertThat(imported.vehicles).hasSize(1)
         assertThat(imported.vehicles.single().legacySourceId).isEqualTo(501L)
         assertThat(imported.vehicleParts.single().vehicleId).isEqualTo(501L)

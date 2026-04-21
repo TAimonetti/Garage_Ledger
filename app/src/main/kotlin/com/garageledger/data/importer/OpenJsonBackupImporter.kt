@@ -12,6 +12,7 @@ import com.garageledger.data.export.FuelTypePayload
 import com.garageledger.data.export.OpenJsonBackupMetadata
 import com.garageledger.data.export.OpenJsonBackupPayload
 import com.garageledger.data.export.PreferencesPayload
+import com.garageledger.data.export.SavedBrowseSearchPayload
 import com.garageledger.data.export.ServiceRecordPayload
 import com.garageledger.data.export.ServiceReminderPayload
 import com.garageledger.data.export.ServiceTypePayload
@@ -29,6 +30,7 @@ import com.garageledger.domain.model.ImportedGarageData
 import com.garageledger.domain.model.OptionalFieldToggle
 import com.garageledger.domain.model.RecordAttachment
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.SavedBrowseSearch
 import com.garageledger.domain.model.ServiceRecord
 import com.garageledger.domain.model.ServiceReminder
 import com.garageledger.domain.model.ServiceType
@@ -216,6 +218,45 @@ private fun PreferencesPayload.toDomain(issues: MutableList<ImportIssue>): AppPr
         notificationsEnabled = notificationsEnabled,
         notificationLedEnabled = notificationLedEnabled,
         visibleFields = visibleFieldSet,
+        savedBrowseSearches = savedBrowseSearches.mapNotNull { it.toDomain(issues) },
+    )
+}
+
+private fun SavedBrowseSearchPayload.toDomain(issues: MutableList<ImportIssue>): SavedBrowseSearch? {
+    val trimmedName = name.trim()
+    if (trimmedName.isBlank()) {
+        issues += issue("Ignored saved browse search with a blank name.", "garage-ledger-backup.json")
+        return null
+    }
+    return SavedBrowseSearch(
+        name = trimmedName,
+        vehicleId = vehicleId,
+        family = family?.let { rawFamily ->
+            runCatching { RecordFamily.valueOf(rawFamily) }.getOrElse {
+                issues += issue("Ignored unknown saved search record type '$rawFamily'.", "garage-ledger-backup.json")
+                null
+            }
+        },
+        query = query,
+        tag = tag,
+        fromDateIso = fromDateIso,
+        toDateIso = toDateIso,
+        subtype = subtype,
+        paymentType = paymentType,
+        eventPlace = eventPlace,
+        fuelBrand = fuelBrand,
+        fuelType = fuelType,
+        fuelAdditive = fuelAdditive,
+        drivingMode = drivingMode,
+        tripPurpose = tripPurpose,
+        tripClient = tripClient,
+        tripLocation = tripLocation,
+        tripPaidStatus = tripPaidStatus?.let { rawStatus ->
+            runCatching { com.garageledger.domain.model.BrowseTripPaidStatus.valueOf(rawStatus) }.getOrElse {
+                issues += issue("Ignored unknown saved search paid status '$rawStatus'.", "garage-ledger-backup.json")
+                null
+            }
+        },
     )
 }
 

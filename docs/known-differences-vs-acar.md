@@ -34,6 +34,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Browse action menus for direct view/edit/delete plus trip copy/finish shortcuts
 - Retired vehicles keep history visible but block further record edits and deletes
 - Browse sort order can be changed in-place and the current filtered browse result set can be exported locally as CSV
+- Saved browse searches can be stored, reloaded, deleted, and restored from open backups
 
 ## Not complete yet
 
@@ -44,5 +45,4 @@ This build is intentionally focused on data fidelity and the most important work
 - The editors keep manual ISO-style text entry available even though picker buttons are now built in.
 - Preferences are stored as one DataStore snapshot object internally rather than many separate preference keys.
 - The app recalculates efficiency and reminder state after import instead of preserving stale derived backup values as authoritative.
-- Browse filtering is local-only and does not yet support saved named searches.
 - Attachments are copied into app-local storage and referenced through a FileProvider URI instead of relying on external provider URIs directly.

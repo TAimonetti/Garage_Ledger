@@ -70,6 +70,7 @@ data class AppPreferenceSnapshot(
     val notificationsEnabled: Boolean = false,
     val notificationLedEnabled: Boolean = true,
     val visibleFields: Set<OptionalFieldToggle> = OptionalFieldToggle.entries.toSet(),
+    val savedBrowseSearches: List<SavedBrowseSearch> = emptyList(),
 )
 
 data class Vehicle(
@@ -358,10 +359,33 @@ data class BrowseRecordItem(
     val vehicleLifecycle: VehicleLifecycle = VehicleLifecycle.ACTIVE,
 )
 
+@Serializable
 enum class BrowseTripPaidStatus {
     PAID,
     UNPAID,
 }
+
+@Serializable
+data class SavedBrowseSearch(
+    val name: String,
+    val vehicleId: Long? = null,
+    val family: RecordFamily? = null,
+    val query: String = "",
+    val tag: String = "",
+    val fromDateIso: String? = null,
+    val toDateIso: String? = null,
+    val subtype: String = "",
+    val paymentType: String = "",
+    val eventPlace: String = "",
+    val fuelBrand: String = "",
+    val fuelType: String = "",
+    val fuelAdditive: String = "",
+    val drivingMode: String = "",
+    val tripPurpose: String = "",
+    val tripClient: String = "",
+    val tripLocation: String = "",
+    val tripPaidStatus: BrowseTripPaidStatus? = null,
+)
 
 data class BrowseRecordFilter(
     val vehicleId: Long? = null,

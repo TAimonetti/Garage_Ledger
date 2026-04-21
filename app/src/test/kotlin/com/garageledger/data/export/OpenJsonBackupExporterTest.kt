@@ -15,7 +15,9 @@ import com.garageledger.data.local.TripRecordEntity
 import com.garageledger.data.local.TripTypeEntity
 import com.garageledger.data.local.VehicleEntity
 import com.garageledger.data.local.VehiclePartEntity
+import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.SavedBrowseSearch
 import com.google.common.truth.Truth.assertThat
 import java.io.ByteArrayOutputStream
 import java.time.LocalDate
@@ -27,7 +29,23 @@ class OpenJsonBackupExporterTest {
     @Test
     fun export_writesMetadataAndPayloadEntries() {
         val snapshot = ExportSnapshot(
-            preferences = AppPreferenceSnapshot(currencySymbol = "$", backupHistoryCount = 5),
+            preferences = AppPreferenceSnapshot(
+                currencySymbol = "$",
+                backupHistoryCount = 5,
+                savedBrowseSearches = listOf(
+                    SavedBrowseSearch(
+                        name = "Fuel This Year",
+                        family = com.garageledger.domain.model.RecordFamily.FILL_UP,
+                        fromDateIso = "2026-01-01",
+                        toDateIso = "2026-04-20",
+                    ),
+                    SavedBrowseSearch(
+                        name = "Unpaid Trips",
+                        family = com.garageledger.domain.model.RecordFamily.TRIP,
+                        tripPaidStatus = BrowseTripPaidStatus.UNPAID,
+                    ),
+                ),
+            ),
             vehicles = listOf(
                 VehicleEntity(
                     id = 1L,
@@ -235,5 +253,8 @@ class OpenJsonBackupExporterTest {
         assertThat(entries["garage-ledger-backup.json"]).doesNotContain("\"serviceTypeName\"")
         assertThat(entries["garage-ledger-backup.json"]).contains("\"recordFamily\": \"SERVICE\"")
         assertThat(entries["garage-ledger-backup.json"]).contains("\"serviceRecordTypes\"")
+        assertThat(entries["garage-ledger-backup.json"]).contains("\"savedBrowseSearches\"")
+        assertThat(entries["garage-ledger-backup.json"]).contains("\"name\": \"Fuel This Year\"")
+        assertThat(entries["garage-ledger-backup.json"]).contains("\"tripPaidStatus\": \"UNPAID\"")
     }
 }

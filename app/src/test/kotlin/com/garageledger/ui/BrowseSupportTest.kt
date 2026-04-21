@@ -4,6 +4,7 @@ import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
+import com.garageledger.domain.model.SavedBrowseSearch
 import com.garageledger.domain.model.VehicleLifecycle
 import com.google.common.truth.Truth.assertThat
 import java.time.LocalDate
@@ -235,5 +236,55 @@ class BrowseSupportTest {
         assertThat(resolveBrowseDatePreset(lastNinety.first, lastNinety.second, today)).isEqualTo(BrowseDatePreset.LAST_90_DAYS)
         assertThat(resolveBrowseDatePreset(thisYear.first, thisYear.second, today)).isEqualTo(BrowseDatePreset.THIS_YEAR)
         assertThat(resolveBrowseDatePreset(null, null, today)).isNull()
+    }
+
+    @Test
+    fun savedBrowseSearch_roundTripsThroughFilterConversion() {
+        val filter = BrowseRecordFilter(
+            vehicleId = 44L,
+            family = RecordFamily.TRIP,
+            query = "client",
+            tag = "tax",
+            fromDate = LocalDate.parse("2024-02-01"),
+            toDate = LocalDate.parse("2024-02-29"),
+            subtype = "Business",
+            paymentType = "Visa",
+            eventPlace = "Office",
+            fuelBrand = "Shell",
+            fuelType = "Regular",
+            fuelAdditive = "Cleaner",
+            drivingMode = "Highway",
+            tripPurpose = "Meeting",
+            tripClient = "ACME",
+            tripLocation = "Phoenix",
+            tripPaidStatus = BrowseTripPaidStatus.UNPAID,
+        )
+
+        val saved = filter.toSavedBrowseSearch("Monthly Business")
+
+        assertThat(saved).isEqualTo(
+            SavedBrowseSearch(
+                name = "Monthly Business",
+                vehicleId = 44L,
+                family = RecordFamily.TRIP,
+                query = "client",
+                tag = "tax",
+                fromDateIso = "2024-02-01",
+                toDateIso = "2024-02-29",
+                subtype = "Business",
+                paymentType = "Visa",
+                eventPlace = "Office",
+                fuelBrand = "Shell",
+                fuelType = "Regular",
+                fuelAdditive = "Cleaner",
+                drivingMode = "Highway",
+                tripPurpose = "Meeting",
+                tripClient = "ACME",
+                tripLocation = "Phoenix",
+                tripPaidStatus = BrowseTripPaidStatus.UNPAID,
+            ),
+        )
+        assertThat(saved.toBrowseRecordFilter()).isEqualTo(filter)
+        assertThat(findSavedBrowseSearch(listOf(saved), "monthly business")).isEqualTo(saved)
     }
 }
