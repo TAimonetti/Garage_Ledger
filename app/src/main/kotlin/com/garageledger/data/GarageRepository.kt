@@ -1093,6 +1093,7 @@ class GarageRepository(
         replaceExisting: Boolean,
     ): ImportReport {
         val affectedVehicleIds = mutableSetOf<Long>()
+        val importedVehicleIdMap = mutableMapOf<Long, Long>()
         val persistenceIssues = mutableListOf<ImportIssue>()
         database.withTransaction {
             if (replaceExisting) {
@@ -1113,6 +1114,7 @@ class GarageRepository(
             }
 
             val vehicleIdMap = upsertVehicles(imported.vehicles, replaceExisting)
+            importedVehicleIdMap += vehicleIdMap
             affectedVehicleIds += vehicleIdMap.values
 
             val serviceTypeIdMap = upsertServiceTypes(imported.serviceTypes, replaceExisting)
@@ -1315,7 +1317,13 @@ class GarageRepository(
         }
 
         if (imported.preferences != null) {
-            preferencesRepository.replace(imported.preferences)
+            preferencesRepository.replace(
+                imported.preferences.copy(
+                    savedBrowseSearches = imported.preferences.savedBrowseSearches.map { search ->
+                        search.copy(vehicleId = search.vehicleId?.let(importedVehicleIdMap::get))
+                    },
+                ),
+            )
         }
         affectedVehicleIds.forEach { vehicleId ->
             recalculateVehicleFillUps(vehicleId)

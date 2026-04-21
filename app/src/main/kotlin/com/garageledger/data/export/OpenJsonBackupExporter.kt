@@ -118,6 +118,7 @@ internal data class PreferencesPayload(
     val notificationsEnabled: Boolean,
     val notificationLedEnabled: Boolean,
     val visibleFields: List<String>,
+    val savedBrowseSearches: List<SavedBrowseSearchPayload> = emptyList(),
 ) {
     companion object {
         fun from(snapshot: com.garageledger.domain.model.AppPreferenceSnapshot): PreferencesPayload = PreferencesPayload(
@@ -138,7 +139,54 @@ internal data class PreferencesPayload(
             notificationsEnabled = snapshot.notificationsEnabled,
             notificationLedEnabled = snapshot.notificationLedEnabled,
             visibleFields = snapshot.visibleFields.map { it.storageKey }.sorted(),
+            savedBrowseSearches = snapshot.savedBrowseSearches.map(SavedBrowseSearchPayload::from),
         )
+    }
+}
+
+@Serializable
+internal data class SavedBrowseSearchPayload(
+    val name: String,
+    val vehicleId: Long? = null,
+    val family: String? = null,
+    val query: String = "",
+    val tag: String = "",
+    val fromDateIso: String? = null,
+    val toDateIso: String? = null,
+    val subtype: String = "",
+    val paymentType: String = "",
+    val eventPlace: String = "",
+    val fuelBrand: String = "",
+    val fuelType: String = "",
+    val fuelAdditive: String = "",
+    val drivingMode: String = "",
+    val tripPurpose: String = "",
+    val tripClient: String = "",
+    val tripLocation: String = "",
+    val tripPaidStatus: String? = null,
+) {
+    companion object {
+        fun from(search: com.garageledger.domain.model.SavedBrowseSearch): SavedBrowseSearchPayload =
+            SavedBrowseSearchPayload(
+                name = search.name,
+                vehicleId = search.vehicleId,
+                family = search.family?.name,
+                query = search.query,
+                tag = search.tag,
+                fromDateIso = search.fromDateIso,
+                toDateIso = search.toDateIso,
+                subtype = search.subtype,
+                paymentType = search.paymentType,
+                eventPlace = search.eventPlace,
+                fuelBrand = search.fuelBrand,
+                fuelType = search.fuelType,
+                fuelAdditive = search.fuelAdditive,
+                drivingMode = search.drivingMode,
+                tripPurpose = search.tripPurpose,
+                tripClient = search.tripClient,
+                tripLocation = search.tripLocation,
+                tripPaidStatus = search.tripPaidStatus?.name,
+            )
     }
 }
 

@@ -77,6 +77,9 @@ fun BrowseRecordsScreen(
     var selectedDatePresetName by rememberSaveable { mutableStateOf("") }
     var vehicleMenuExpanded by remember { mutableStateOf(false) }
     var overflowMenuExpanded by remember { mutableStateOf(false) }
+    var saveSearchDialogOpen by remember { mutableStateOf(false) }
+    var manageSavedSearchesDialogOpen by remember { mutableStateOf(false) }
+    var savedSearchNameText by rememberSaveable { mutableStateOf("") }
     var queryText by rememberSaveable { mutableStateOf("") }
     var tagText by rememberSaveable { mutableStateOf("") }
     var fromDateText by rememberSaveable { mutableStateOf("") }
@@ -171,6 +174,9 @@ fun BrowseRecordsScreen(
     val sortedRecords = remember(filteredRecords, preferences.browseSortDescending) {
         sortBrowseRecords(filteredRecords, preferences.browseSortDescending)
     }
+    val savedBrowseSearches = remember(preferences.savedBrowseSearches) {
+        preferences.savedBrowseSearches.sortedBy { it.name.lowercase() }
+    }
     val selectedVehicleName = remember(vehicles, selectedVehicleId) {
         vehicles.firstOrNull { it.id == selectedVehicleId }?.name
     }
@@ -180,6 +186,7 @@ fun BrowseRecordsScreen(
             vehicleName = selectedVehicleName,
         )
     }
+    val canSaveCurrentSearch = remember(activeFilterTokens) { activeFilterTokens.isNotEmpty() }
 
     fun runExport(uri: Uri?) {
         if (uri == null) return
@@ -227,6 +234,79 @@ fun BrowseRecordsScreen(
         tripClientText = ""
         tripLocationText = ""
         selectedTripPaidStatus = null
+    }
+
+    fun applyFilterState(filter: BrowseRecordFilter) {
+        selectedVehicleId = filter.vehicleId ?: 0L
+        selectedFamily = filter.family
+        queryText = filter.query
+        tagText = filter.tag
+        fromDateText = filter.fromDate?.let(::coerceDateText).orEmpty()
+        toDateText = filter.toDate?.let(::coerceDateText).orEmpty()
+        subtypeText = filter.subtype
+        paymentTypeText = filter.paymentType
+        eventPlaceText = filter.eventPlace
+        fuelBrandText = filter.fuelBrand
+        fuelTypeText = filter.fuelType
+        fuelAdditiveText = filter.fuelAdditive
+        drivingModeText = filter.drivingMode
+        tripPurposeText = filter.tripPurpose
+        tripClientText = filter.tripClient
+        tripLocationText = filter.tripLocation
+        selectedTripPaidStatus = filter.tripPaidStatus
+    }
+
+    fun saveCurrentSearch() {
+        val trimmedName = savedSearchNameText.trim()
+        if (trimmedName.isBlank()) {
+            statusMessage = null
+            errorMessage = "Saved search name is required."
+            return
+        }
+        val existingSearch = findSavedBrowseSearch(savedBrowseSearches, trimmedName)
+        scope.launch {
+            runCatching {
+                repository.updatePreferences { current ->
+                    val search = fullFilter.toSavedBrowseSearch(trimmedName)
+                    current.copy(
+                        savedBrowseSearches = (current.savedBrowseSearches
+                            .filterNot { it.name.equals(trimmedName, ignoreCase = true) } + search)
+                            .sortedBy { it.name.lowercase() },
+                    )
+                }
+            }.onSuccess {
+                saveSearchDialogOpen = false
+                savedSearchNameText = ""
+                statusMessage = if (existingSearch == null) {
+                    "Saved browse search added."
+                } else {
+                    "Saved browse search updated."
+                }
+                errorMessage = null
+            }.onFailure {
+                statusMessage = null
+                errorMessage = it.message
+            }
+        }
+    }
+
+    fun deleteSavedSearch(name: String) {
+        scope.launch {
+            runCatching {
+                repository.updatePreferences { current ->
+                    current.copy(
+                        savedBrowseSearches = current.savedBrowseSearches
+                            .filterNot { it.name.equals(name, ignoreCase = true) },
+                    )
+                }
+            }.onSuccess {
+                statusMessage = "Saved browse search deleted."
+                errorMessage = null
+            }.onFailure {
+                statusMessage = null
+                errorMessage = it.message
+            }
+        }
     }
 
     fun applyDatePreset(preset: BrowseDatePreset?) {
@@ -309,6 +389,106 @@ fun BrowseRecordsScreen(
         )
     }
 
+    if (saveSearchDialogOpen) {
+        AlertDialog(
+            onDismissRequest = {
+                saveSearchDialogOpen = false
+                savedSearchNameText = ""
+            },
+            title = { Text("Save Current Search") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Store the current local filter set so you can reload it later.")
+                    OutlinedTextField(
+                        value = savedSearchNameText,
+                        onValueChange = { savedSearchNameText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Search name") },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = ::saveCurrentSearch) {
+                    Text(
+                        if (findSavedBrowseSearch(savedBrowseSearches, savedSearchNameText) == null) {
+                            "Save"
+                        } else {
+                            "Replace"
+                        },
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        saveSearchDialogOpen = false
+                        savedSearchNameText = ""
+                    },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
+    if (manageSavedSearchesDialogOpen) {
+        AlertDialog(
+            onDismissRequest = { manageSavedSearchesDialogOpen = false },
+            title = { Text("Saved Searches") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (savedBrowseSearches.isEmpty()) {
+                        Text("No saved searches yet.")
+                    } else {
+                        savedBrowseSearches.forEach { search ->
+                            Card {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(search.name, fontWeight = FontWeight.SemiBold)
+                                    val tokenSummary = buildBrowseFilterTokens(
+                                        filter = search.toBrowseRecordFilter(),
+                                        vehicleName = vehicles.firstOrNull { it.id == search.vehicleId }?.name,
+                                    )
+                                    if (tokenSummary.isNotEmpty()) {
+                                        Text(
+                                            tokenSummary.joinToString(" | ") { it.label },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        TextButton(
+                                            onClick = {
+                                                applyFilterState(search.toBrowseRecordFilter())
+                                                manageSavedSearchesDialogOpen = false
+                                                statusMessage = "Saved browse search loaded."
+                                                errorMessage = null
+                                            },
+                                        ) {
+                                            Text("Load")
+                                        }
+                                        TextButton(onClick = { deleteSavedSearch(search.name) }) {
+                                            Text("Delete")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { manageSavedSearchesDialogOpen = false }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -348,6 +528,23 @@ fun BrowseRecordsScreen(
                                             errorMessage = it.message
                                         }
                                     }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Save Current Search") },
+                                enabled = canSaveCurrentSearch,
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    savedSearchNameText = ""
+                                    saveSearchDialogOpen = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Saved Searches") },
+                                enabled = savedBrowseSearches.isNotEmpty(),
+                                onClick = {
+                                    overflowMenuExpanded = false
+                                    manageSavedSearchesDialogOpen = true
                                 },
                             )
                             DropdownMenuItem(
@@ -444,6 +641,25 @@ fun BrowseRecordsScreen(
                                     onClick = { applyDatePreset(if (selectedDatePreset == preset) null else preset) },
                                     label = { Text(preset.label) },
                                 )
+                            }
+                        }
+                        if (savedBrowseSearches.isNotEmpty()) {
+                            Text("Saved Searches", style = MaterialTheme.typography.labelLarge)
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                savedBrowseSearches.take(6).forEach { search ->
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = {
+                                            applyFilterState(search.toBrowseRecordFilter())
+                                            statusMessage = "Saved browse search loaded."
+                                            errorMessage = null
+                                        },
+                                        label = { Text(search.name) },
+                                    )
+                                }
                             }
                         }
                         if (activeFilterTokens.isNotEmpty()) {
