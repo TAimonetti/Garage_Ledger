@@ -397,12 +397,11 @@ fun ReminderEditorScreen(
                             label = { Text("Distance Interval") },
                             singleLine = true,
                         )
-                        OutlinedTextField(
+                        PickerDateField(
                             value = dueDateText,
                             onValueChange = { dueDateText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Due Date (yyyy-MM-dd)") },
-                            singleLine = true,
+                            label = "Due Date (yyyy-MM-dd)",
                         )
                         OutlinedTextField(
                             value = dueDistanceText,

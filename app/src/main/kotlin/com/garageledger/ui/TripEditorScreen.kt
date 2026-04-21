@@ -372,12 +372,11 @@ fun TripEditorScreen(
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
+                        PickerDateTimeField(
                             value = startDateText,
                             onValueChange = { startDateText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Start (yyyy-MM-dd HH:mm)") },
-                            singleLine = true,
+                            label = "Start (yyyy-MM-dd HH:mm)",
                         )
                         OutlinedTextField(
                             value = startOdometerText,
@@ -418,12 +417,11 @@ fun TripEditorScreen(
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
+                        PickerDateTimeField(
                             value = endDateText,
                             onValueChange = { endDateText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("End (optional)") },
-                            singleLine = true,
+                            label = "End (optional)",
                         )
                         OutlinedTextField(
                             value = endOdometerText,

@@ -209,12 +209,11 @@ fun FuelUpEditorScreen(
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedTextField(
+                        PickerDateTimeField(
                             value = dateTimeText,
                             onValueChange = { dateTimeText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Date/Time (yyyy-MM-dd HH:mm)") },
-                            singleLine = true,
+                            label = "Date/Time (yyyy-MM-dd HH:mm)",
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Column(Modifier.weight(1f)) {

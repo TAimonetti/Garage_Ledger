@@ -479,17 +479,17 @@ fun BrowseRecordsScreen(
                                 )
                             }
                         }
-                        OutlinedTextField(
+                        PickerDateField(
                             value = fromDateText,
                             onValueChange = { fromDateText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("From date (yyyy-MM-dd)") },
+                            label = "From date (yyyy-MM-dd)",
                         )
-                        OutlinedTextField(
+                        PickerDateField(
                             value = toDateText,
                             onValueChange = { toDateText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("To date (yyyy-MM-dd)") },
+                            label = "To date (yyyy-MM-dd)",
                         )
                         TextButton(onClick = ::clearFilters) {
                             Text("Clear Filters")
