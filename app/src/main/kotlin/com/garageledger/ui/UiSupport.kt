@@ -44,6 +44,47 @@ internal fun Double.asCurrency(): String = asCurrency("$")
 
 internal fun Double.formatOneDecimal(): String = "%,.1f".format(this)
 
+internal enum class TripEndOdometerMode {
+    ABSOLUTE,
+    DISTANCE_FROM_START,
+}
+
+internal fun resolveTripEndOdometer(
+    startOdometer: Double?,
+    rawInput: String,
+    mode: TripEndOdometerMode,
+): Double? {
+    val parsedValue = rawInput.trim().toDoubleOrNull() ?: return null
+    return when (mode) {
+        TripEndOdometerMode.ABSOLUTE -> parsedValue
+        TripEndOdometerMode.DISTANCE_FROM_START -> startOdometer?.plus(parsedValue)
+    }
+}
+
+internal fun translateTripEndOdometerInput(
+    rawInput: String,
+    startOdometer: Double?,
+    fromMode: TripEndOdometerMode,
+    toMode: TripEndOdometerMode,
+): String {
+    if (rawInput.isBlank() || fromMode == toMode) return rawInput
+    val absoluteValue = resolveTripEndOdometer(startOdometer, rawInput, fromMode) ?: return rawInput
+    return when (toMode) {
+        TripEndOdometerMode.ABSOLUTE -> absoluteValue.toStableString()
+        TripEndOdometerMode.DISTANCE_FROM_START -> {
+            val startValue = startOdometer ?: return rawInput
+            val distance = absoluteValue - startValue
+            if (distance < 0.0) rawInput else distance.toStableString()
+        }
+    }
+}
+
+internal fun buildReturnTripPurpose(previousPurpose: String): String = previousPurpose
+    .trim()
+    .takeIf(String::isNotBlank)
+    ?.let { "Return: $it" }
+    .orEmpty()
+
 internal fun RecordFamily.displayLabel(): String = when (this) {
     RecordFamily.FILL_UP -> "Fuel-Ups"
     RecordFamily.SERVICE -> "Services"

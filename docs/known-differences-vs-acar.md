@@ -21,6 +21,8 @@ This build is intentionally focused on data fidelity and the most important work
 - Editor-level "Customize this screen" support for fuel-up, service, expense, and trip flows
 - Settings screen for local units, formats, reminder thresholds, notifications, and optional fields
 - Type management for local fuel, service, expense, and trip catalogs
+- Vehicle profile photos plus add/edit, retire/reactivate, and destructive delete flows
+- Trip helpers for return trips, last-destination starts, open-trip finishing, and end-odometer distance entry
 
 ## Not complete yet
 

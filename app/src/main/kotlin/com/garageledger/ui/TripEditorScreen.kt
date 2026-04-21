@@ -80,6 +80,7 @@ fun TripEditorScreen(
     var startLocation by rememberSaveable { mutableStateOf("") }
     var endDateText by rememberSaveable { mutableStateOf("") }
     var endOdometerText by rememberSaveable { mutableStateOf("") }
+    var endOdometerModeName by rememberSaveable { mutableStateOf(TripEndOdometerMode.ABSOLUTE.name) }
     var endLocation by rememberSaveable { mutableStateOf("") }
     var purpose by rememberSaveable { mutableStateOf("") }
     var client by rememberSaveable { mutableStateOf("") }
@@ -103,6 +104,7 @@ fun TripEditorScreen(
             startLocation = record.startLocation
             endDateText = record.endDateTime?.format(EditorDateFormatter).orEmpty()
             endOdometerText = record.endOdometerReading?.toString().orEmpty()
+            endOdometerModeName = TripEndOdometerMode.ABSOLUTE.name
             endLocation = record.endLocation
             purpose = record.purpose
             client = record.client
@@ -133,13 +135,20 @@ fun TripEditorScreen(
     val showTripReimbursement = com.garageledger.domain.model.OptionalFieldToggle.TRIP_REIMBURSEMENT in visibleFields
     val showTags = com.garageledger.domain.model.OptionalFieldToggle.TAGS in visibleFields
     val showNotes = com.garageledger.domain.model.OptionalFieldToggle.NOTES in visibleFields
+    val endOdometerMode = remember(endOdometerModeName) { TripEndOdometerMode.valueOf(endOdometerModeName) }
     val parsedStart = remember(startDateText) { parseEditorDateTime(startDateText) }
     val parsedEnd = remember(endDateText) { parseEditorDateTime(endDateText).takeIf { endDateText.isNotBlank() } }
     val startOdometer = remember(startOdometerText) { startOdometerText.toDoubleOrNull() }
-    val endOdometer = remember(endOdometerText) { endOdometerText.toDoubleOrNull() }
-    val distancePreview = remember(startOdometer, endOdometer) {
-        if (startOdometer != null && endOdometer != null && endOdometer >= startOdometer) {
-            endOdometer - startOdometer
+    val resolvedEndOdometer = remember(startOdometer, endOdometerText, endOdometerMode) {
+        resolveTripEndOdometer(
+            startOdometer = startOdometer,
+            rawInput = endOdometerText,
+            mode = endOdometerMode,
+        )
+    }
+    val distancePreview = remember(startOdometer, resolvedEndOdometer) {
+        if (startOdometer != null && resolvedEndOdometer != null && resolvedEndOdometer >= startOdometer) {
+            resolvedEndOdometer - startOdometer
         } else {
             null
         }
@@ -155,7 +164,7 @@ fun TripEditorScreen(
         parsedStart,
         startOdometer,
         parsedEnd,
-        endOdometer,
+        resolvedEndOdometer,
         startLocation,
         endLocation,
         purpose,
@@ -180,7 +189,7 @@ fun TripEditorScreen(
                 startOdometerReading = startOdometer,
                 startLocation = startLocation,
                 endDateTime = parsedEnd,
-                endOdometerReading = endOdometer,
+                endOdometerReading = resolvedEndOdometer,
                 endLocation = endLocation,
                 distanceUnit = preferences.distanceUnit,
                 tripTypeId = tripTypeId,
@@ -200,7 +209,12 @@ fun TripEditorScreen(
             ?.let { runCatching { repository.estimateTripCost(it) }.getOrNull() }
     }
 
-    val lastCompletedTrip = priorTrips.lastOrNull { it.id != recordId && it.endDateTime != null }
+    val lastCompletedTrip = priorTrips.lastOrNull {
+        it.id != recordId && it.endDateTime != null && it.endOdometerReading != null
+    }
+    val openTrip = priorTrips.lastOrNull {
+        it.id != recordId && (it.endDateTime == null || it.endOdometerReading == null)
+    }
 
     if (showCustomizeFields) {
         VisibleFieldsDialog(
@@ -239,6 +253,13 @@ fun TripEditorScreen(
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(vehicleName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("Trips can stay open, inherit the last destination, or flip into a return trip.")
+                        if (recordId <= 0L && openTrip != null) {
+                            Text(
+                                "An open trip from ${openTrip.startDateTime.format(EditorDateFormatter)} is still active. " +
+                                    "Finish it from Vehicle Details if this entry should close that trip.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         if (lastCompletedTrip != null) {
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -257,6 +278,10 @@ fun TripEditorScreen(
                                         startLocation = lastCompletedTrip.endLocation.ifBlank { lastCompletedTrip.startLocation }
                                         endLocation = lastCompletedTrip.startLocation
                                         lastCompletedTrip.endOdometerReading?.let { startOdometerText = it.toString() }
+                                        purpose = buildReturnTripPurpose(lastCompletedTrip.purpose)
+                                        if (client.isBlank()) {
+                                            client = lastCompletedTrip.client
+                                        }
                                     },
                                 ) {
                                     Text("Return Last Trip")
@@ -309,9 +334,45 @@ fun TripEditorScreen(
                             value = endOdometerText,
                             onValueChange = { endOdometerText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("End Odometer (optional)") },
+                            label = {
+                                Text(
+                                    when (endOdometerMode) {
+                                        TripEndOdometerMode.ABSOLUTE -> "End Odometer (optional)"
+                                        TripEndOdometerMode.DISTANCE_FROM_START -> "Distance From Start (optional)"
+                                    },
+                                )
+                            },
                             singleLine = true,
                         )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            TripEndOdometerMode.entries.forEach { mode ->
+                                FilterChip(
+                                    selected = endOdometerMode == mode,
+                                    onClick = {
+                                        if (mode != endOdometerMode) {
+                                            endOdometerText = translateTripEndOdometerInput(
+                                                rawInput = endOdometerText,
+                                                startOdometer = startOdometer,
+                                                fromMode = endOdometerMode,
+                                                toMode = mode,
+                                            )
+                                            endOdometerModeName = mode.name
+                                        }
+                                    },
+                                    label = {
+                                        Text(
+                                            when (mode) {
+                                                TripEndOdometerMode.ABSOLUTE -> "Absolute"
+                                                TripEndOdometerMode.DISTANCE_FROM_START -> "Trip Distance"
+                                            },
+                                        )
+                                    },
+                                )
+                            }
+                        }
                         if (showTripLocation) {
                             OutlinedTextField(
                                 value = endLocation,
@@ -424,6 +485,9 @@ fun TripEditorScreen(
                         Text(
                             "Distance: " + (distancePreview?.let { "${it.toStableString()} ${preferences.distanceUnit.storageValue}" } ?: "Open trip"),
                         )
+                        if (endOdometerText.isNotBlank() && resolvedEndOdometer != null) {
+                            Text("Resolved End Odometer: ${resolvedEndOdometer.toStableString()} ${preferences.distanceUnit.storageValue}")
+                        }
                         Text(
                             "Duration: " + (
                                 durationPreview?.let { duration ->

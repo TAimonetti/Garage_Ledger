@@ -77,6 +77,7 @@ fun VehicleEditorScreen(
     var sellingOdometerText by rememberSaveable { mutableStateOf("") }
     var sellingDateText by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
+    var profilePhotoUri by rememberSaveable { mutableStateOf<String?>(null) }
     var distanceUnitOverride by rememberSaveable { mutableStateOf<DistanceUnit?>(null) }
     var volumeUnitOverride by rememberSaveable { mutableStateOf<VolumeUnit?>(null) }
     var fuelEfficiencyUnitOverride by rememberSaveable { mutableStateOf<FuelEfficiencyUnit?>(null) }
@@ -107,6 +108,7 @@ fun VehicleEditorScreen(
             sellingOdometerText = vehicle.sellingOdometer?.toString().orEmpty()
             sellingDateText = vehicle.sellingDate?.toString().orEmpty()
             notes = vehicle.notes
+            profilePhotoUri = vehicle.profilePhotoUri
             distanceUnitOverride = vehicle.distanceUnitOverride
             volumeUnitOverride = vehicle.volumeUnitOverride
             fuelEfficiencyUnitOverride = vehicle.fuelEfficiencyUnitOverride
@@ -168,6 +170,13 @@ fun VehicleEditorScreen(
                         }
                     }
                 }
+            }
+            item {
+                VehiclePhotoEditorCard(
+                    photoUri = profilePhotoUri,
+                    onPhotoChanged = { profilePhotoUri = it },
+                    onError = { errorMessage = it },
+                )
             }
             item {
                 Card {
@@ -434,7 +443,7 @@ fun VehicleEditorScreen(
                                             parseFilterDate(it) ?: error("Use yyyy-MM-dd for selling date.")
                                         },
                                         notes = notes.trim(),
-                                        profilePhotoUri = existingVehicle?.profilePhotoUri,
+                                        profilePhotoUri = profilePhotoUri,
                                         distanceUnitOverride = distanceUnitOverride,
                                         volumeUnitOverride = volumeUnitOverride,
                                         fuelEfficiencyUnitOverride = fuelEfficiencyUnitOverride,

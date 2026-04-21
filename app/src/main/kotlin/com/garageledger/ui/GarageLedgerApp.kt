@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.BarChart
@@ -126,6 +127,7 @@ fun GarageLedgerApp(
                 onAddService = { navController.navigate("service/$it/-1") },
                 onAddExpense = { navController.navigate("expense/$it/-1") },
                 onAddTrip = { navController.navigate("trip/$it/-1") },
+                onEditTrip = { vehicleId, tripId -> navController.navigate("trip/$vehicleId/$tripId") },
             )
         }
         composable(
@@ -349,6 +351,7 @@ private fun ConsoleScreen(
     onAddService: (Long) -> Unit,
     onAddExpense: (Long) -> Unit,
     onAddTrip: (Long) -> Unit,
+    onEditTrip: (Long, Long) -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
@@ -368,6 +371,7 @@ private fun ConsoleScreen(
     }
     val detail by (detailFlow?.collectAsStateWithLifecycle(initialValue = null)
         ?: remember { mutableStateOf<VehicleDetailBundle?>(null) })
+    val openTrip = detail?.recentTrips?.firstOrNull { it.endDateTime == null || it.endOdometerReading == null }
 
     Scaffold(
         topBar = {
@@ -447,6 +451,26 @@ private fun ConsoleScreen(
                 )
             }
             if (detail != null) {
+                openTrip?.let { trip ->
+                    item {
+                        Card {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Open Trip", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    listOfNotNull(
+                                        trip.startDateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                                        trip.startLocation.takeIf { it.isNotBlank() },
+                                        trip.startOdometerReading.toStableString() + " " + trip.distanceUnit.storageValue,
+                                    ).joinToString(" | "),
+                                )
+                                AssistChip(
+                                    onClick = { onEditTrip(trip.vehicleId, trip.id) },
+                                    label = { Text("Finish Open Trip") },
+                                )
+                            }
+                        }
+                    }
+                }
                 item {
                     Card {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -561,7 +585,7 @@ private fun ActionGrid(
         DashboardAction("Vehicle Details", Icons.Outlined.Edit, onOpenVehicle, enabled = hasSelectedVehicle),
         DashboardAction("Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
         DashboardAction("Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
-        DashboardAction("Expense", Icons.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
+        DashboardAction("Expense", Icons.AutoMirrored.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
         DashboardAction("Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
     )
     LazyVerticalGrid(
@@ -660,9 +684,14 @@ private fun VehiclesScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(18.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column {
+                        VehiclePhotoThumbnail(
+                            photoUri = vehicle.profilePhotoUri,
+                            modifier = Modifier.size(64.dp),
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(vehicle.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Text(listOfNotNull(vehicle.year?.toString(), vehicle.make, vehicle.model).joinToString(" "))
                         }
@@ -708,6 +737,7 @@ private fun VehicleDetailScreen(
     ) { padding ->
         detail?.let { data ->
             val visibleFields = preferences.visibleFields
+            val openTrip = data.recentTrips.firstOrNull { it.endDateTime == null || it.endOdometerReading == null }
             val showLicensePlate = OptionalFieldToggle.VEHICLE_LICENSE_PLATE in visibleFields
             val showVin = OptionalFieldToggle.VEHICLE_VIN in visibleFields
             val showInsurance = OptionalFieldToggle.VEHICLE_INSURANCE_POLICY in visibleFields
@@ -754,36 +784,48 @@ private fun VehicleDetailScreen(
             ) {
                 item {
                     Card {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Vehicle Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text(listOfNotNull(data.vehicle.year?.toString(), data.vehicle.make, data.vehicle.model, data.vehicle.submodel).joinToString(" "))
-                            Text("Lifecycle: ${data.vehicle.lifecycle.name.lowercase().replaceFirstChar(Char::uppercase)}")
-                            data.vehicle.type.takeIf { it.isNotBlank() }?.let { Text("Type: $it") }
-                            data.vehicle.country.takeIf { it.isNotBlank() }?.let { Text("Country: $it") }
-                            if (showLicensePlate && data.vehicle.licensePlate.isNotBlank()) Text("Plate: ${data.vehicle.licensePlate}")
-                            if (showVin && data.vehicle.vin.isNotBlank()) Text("VIN: ${data.vehicle.vin}")
-                            if (showInsurance && data.vehicle.insurancePolicy.isNotBlank()) Text("Insurance: ${data.vehicle.insurancePolicy}")
-                            if (showBodyStyle && data.vehicle.bodyStyle.isNotBlank()) Text("Body Style: ${data.vehicle.bodyStyle}")
-                            if (showColor && data.vehicle.color.isNotBlank()) Text("Color: ${data.vehicle.color}")
-                            if (showEngineDisplacement && data.vehicle.engineDisplacement.isNotBlank()) Text("Engine: ${data.vehicle.engineDisplacement}")
-                            if (showFuelTankCapacity && data.vehicle.fuelTankCapacity != null) Text("Tank: ${data.vehicle.fuelTankCapacity.toStableString()}")
-                            if (showPurchaseInfo) {
-                                val purchaseSummary = listOfNotNull(
-                                    data.vehicle.purchaseDate?.toString(),
-                                    data.vehicle.purchasePrice?.let(Double::asCurrency),
-                                    data.vehicle.purchaseOdometer?.let(Double::toStableString),
-                                ).joinToString(" | ")
-                                if (purchaseSummary.isNotBlank()) Text("Purchase: $purchaseSummary")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            VehiclePhotoThumbnail(
+                                photoUri = data.vehicle.profilePhotoUri,
+                                modifier = Modifier.size(88.dp),
+                            )
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Vehicle Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(listOfNotNull(data.vehicle.year?.toString(), data.vehicle.make, data.vehicle.model, data.vehicle.submodel).joinToString(" "))
+                                Text("Lifecycle: ${data.vehicle.lifecycle.name.lowercase().replaceFirstChar(Char::uppercase)}")
+                                data.vehicle.type.takeIf { it.isNotBlank() }?.let { Text("Type: $it") }
+                                data.vehicle.country.takeIf { it.isNotBlank() }?.let { Text("Country: $it") }
+                                if (showLicensePlate && data.vehicle.licensePlate.isNotBlank()) Text("Plate: ${data.vehicle.licensePlate}")
+                                if (showVin && data.vehicle.vin.isNotBlank()) Text("VIN: ${data.vehicle.vin}")
+                                if (showInsurance && data.vehicle.insurancePolicy.isNotBlank()) Text("Insurance: ${data.vehicle.insurancePolicy}")
+                                if (showBodyStyle && data.vehicle.bodyStyle.isNotBlank()) Text("Body Style: ${data.vehicle.bodyStyle}")
+                                if (showColor && data.vehicle.color.isNotBlank()) Text("Color: ${data.vehicle.color}")
+                                if (showEngineDisplacement && data.vehicle.engineDisplacement.isNotBlank()) Text("Engine: ${data.vehicle.engineDisplacement}")
+                                if (showFuelTankCapacity && data.vehicle.fuelTankCapacity != null) Text("Tank: ${data.vehicle.fuelTankCapacity.toStableString()}")
+                                if (showPurchaseInfo) {
+                                    val purchaseSummary = listOfNotNull(
+                                        data.vehicle.purchaseDate?.toString(),
+                                        data.vehicle.purchasePrice?.let(Double::asCurrency),
+                                        data.vehicle.purchaseOdometer?.let(Double::toStableString),
+                                    ).joinToString(" | ")
+                                    if (purchaseSummary.isNotBlank()) Text("Purchase: $purchaseSummary")
+                                }
+                                if (showSellingInfo) {
+                                    val sellingSummary = listOfNotNull(
+                                        data.vehicle.sellingDate?.toString(),
+                                        data.vehicle.sellingPrice?.let(Double::asCurrency),
+                                        data.vehicle.sellingOdometer?.let(Double::toStableString),
+                                    ).joinToString(" | ")
+                                    if (sellingSummary.isNotBlank()) Text("Selling: $sellingSummary")
+                                }
+                                if (data.vehicle.notes.isNotBlank()) Text(data.vehicle.notes)
                             }
-                            if (showSellingInfo) {
-                                val sellingSummary = listOfNotNull(
-                                    data.vehicle.sellingDate?.toString(),
-                                    data.vehicle.sellingPrice?.let(Double::asCurrency),
-                                    data.vehicle.sellingOdometer?.let(Double::toStableString),
-                                ).joinToString(" | ")
-                                if (sellingSummary.isNotBlank()) Text("Selling: $sellingSummary")
-                            }
-                            if (data.vehicle.notes.isNotBlank()) Text(data.vehicle.notes)
                         }
                     }
                 }
@@ -812,8 +854,28 @@ private fun VehicleDetailScreen(
                             AssistChip(onClick = onAddService, label = { Text("New Service") })
                             AssistChip(onClick = onAddExpense, label = { Text("New Expense") })
                             AssistChip(onClick = onAddTrip, label = { Text("New Trip") })
+                            if (openTrip != null) {
+                                AssistChip(onClick = { onEditTrip(openTrip.id) }, label = { Text("Finish Open Trip") })
+                            }
                             AssistChip(onClick = onBrowseRecords, label = { Text("Browse Records") })
                             AssistChip(onClick = onOpenStats, label = { Text("Statistics & Charts") })
+                        }
+                    }
+                }
+                openTrip?.let { trip ->
+                    item {
+                        Card {
+                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("Open Trip", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    listOfNotNull(
+                                        trip.startDateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm")),
+                                        trip.startLocation.takeIf { it.isNotBlank() },
+                                        trip.startOdometerReading.toStableString() + " " + trip.distanceUnit.storageValue,
+                                    ).joinToString(" | "),
+                                )
+                                AssistChip(onClick = { onEditTrip(trip.id) }, label = { Text("Finish Open Trip") })
+                            }
                         }
                     }
                 }
