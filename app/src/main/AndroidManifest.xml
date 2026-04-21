@@ -56,6 +56,32 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/reminders_widget_info" />
         </receiver>
+
+        <receiver
+            android:name=".widgets.FuelEfficiencyWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.garageledger.widgets.FUEL_EFFICIENCY_REFRESH" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/fuel_efficiency_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widgets.FuelPriceWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.garageledger.widgets.FUEL_PRICE_REFRESH" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/fuel_price_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

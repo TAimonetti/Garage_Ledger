@@ -6,6 +6,7 @@ import com.garageledger.data.export.ExportSnapshot
 import com.garageledger.data.export.OpenJsonBackupExporter
 import com.garageledger.data.export.SectionedCsvExporter
 import com.garageledger.data.export.StatisticsCsvExporter
+import com.garageledger.data.export.StatisticsHtmlExporter
 import com.garageledger.data.importer.AcarAbpImporter
 import com.garageledger.data.importer.AcarCsvImporter
 import com.garageledger.data.importer.FuellyCsvImporter
@@ -42,6 +43,8 @@ import com.garageledger.domain.model.ReminderWidgetItem
 import com.garageledger.domain.model.ExpenseRecord
 import com.garageledger.domain.model.ExpenseType
 import com.garageledger.domain.model.FillUpRecord
+import com.garageledger.domain.model.FuelWidgetItem
+import com.garageledger.domain.model.FuelWidgetMetric
 import com.garageledger.domain.model.FuellyCsvImportConfig
 import com.garageledger.domain.model.FuellyCsvPreview
 import com.garageledger.domain.model.FuelType
@@ -81,6 +84,7 @@ class GarageRepository(
     private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
     private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
     private val statisticsCsvExporter: StatisticsCsvExporter = StatisticsCsvExporter(),
+    private val statisticsHtmlExporter: StatisticsHtmlExporter = StatisticsHtmlExporter(),
     private val statisticsReportBuilder: StatisticsReportBuilder = StatisticsReportBuilder(),
     private val onLedgerChanged: suspend () -> Unit = {},
 ) {
@@ -315,6 +319,18 @@ class GarageRepository(
         outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
     }
 
+    suspend fun exportStatisticsHtml(
+        outputStream: OutputStream,
+        filter: StatisticsFilter = StatisticsFilter(),
+    ) {
+        val dashboard = statisticsReportBuilder.build(
+            source = buildStatisticsSource(buildExportSnapshot()),
+            filter = filter,
+        )
+        val html = statisticsHtmlExporter.export(dashboard)
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(html) }
+    }
+
     suspend fun getDueReminderAlerts(now: LocalDateTime = LocalDateTime.now()): List<ReminderAlert> {
         val preferences = preferencesRepository.currentSnapshot()
         val reminders = dao.getAllServiceReminders()
@@ -367,6 +383,59 @@ class GarageRepository(
                     dueDistance = reminder.dueDistance,
                 )
             }
+    }
+
+    suspend fun getFuelWidgetItems(
+        metric: FuelWidgetMetric,
+        limit: Int = 3,
+    ): List<FuelWidgetItem> {
+        val preferences = preferencesRepository.currentSnapshot()
+        val vehicles = dao.getVehicles().map(VehicleEntity::toDomain)
+        val fillUpsByVehicle = dao.getAllFillUps()
+            .map(FillUpRecordEntity::toDomain)
+            .groupBy(FillUpRecord::vehicleId)
+
+        val candidateVehicles = vehicles
+            .filter { it.lifecycle == com.garageledger.domain.model.VehicleLifecycle.ACTIVE && !fillUpsByVehicle[it.id].isNullOrEmpty() }
+            .ifEmpty { vehicles.filter { !fillUpsByVehicle[it.id].isNullOrEmpty() } }
+
+        return candidateVehicles
+            .mapNotNull { vehicle ->
+                val fillUps = fillUpsByVehicle[vehicle.id].orEmpty().sortedBy(FillUpRecord::dateTime)
+                if (fillUps.isEmpty()) return@mapNotNull null
+                val latest = fillUps.last()
+                when (metric) {
+                    FuelWidgetMetric.FUEL_EFFICIENCY -> {
+                        val efficiencyValues = fillUps.mapNotNull { it.fuelEfficiency ?: it.importedFuelEfficiency }
+                        if (efficiencyValues.isEmpty()) return@mapNotNull null
+                        FuelWidgetItem(
+                            vehicleId = vehicle.id,
+                            vehicleName = vehicle.name,
+                            metric = metric,
+                            latestValue = latest.fuelEfficiency ?: latest.importedFuelEfficiency,
+                            averageValue = efficiencyValues.average(),
+                            unitLabel = latest.fuelEfficiencyUnit?.storageValue
+                                ?: vehicle.fuelEfficiencyUnitOverride?.storageValue
+                                ?: preferences.fuelEfficiencyUnit.storageValue,
+                        )
+                    }
+
+                    FuelWidgetMetric.FUEL_PRICE -> FuelWidgetItem(
+                        vehicleId = vehicle.id,
+                        vehicleName = vehicle.name,
+                        metric = metric,
+                        latestValue = latest.pricePerUnit,
+                        averageValue = fillUps.map(FillUpRecord::pricePerUnit).average(),
+                        unitLabel = "${preferences.currencySymbol}/${latest.volumeUnit.storageValue}",
+                    )
+                }
+            }
+            .sortedByDescending { item ->
+                fillUpsByVehicle[item.vehicleId]
+                    ?.maxOfOrNull(FillUpRecord::dateTime)
+                    ?: LocalDateTime.MIN
+            }
+            .take(limit.coerceAtLeast(1))
     }
 
     suspend fun markReminderAlertsDelivered(

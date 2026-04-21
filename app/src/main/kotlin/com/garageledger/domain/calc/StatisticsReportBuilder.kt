@@ -89,6 +89,7 @@ class StatisticsReportBuilder(
                 averageFuelEfficiency = efficiencyValues.averageOrNull(),
                 lastFuelEfficiency = fillUps.asReversed().firstNotNullOfOrNull { it.fuelEfficiency ?: it.importedFuelEfficiency },
                 averagePricePerUnit = fillUps.map(FillUpRecord::pricePerUnit).averageOrNull(),
+                lastPricePerUnit = fillUps.lastOrNull()?.pricePerUnit,
                 averageCostPerFillUp = fillUps.map(FillUpRecord::totalCost).averageOrNull(),
             ),
             services = CostStatisticsSummary(

@@ -54,6 +54,7 @@ data class FillUpStatisticsSummary(
     val averageFuelEfficiency: Double? = null,
     val lastFuelEfficiency: Double? = null,
     val averagePricePerUnit: Double? = null,
+    val lastPricePerUnit: Double? = null,
     val averageCostPerFillUp: Double? = null,
 )
 

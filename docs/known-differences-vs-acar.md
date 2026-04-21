@@ -24,8 +24,7 @@ This build is intentionally focused on data fidelity and the most important work
 
 ## Not complete yet
 
-- Optional fuel-efficiency and fuel-price widgets
-- Optional HTML statistics export
+- No major documented parity gaps remain in the current milestone.
 
 ## Intentional differences in the current build
 

@@ -6,6 +6,14 @@
     <string name="widget_reminders_label">Reminders</string>
     <string name="widget_reminders_empty_title">No reminders yet</string>
     <string name="widget_reminders_empty_subtitle">Import service history or create reminders to populate this widget.</string>
+    <string name="widget_fuel_efficiency_title">Fuel Efficiency</string>
+    <string name="widget_fuel_efficiency_label">Fuel Efficiency</string>
+    <string name="widget_fuel_efficiency_empty_title">No fuel efficiency yet</string>
+    <string name="widget_fuel_efficiency_empty_subtitle">Add full fuel-ups to compute MPG or km/L trends.</string>
+    <string name="widget_fuel_price_title">Fuel Price</string>
+    <string name="widget_fuel_price_label">Fuel Price</string>
+    <string name="widget_fuel_price_empty_title">No fuel prices yet</string>
+    <string name="widget_fuel_price_empty_subtitle">Import or add fuel-ups to populate this widget.</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_open_app">Open App</string>
 </resources>

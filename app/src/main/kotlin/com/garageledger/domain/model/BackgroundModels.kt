@@ -16,6 +16,20 @@ data class ReminderWidgetItem(
     val dueDistance: Double?,
 )
 
+enum class FuelWidgetMetric {
+    FUEL_EFFICIENCY,
+    FUEL_PRICE,
+}
+
+data class FuelWidgetItem(
+    val vehicleId: Long,
+    val vehicleName: String,
+    val metric: FuelWidgetMetric,
+    val latestValue: Double?,
+    val averageValue: Double?,
+    val unitLabel: String,
+)
+
 data class ReminderAlert(
     val reminderId: Long,
     val vehicleId: Long,
