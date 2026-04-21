@@ -4,7 +4,7 @@ Garage Ledger is a local-first Android replacement for the old aCar/Fuelly mobil
 
 ## Current milestone
 
-Phase 20 browse export and sort parity are in place:
+Phase 21 UI hardening is in place:
 
 - Native Android project scaffold in Kotlin + Jetpack Compose
 - Room schema covering vehicles, catalogs, reminders, fill-ups, services, expenses, trips, and attachments
@@ -39,6 +39,7 @@ Phase 20 browse export and sort parity are in place:
 - Browse-level quick actions for view/edit/delete plus trip copy/finish flows
 - Trip detail actions for copy/finish and retired-vehicle edit protection aligned with old aCar behavior
 - Browse-level saved sort order control plus local CSV export of the current filtered result set
+- Instrumented UI coverage for browse sort/menu behavior and browse-launched trip copy/finish flows
 - Parser/regression/unit tests, backup/export tests, reminder alert tests, and instrumented Compose tests for entry flows plus import/export center navigation
 
 ## Build
