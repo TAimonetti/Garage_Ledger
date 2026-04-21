@@ -30,6 +30,7 @@ This build is intentionally focused on data fidelity and the most important work
 - Trip helpers for return trips, last-destination starts, open-trip finishing, and end-odometer distance entry
 - Local coordinate capture and map-open actions for imported and newly entered records
 - Browse filters for subtype, payment type, event place, fuel facets, and trip-specific criteria
+- Browse quick date presets, active filter chips, and a collapsible advanced query builder
 - Browse action menus for direct view/edit/delete plus trip copy/finish shortcuts
 - Retired vehicles keep history visible but block further record edits and deletes
 - Browse sort order can be changed in-place and the current filtered browse result set can be exported locally as CSV
@@ -43,5 +44,5 @@ This build is intentionally focused on data fidelity and the most important work
 - The editors keep manual ISO-style text entry available even though picker buttons are now built in.
 - Preferences are stored as one DataStore snapshot object internally rather than many separate preference keys.
 - The app recalculates efficiency and reminder state after import instead of preserving stale derived backup values as authoritative.
-- Browse filtering is currently local and text-driven rather than a full advanced query builder.
+- Browse filtering is local-only and does not yet support saved named searches.
 - Attachments are copied into app-local storage and referenced through a FileProvider URI instead of relying on external provider URIs directly.

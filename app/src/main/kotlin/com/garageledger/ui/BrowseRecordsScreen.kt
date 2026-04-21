@@ -50,6 +50,7 @@ import com.garageledger.domain.model.BrowseRecordFilter
 import com.garageledger.domain.model.BrowseRecordItem
 import com.garageledger.domain.model.BrowseTripPaidStatus
 import com.garageledger.domain.model.RecordFamily
+import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -65,12 +66,15 @@ fun BrowseRecordsScreen(
 ) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val context = LocalContext.current
+    val today = remember { LocalDate.now() }
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     val records by repository.observeBrowseRecords().collectAsStateWithLifecycle(initialValue = emptyList())
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
 
     var selectedVehicleId by rememberSaveable { mutableLongStateOf(preselectedVehicleId ?: 0L) }
     var selectedFamily by remember { mutableStateOf<RecordFamily?>(null) }
+    var advancedFiltersExpanded by rememberSaveable { mutableStateOf(false) }
+    var selectedDatePresetName by rememberSaveable { mutableStateOf("") }
     var vehicleMenuExpanded by remember { mutableStateOf(false) }
     var overflowMenuExpanded by remember { mutableStateOf(false) }
     var queryText by rememberSaveable { mutableStateOf("") }
@@ -92,6 +96,7 @@ fun BrowseRecordsScreen(
     var recordPendingDelete by remember { mutableStateOf<BrowseRecordItem?>(null) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    val selectedDatePreset = BrowseDatePreset.entries.firstOrNull { it.name == selectedDatePresetName }
 
     LaunchedEffect(selectedFamily) {
         if (selectedFamily != RecordFamily.TRIP) {
@@ -106,6 +111,13 @@ fun BrowseRecordsScreen(
             fuelAdditiveText = ""
             drivingModeText = ""
         }
+    }
+    LaunchedEffect(fromDateText, toDateText, today) {
+        selectedDatePresetName = resolveBrowseDatePreset(
+            fromDate = parseFilterDate(fromDateText),
+            toDate = parseFilterDate(toDateText),
+            today = today,
+        )?.name.orEmpty()
     }
 
     val coreFilter = remember(selectedVehicleId, selectedFamily, queryText, fromDateText, toDateText) {
@@ -159,6 +171,15 @@ fun BrowseRecordsScreen(
     val sortedRecords = remember(filteredRecords, preferences.browseSortDescending) {
         sortBrowseRecords(filteredRecords, preferences.browseSortDescending)
     }
+    val selectedVehicleName = remember(vehicles, selectedVehicleId) {
+        vehicles.firstOrNull { it.id == selectedVehicleId }?.name
+    }
+    val activeFilterTokens = remember(fullFilter, selectedVehicleName) {
+        buildBrowseFilterTokens(
+            filter = fullFilter,
+            vehicleName = selectedVehicleName,
+        )
+    }
 
     fun runExport(uri: Uri?) {
         if (uri == null) return
@@ -190,6 +211,7 @@ fun BrowseRecordsScreen(
     fun clearFilters() {
         selectedVehicleId = preselectedVehicleId ?: 0L
         selectedFamily = null
+        selectedDatePresetName = ""
         queryText = ""
         tagText = ""
         fromDateText = ""
@@ -205,6 +227,47 @@ fun BrowseRecordsScreen(
         tripClientText = ""
         tripLocationText = ""
         selectedTripPaidStatus = null
+    }
+
+    fun applyDatePreset(preset: BrowseDatePreset?) {
+        if (preset == null) {
+            selectedDatePresetName = ""
+            fromDateText = ""
+            toDateText = ""
+            return
+        }
+        val (fromDate, toDate) = browseDatePresetRange(preset, today)
+        selectedDatePresetName = preset.name
+        fromDateText = coerceDateText(fromDate)
+        toDateText = coerceDateText(toDate)
+    }
+
+    fun clearActiveFilter(tokenKey: BrowseFilterTokenKey) {
+        when (tokenKey) {
+            BrowseFilterTokenKey.VEHICLE -> selectedVehicleId = 0L
+            BrowseFilterTokenKey.FAMILY -> selectedFamily = null
+            BrowseFilterTokenKey.QUERY -> queryText = ""
+            BrowseFilterTokenKey.TAG -> tagText = ""
+            BrowseFilterTokenKey.FROM_DATE -> {
+                fromDateText = ""
+                selectedDatePresetName = ""
+            }
+            BrowseFilterTokenKey.TO_DATE -> {
+                toDateText = ""
+                selectedDatePresetName = ""
+            }
+            BrowseFilterTokenKey.SUBTYPE -> subtypeText = ""
+            BrowseFilterTokenKey.PAYMENT_TYPE -> paymentTypeText = ""
+            BrowseFilterTokenKey.EVENT_PLACE -> eventPlaceText = ""
+            BrowseFilterTokenKey.FUEL_BRAND -> fuelBrandText = ""
+            BrowseFilterTokenKey.FUEL_TYPE -> fuelTypeText = ""
+            BrowseFilterTokenKey.FUEL_ADDITIVE -> fuelAdditiveText = ""
+            BrowseFilterTokenKey.DRIVING_MODE -> drivingModeText = ""
+            BrowseFilterTokenKey.TRIP_PURPOSE -> tripPurposeText = ""
+            BrowseFilterTokenKey.TRIP_CLIENT -> tripClientText = ""
+            BrowseFilterTokenKey.TRIP_LOCATION -> tripLocationText = ""
+            BrowseFilterTokenKey.TRIP_PAID_STATUS -> selectedTripPaidStatus = null
+        }
     }
 
     if (recordPendingDelete != null) {
@@ -311,11 +374,11 @@ fun BrowseRecordsScreen(
             item {
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Filters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Quick Filters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         Box {
                             TextButton(onClick = { vehicleMenuExpanded = true }) {
                                 Text(
-                                    vehicles.firstOrNull { it.id == selectedVehicleId }?.name ?: "All Vehicles",
+                                    selectedVehicleName ?: "All Vehicles",
                                 )
                             }
                             DropdownMenu(
@@ -365,131 +428,202 @@ fun BrowseRecordsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Search text") },
                         )
-                        SuggestionFilterField(
-                            value = tagText,
-                            onValueChange = { tagText = it },
-                            label = "Tag contains",
-                            suggestions = filterOptions.tagSuggestions,
-                        )
-                        if (filterOptions.subtypeSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = subtypeText,
-                                onValueChange = { subtypeText = it },
-                                label = "Subtype",
-                                suggestions = filterOptions.subtypeSuggestions,
+                        Text("Date Range", style = MaterialTheme.typography.labelLarge)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(
+                                selected = selectedDatePreset == null && fromDateText.isBlank() && toDateText.isBlank(),
+                                onClick = { applyDatePreset(null) },
+                                label = { Text("All Time") },
                             )
+                            BrowseDatePreset.entries.forEach { preset ->
+                                FilterChip(
+                                    selected = selectedDatePreset == preset,
+                                    onClick = { applyDatePreset(if (selectedDatePreset == preset) null else preset) },
+                                    label = { Text(preset.label) },
+                                )
+                            }
                         }
-                        if (filterOptions.paymentTypeSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = paymentTypeText,
-                                onValueChange = { paymentTypeText = it },
-                                label = "Payment Type",
-                                suggestions = filterOptions.paymentTypeSuggestions,
-                            )
-                        }
-                        if (filterOptions.eventPlaceSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = eventPlaceText,
-                                onValueChange = { eventPlaceText = it },
-                                label = "Event Place",
-                                suggestions = filterOptions.eventPlaceSuggestions,
-                            )
-                        }
-                        if (filterOptions.fuelBrandSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = fuelBrandText,
-                                onValueChange = { fuelBrandText = it },
-                                label = "Fuel Brand",
-                                suggestions = filterOptions.fuelBrandSuggestions,
-                            )
-                        }
-                        if (filterOptions.fuelTypeSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = fuelTypeText,
-                                onValueChange = { fuelTypeText = it },
-                                label = "Fuel Type",
-                                suggestions = filterOptions.fuelTypeSuggestions,
-                            )
-                        }
-                        if (filterOptions.fuelAdditiveSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = fuelAdditiveText,
-                                onValueChange = { fuelAdditiveText = it },
-                                label = "Fuel Additive",
-                                suggestions = filterOptions.fuelAdditiveSuggestions,
-                            )
-                        }
-                        if (filterOptions.drivingModeSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = drivingModeText,
-                                onValueChange = { drivingModeText = it },
-                                label = "Driving Mode",
-                                suggestions = filterOptions.drivingModeSuggestions,
-                            )
-                        }
-                        if (filterOptions.tripPurposeSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = tripPurposeText,
-                                onValueChange = { tripPurposeText = it },
-                                label = "Trip Purpose",
-                                suggestions = filterOptions.tripPurposeSuggestions,
-                            )
-                        }
-                        if (filterOptions.tripClientSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = tripClientText,
-                                onValueChange = { tripClientText = it },
-                                label = "Trip Client",
-                                suggestions = filterOptions.tripClientSuggestions,
-                            )
-                        }
-                        if (filterOptions.tripLocationSuggestions.isNotEmpty()) {
-                            SuggestionFilterField(
-                                value = tripLocationText,
-                                onValueChange = { tripLocationText = it },
-                                label = "Trip Location",
-                                suggestions = filterOptions.tripLocationSuggestions,
-                            )
-                        }
-                        if (selectedFamily == RecordFamily.TRIP || filterOptions.tripLocationSuggestions.isNotEmpty()) {
-                            Text("Trip Paid Status", style = MaterialTheme.typography.labelLarge)
+                        if (activeFilterTokens.isNotEmpty()) {
+                            Text("Active Filters", style = MaterialTheme.typography.labelLarge)
                             FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                FilterChip(
-                                    selected = selectedTripPaidStatus == null,
-                                    onClick = { selectedTripPaidStatus = null },
-                                    label = { Text("Any") },
-                                )
-                                FilterChip(
-                                    selected = selectedTripPaidStatus == BrowseTripPaidStatus.PAID,
-                                    onClick = {
-                                        selectedTripPaidStatus = if (selectedTripPaidStatus == BrowseTripPaidStatus.PAID) null else BrowseTripPaidStatus.PAID
-                                    },
-                                    label = { Text("Paid") },
-                                )
-                                FilterChip(
-                                    selected = selectedTripPaidStatus == BrowseTripPaidStatus.UNPAID,
-                                    onClick = {
-                                        selectedTripPaidStatus = if (selectedTripPaidStatus == BrowseTripPaidStatus.UNPAID) null else BrowseTripPaidStatus.UNPAID
-                                    },
-                                    label = { Text("Unpaid") },
+                                activeFilterTokens.forEach { token ->
+                                    FilterChip(
+                                        selected = true,
+                                        onClick = { clearActiveFilter(token.key) },
+                                        label = { Text(token.label) },
+                                    )
+                                }
+                            }
+                            Text(
+                                "Tap a chip to clear that part of the query.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(onClick = { advancedFiltersExpanded = !advancedFiltersExpanded }) {
+                            Text(if (advancedFiltersExpanded) "Hide Advanced Builder" else "Show Advanced Builder")
+                        }
+                        if (advancedFiltersExpanded) {
+                            Text(
+                                "Build a more exact local query with scoped fields and suggestion chips.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text("Common Fields", style = MaterialTheme.typography.labelLarge)
+                            SuggestionFilterField(
+                                value = tagText,
+                                onValueChange = { tagText = it },
+                                label = "Tag contains",
+                                suggestions = filterOptions.tagSuggestions,
+                            )
+                            if (filterOptions.subtypeSuggestions.isNotEmpty()) {
+                                SuggestionFilterField(
+                                    value = subtypeText,
+                                    onValueChange = { subtypeText = it },
+                                    label = "Subtype",
+                                    suggestions = filterOptions.subtypeSuggestions,
                                 )
                             }
+                            if (filterOptions.paymentTypeSuggestions.isNotEmpty()) {
+                                SuggestionFilterField(
+                                    value = paymentTypeText,
+                                    onValueChange = { paymentTypeText = it },
+                                    label = "Payment Type",
+                                    suggestions = filterOptions.paymentTypeSuggestions,
+                                )
+                            }
+                            if (filterOptions.eventPlaceSuggestions.isNotEmpty()) {
+                                SuggestionFilterField(
+                                    value = eventPlaceText,
+                                    onValueChange = { eventPlaceText = it },
+                                    label = "Event Place",
+                                    suggestions = filterOptions.eventPlaceSuggestions,
+                                )
+                            }
+                            PickerDateField(
+                                value = fromDateText,
+                                onValueChange = {
+                                    fromDateText = it
+                                    selectedDatePresetName = ""
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = "From date (yyyy-MM-dd)",
+                            )
+                            PickerDateField(
+                                value = toDateText,
+                                onValueChange = {
+                                    toDateText = it
+                                    selectedDatePresetName = ""
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = "To date (yyyy-MM-dd)",
+                            )
+                            if (
+                                selectedFamily == null ||
+                                selectedFamily == RecordFamily.FILL_UP ||
+                                filterOptions.fuelBrandSuggestions.isNotEmpty() ||
+                                filterOptions.fuelTypeSuggestions.isNotEmpty() ||
+                                filterOptions.fuelAdditiveSuggestions.isNotEmpty() ||
+                                filterOptions.drivingModeSuggestions.isNotEmpty()
+                            ) {
+                                Text("Fuel-Up Fields", style = MaterialTheme.typography.labelLarge)
+                                if (filterOptions.fuelBrandSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = fuelBrandText,
+                                        onValueChange = { fuelBrandText = it },
+                                        label = "Fuel Brand",
+                                        suggestions = filterOptions.fuelBrandSuggestions,
+                                    )
+                                }
+                                if (filterOptions.fuelTypeSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = fuelTypeText,
+                                        onValueChange = { fuelTypeText = it },
+                                        label = "Fuel Type",
+                                        suggestions = filterOptions.fuelTypeSuggestions,
+                                    )
+                                }
+                                if (filterOptions.fuelAdditiveSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = fuelAdditiveText,
+                                        onValueChange = { fuelAdditiveText = it },
+                                        label = "Fuel Additive",
+                                        suggestions = filterOptions.fuelAdditiveSuggestions,
+                                    )
+                                }
+                                if (filterOptions.drivingModeSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = drivingModeText,
+                                        onValueChange = { drivingModeText = it },
+                                        label = "Driving Mode",
+                                        suggestions = filterOptions.drivingModeSuggestions,
+                                    )
+                                }
+                            }
+                            if (
+                                selectedFamily == RecordFamily.TRIP ||
+                                filterOptions.tripPurposeSuggestions.isNotEmpty() ||
+                                filterOptions.tripClientSuggestions.isNotEmpty() ||
+                                filterOptions.tripLocationSuggestions.isNotEmpty()
+                            ) {
+                                Text("Trip Fields", style = MaterialTheme.typography.labelLarge)
+                                if (filterOptions.tripPurposeSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = tripPurposeText,
+                                        onValueChange = { tripPurposeText = it },
+                                        label = "Trip Purpose",
+                                        suggestions = filterOptions.tripPurposeSuggestions,
+                                    )
+                                }
+                                if (filterOptions.tripClientSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = tripClientText,
+                                        onValueChange = { tripClientText = it },
+                                        label = "Trip Client",
+                                        suggestions = filterOptions.tripClientSuggestions,
+                                    )
+                                }
+                                if (filterOptions.tripLocationSuggestions.isNotEmpty()) {
+                                    SuggestionFilterField(
+                                        value = tripLocationText,
+                                        onValueChange = { tripLocationText = it },
+                                        label = "Trip Location",
+                                        suggestions = filterOptions.tripLocationSuggestions,
+                                    )
+                                }
+                                Text("Trip Paid Status", style = MaterialTheme.typography.labelLarge)
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    FilterChip(
+                                        selected = selectedTripPaidStatus == null,
+                                        onClick = { selectedTripPaidStatus = null },
+                                        label = { Text("Any") },
+                                    )
+                                    FilterChip(
+                                        selected = selectedTripPaidStatus == BrowseTripPaidStatus.PAID,
+                                        onClick = {
+                                            selectedTripPaidStatus = if (selectedTripPaidStatus == BrowseTripPaidStatus.PAID) null else BrowseTripPaidStatus.PAID
+                                        },
+                                        label = { Text("Paid") },
+                                    )
+                                    FilterChip(
+                                        selected = selectedTripPaidStatus == BrowseTripPaidStatus.UNPAID,
+                                        onClick = {
+                                            selectedTripPaidStatus = if (selectedTripPaidStatus == BrowseTripPaidStatus.UNPAID) null else BrowseTripPaidStatus.UNPAID
+                                        },
+                                        label = { Text("Unpaid") },
+                                    )
+                                }
+                            }
                         }
-                        PickerDateField(
-                            value = fromDateText,
-                            onValueChange = { fromDateText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = "From date (yyyy-MM-dd)",
-                        )
-                        PickerDateField(
-                            value = toDateText,
-                            onValueChange = { toDateText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = "To date (yyyy-MM-dd)",
-                        )
                         TextButton(onClick = ::clearFilters) {
                             Text("Clear Filters")
                         }
