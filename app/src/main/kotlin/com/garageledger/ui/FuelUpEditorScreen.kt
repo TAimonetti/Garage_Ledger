@@ -98,6 +98,8 @@ fun FuelUpEditorScreen(
     var averageSpeedText by rememberSaveable { mutableStateOf("") }
     var cityDrivingText by rememberSaveable { mutableStateOf("") }
     var highwayDrivingText by rememberSaveable { mutableStateOf("") }
+    var latitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var longitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var partial by rememberSaveable { mutableStateOf(false) }
     var missed by rememberSaveable { mutableStateOf(false) }
     var tagsText by rememberSaveable { mutableStateOf("") }
@@ -125,6 +127,8 @@ fun FuelUpEditorScreen(
             averageSpeedText = record.averageSpeed?.toString().orEmpty()
             cityDrivingText = record.cityDrivingPercentage?.toString().orEmpty()
             highwayDrivingText = record.highwayDrivingPercentage?.toString().orEmpty()
+            latitude = record.latitude
+            longitude = record.longitude
             partial = record.partial
             missed = record.previousMissedFillups
             tagsText = record.tags.joinToString(", ")
@@ -349,6 +353,23 @@ fun FuelUpEditorScreen(
                                 label = { Text("Station Address") },
                             )
                             SuggestionRow(stationSuggestions) { stationAddress = it }
+                            LocationActionSection(
+                                title = "Fueling Coordinates",
+                                locationEnabled = preferences.useLocation,
+                                latitude = latitude,
+                                longitude = longitude,
+                                mapLabel = stationAddress.ifBlank { fuelBrand.ifBlank { "Fuel-Up" } },
+                                captureLabel = "Use Current Location",
+                                onCaptured = { coordinate ->
+                                    latitude = coordinate.latitude
+                                    longitude = coordinate.longitude
+                                },
+                                onCleared = {
+                                    latitude = null
+                                    longitude = null
+                                },
+                                onError = { errorMessage = it },
+                            )
                         }
                         if (showDrivingMode) {
                             OutlinedTextField(
@@ -460,6 +481,8 @@ fun FuelUpEditorScreen(
                                         fuelAdditiveName = fuelAdditiveName,
                                         fuelBrand = fuelBrand,
                                         stationAddress = stationAddress,
+                                        latitude = latitude,
+                                        longitude = longitude,
                                         drivingMode = drivingMode,
                                         cityDrivingPercentage = cityDrivingText.toIntOrNull(),
                                         highwayDrivingPercentage = highwayDrivingText.toIntOrNull(),

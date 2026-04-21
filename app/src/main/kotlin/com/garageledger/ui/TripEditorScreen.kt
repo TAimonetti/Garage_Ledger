@@ -78,10 +78,14 @@ fun TripEditorScreen(
     var startDateText by rememberSaveable { mutableStateOf("") }
     var startOdometerText by rememberSaveable { mutableStateOf("") }
     var startLocation by rememberSaveable { mutableStateOf("") }
+    var startLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var startLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var endDateText by rememberSaveable { mutableStateOf("") }
     var endOdometerText by rememberSaveable { mutableStateOf("") }
     var endOdometerModeName by rememberSaveable { mutableStateOf(TripEndOdometerMode.ABSOLUTE.name) }
     var endLocation by rememberSaveable { mutableStateOf("") }
+    var endLatitude by rememberSaveable { mutableStateOf<Double?>(null) }
+    var endLongitude by rememberSaveable { mutableStateOf<Double?>(null) }
     var purpose by rememberSaveable { mutableStateOf("") }
     var client by rememberSaveable { mutableStateOf("") }
     var taxRateText by rememberSaveable { mutableStateOf("") }
@@ -102,10 +106,14 @@ fun TripEditorScreen(
             startDateText = record.startDateTime.format(EditorDateFormatter)
             startOdometerText = record.startOdometerReading.toString()
             startLocation = record.startLocation
+            startLatitude = record.startLatitude
+            startLongitude = record.startLongitude
             endDateText = record.endDateTime?.format(EditorDateFormatter).orEmpty()
             endOdometerText = record.endOdometerReading?.toString().orEmpty()
             endOdometerModeName = TripEndOdometerMode.ABSOLUTE.name
             endLocation = record.endLocation
+            endLatitude = record.endLatitude
+            endLongitude = record.endLongitude
             purpose = record.purpose
             client = record.client
             taxRateText = record.taxDeductionRate?.toString().orEmpty()
@@ -166,7 +174,11 @@ fun TripEditorScreen(
         parsedEnd,
         resolvedEndOdometer,
         startLocation,
+        startLatitude,
+        startLongitude,
         endLocation,
+        endLatitude,
+        endLongitude,
         purpose,
         client,
         taxRateText,
@@ -188,9 +200,13 @@ fun TripEditorScreen(
                 startDateTime = parsedStart,
                 startOdometerReading = startOdometer,
                 startLocation = startLocation,
+                startLatitude = startLatitude,
+                startLongitude = startLongitude,
                 endDateTime = parsedEnd,
                 endOdometerReading = resolvedEndOdometer,
                 endLocation = endLocation,
+                endLatitude = endLatitude,
+                endLongitude = endLongitude,
                 distanceUnit = preferences.distanceUnit,
                 tripTypeId = tripTypeId,
                 purpose = purpose,
@@ -268,6 +284,8 @@ fun TripEditorScreen(
                                 TextButton(
                                     onClick = {
                                         startLocation = lastCompletedTrip.endLocation.ifBlank { lastCompletedTrip.startLocation }
+                                        startLatitude = lastCompletedTrip.endLatitude ?: lastCompletedTrip.startLatitude
+                                        startLongitude = lastCompletedTrip.endLongitude ?: lastCompletedTrip.startLongitude
                                         lastCompletedTrip.endOdometerReading?.let { startOdometerText = it.toString() }
                                     },
                                 ) {
@@ -276,7 +294,11 @@ fun TripEditorScreen(
                                 TextButton(
                                     onClick = {
                                         startLocation = lastCompletedTrip.endLocation.ifBlank { lastCompletedTrip.startLocation }
+                                        startLatitude = lastCompletedTrip.endLatitude ?: lastCompletedTrip.startLatitude
+                                        startLongitude = lastCompletedTrip.endLongitude ?: lastCompletedTrip.startLongitude
                                         endLocation = lastCompletedTrip.startLocation
+                                        endLatitude = lastCompletedTrip.startLatitude
+                                        endLongitude = lastCompletedTrip.startLongitude
                                         lastCompletedTrip.endOdometerReading?.let { startOdometerText = it.toString() }
                                         purpose = buildReturnTripPurpose(lastCompletedTrip.purpose)
                                         if (client.isBlank()) {
@@ -316,6 +338,23 @@ fun TripEditorScreen(
                                 label = { Text("Start Location") },
                             )
                             SuggestionRow(locationSuggestions, onSelect = { startLocation = it })
+                            LocationActionSection(
+                                title = "Departure Coordinates",
+                                locationEnabled = preferences.useLocation,
+                                latitude = startLatitude,
+                                longitude = startLongitude,
+                                mapLabel = startLocation.ifBlank { "Trip Start" },
+                                captureLabel = "Use Current Start Location",
+                                onCaptured = { coordinate ->
+                                    startLatitude = coordinate.latitude
+                                    startLongitude = coordinate.longitude
+                                },
+                                onCleared = {
+                                    startLatitude = null
+                                    startLongitude = null
+                                },
+                                onError = { errorMessage = it },
+                            )
                         }
                     }
                 }
@@ -381,6 +420,23 @@ fun TripEditorScreen(
                                 label = { Text("End Location") },
                             )
                             SuggestionRow(locationSuggestions, onSelect = { endLocation = it })
+                            LocationActionSection(
+                                title = "Arrival Coordinates",
+                                locationEnabled = preferences.useLocation,
+                                latitude = endLatitude,
+                                longitude = endLongitude,
+                                mapLabel = endLocation.ifBlank { "Trip End" },
+                                captureLabel = "Use Current End Location",
+                                onCaptured = { coordinate ->
+                                    endLatitude = coordinate.latitude
+                                    endLongitude = coordinate.longitude
+                                },
+                                onCleared = {
+                                    endLatitude = null
+                                    endLongitude = null
+                                },
+                                onError = { errorMessage = it },
+                            )
                         }
                     }
                 }
