@@ -7,6 +7,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.view.WindowCompat
 import com.garageledger.shortcuts.LaunchRequest
 import com.garageledger.shortcuts.QuickActionShortcutManager
 import com.garageledger.ui.GarageLedgerApp
@@ -17,6 +18,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.getInsetsController(window, window.decorView)?.apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
         launchRequest = QuickActionShortcutManager.launchRequest(intent)
         val container = (application as GarageLedgerApplication).container
         setContent {
