@@ -442,3 +442,9 @@ internal fun MultiSelectTypeChips(
         }
     }
 }
+
+internal fun parseCommaValues(raw: String): List<String> = raw
+    .split(",")
+    .map(String::trim)
+    .filter(String::isNotBlank)
+    .distinctBy(String::lowercase)

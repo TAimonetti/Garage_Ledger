@@ -55,6 +55,9 @@ fun ServiceEditorScreen(
     val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
         value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.SERVICE, recordId) else emptyList()
     }
+    val suggestedOdometer by produceState<Double?>(initialValue = null, key1 = vehicleId) {
+        value = repository.getSuggestedCurrentOdometer(vehicleId)
+    }
     val serviceTypes by produceState(initialValue = emptyList<com.garageledger.domain.model.ServiceType>()) {
         value = repository.getServiceTypes()
     }
@@ -63,6 +66,12 @@ fun ServiceEditorScreen(
     }
     val centerSuggestions by produceState(initialValue = emptyList<String>()) {
         value = repository.getServiceCenterSuggestions()
+    }
+    val centerAddressSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getServiceCenterAddressSuggestions()
+    }
+    val tagSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getTagSuggestions()
     }
 
     var initialized by rememberSaveable(recordId) { mutableStateOf(false) }
@@ -82,7 +91,7 @@ fun ServiceEditorScreen(
     var attachmentsInitialized by remember(recordId) { mutableStateOf(false) }
     var showCustomizeFields by remember { mutableStateOf(false) }
 
-    LaunchedEffect(existingRecord) {
+    LaunchedEffect(existingRecord, suggestedOdometer) {
         if (initialized) return@LaunchedEffect
         val record = existingRecord
         if (record != null) {
@@ -99,6 +108,7 @@ fun ServiceEditorScreen(
             selectedTypeIds = record.serviceTypeIds.toSet()
         } else {
             dateTimeText = java.time.LocalDateTime.now().format(EditorDateFormatter)
+            suggestedOdometer?.let { odometerText = it.toString() }
             if (seedServiceTypeId != null && seedServiceTypeId > 0L) {
                 selectedTypeIds = setOf(seedServiceTypeId)
             }
@@ -118,6 +128,8 @@ fun ServiceEditorScreen(
     val showServiceCenter = com.garageledger.domain.model.OptionalFieldToggle.SERVICE_CENTER in visibleFields
     val showTags = com.garageledger.domain.model.OptionalFieldToggle.TAGS in visibleFields
     val showNotes = com.garageledger.domain.model.OptionalFieldToggle.NOTES in visibleFields
+    val selectedTags = remember(tagsText) { parseCommaValues(tagsText) }
+    val serviceTypeOptions = remember(serviceTypes) { serviceTypes.map { it.id to it.name } }
 
     if (showCustomizeFields) {
         VisibleFieldsDialog(
@@ -168,29 +180,28 @@ fun ServiceEditorScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = "Date/Time (yyyy-MM-dd HH:mm)",
                         )
-                        OutlinedTextField(
+                        NumericEntryField(
                             value = odometerText,
                             onValueChange = { odometerText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Odometer (${preferences.distanceUnit.storageValue})") },
-                            singleLine = true,
+                            label = "Odometer (${preferences.distanceUnit.storageValue})",
+                            decimalEnabled = true,
                         )
-                        OutlinedTextField(
+                        NumericEntryField(
                             value = totalCostText,
                             onValueChange = { totalCostText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Total Cost") },
-                            singleLine = true,
+                            label = "Total Cost",
+                            decimalEnabled = true,
                         )
                         if (showPaymentType) {
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = paymentType,
                                 onValueChange = { paymentType = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Payment Type") },
-                                singleLine = true,
+                                label = "Payment Type",
+                                choices = paymentSuggestions,
                             )
-                            SuggestionRow(paymentSuggestions, onSelect = { paymentType = it })
                         }
                     }
                 }
@@ -199,19 +210,14 @@ fun ServiceEditorScreen(
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Service Types", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        if (serviceTypes.isEmpty()) {
-                            Text("Import a backup or seed data to load service types.")
-                        } else {
-                            MultiSelectTypeChips(
-                                options = serviceTypes.map { it.id to it.name },
-                                selectedIds = selectedTypeIds,
-                                onToggle = { id ->
-                                    selectedTypeIds = selectedTypeIds.toMutableSet().also { selected ->
-                                        if (!selected.add(id)) selected.remove(id)
-                                    }
-                                },
-                            )
-                        }
+                        MultiChoiceSelectionField(
+                            selectedIds = selectedTypeIds,
+                            options = serviceTypeOptions,
+                            onSelectionChange = { selectedTypeIds = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Subtypes",
+                            emptyChoicesMessage = "Import a backup or seed data to load service types.",
+                        )
                     }
                 }
             }
@@ -219,19 +225,19 @@ fun ServiceEditorScreen(
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (showServiceCenter) {
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = centerName,
                                 onValueChange = { centerName = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Service Center") },
-                                singleLine = true,
+                                label = "Service Center",
+                                choices = centerSuggestions,
                             )
-                            SuggestionRow(centerSuggestions, onSelect = { centerName = it })
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = centerAddress,
                                 onValueChange = { centerAddress = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Service Center Address") },
+                                label = "Service Center Address",
+                                choices = centerAddressSuggestions,
                             )
                             LocationActionSection(
                                 title = "Service Coordinates",
@@ -252,11 +258,14 @@ fun ServiceEditorScreen(
                             )
                         }
                         if (showTags) {
-                            OutlinedTextField(
-                                value = tagsText,
-                                onValueChange = { tagsText = it },
+                            MultiChoiceTagDialogField(
+                                selectedTags = selectedTags,
+                                suggestions = tagSuggestions,
+                                onValueChange = { tags ->
+                                    tagsText = tags.joinToString(", ")
+                                },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Tags") },
+                                label = "Tags",
                             )
                         }
                         if (showNotes) {
@@ -309,7 +318,7 @@ fun ServiceEditorScreen(
                                         serviceCenterAddress = centerAddress,
                                         latitude = latitude,
                                         longitude = longitude,
-                                        tags = tagsText.split(",").map(String::trim).filter(String::isNotBlank),
+                                        tags = parseCommaValues(tagsText),
                                         notes = notesText,
                                         serviceTypeIds = selectedTypeIds.toList().sorted(),
                                     ),

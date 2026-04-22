@@ -63,6 +63,9 @@ fun TripEditorScreen(
     val existingAttachments by produceState(initialValue = emptyList<RecordAttachment>(), key1 = recordId) {
         value = if (recordId > 0L) repository.getRecordAttachments(RecordFamily.TRIP, recordId) else emptyList()
     }
+    val suggestedOdometer by produceState<Double?>(initialValue = null, key1 = vehicleId) {
+        value = repository.getSuggestedCurrentOdometer(vehicleId)
+    }
     val tripTypes by produceState(initialValue = emptyList<com.garageledger.domain.model.TripType>()) {
         value = repository.getTripTypes()
     }
@@ -77,6 +80,9 @@ fun TripEditorScreen(
     }
     val locationSuggestions by produceState(initialValue = emptyList<String>()) {
         value = repository.getTripLocationSuggestions()
+    }
+    val tagSuggestions by produceState(initialValue = emptyList<String>()) {
+        value = repository.getTagSuggestions()
     }
 
     var initialized by rememberSaveable(recordId, copyFromTripId, finishMode) { mutableStateOf(false) }
@@ -104,7 +110,7 @@ fun TripEditorScreen(
     var attachmentsInitialized by remember(recordId, copyFromTripId) { mutableStateOf(false) }
     var showCustomizeFields by remember { mutableStateOf(false) }
 
-    LaunchedEffect(existingRecord, copySourceTrip, finishMode) {
+    LaunchedEffect(existingRecord, copySourceTrip, finishMode, suggestedOdometer) {
         if (initialized) return@LaunchedEffect
         val record = existingRecord
         if (record != null) {
@@ -158,6 +164,7 @@ fun TripEditorScreen(
             tripTypeId = seed.tripTypeId
             } else {
                 startDateText = java.time.LocalDateTime.now().format(EditorDateFormatter)
+                suggestedOdometer?.let { startOdometerText = it.toString() }
             }
         }
         initialized = true
@@ -185,7 +192,11 @@ fun TripEditorScreen(
     val showTripReimbursement = com.garageledger.domain.model.OptionalFieldToggle.TRIP_REIMBURSEMENT in visibleFields
     val showTags = com.garageledger.domain.model.OptionalFieldToggle.TAGS in visibleFields
     val showNotes = com.garageledger.domain.model.OptionalFieldToggle.NOTES in visibleFields
+    val selectedTags = remember(tagsText) { parseCommaValues(tagsText) }
     val endOdometerMode = remember(endOdometerModeName) { TripEndOdometerMode.valueOf(endOdometerModeName) }
+    val selectedTripTypeName = remember(tripTypeId, tripTypes) {
+        tripTypes.firstOrNull { it.id == tripTypeId }?.name.orEmpty()
+    }
     val parsedStart = remember(startDateText) { parseEditorDateTime(startDateText) }
     val parsedEnd = remember(endDateText) { parseEditorDateTime(endDateText).takeIf { endDateText.isNotBlank() } }
     val startOdometer = remember(startOdometerText) { startOdometerText.toDoubleOrNull() }
@@ -256,7 +267,7 @@ fun TripEditorScreen(
                 taxDeductionRate = taxRateText.toDoubleOrNull(),
                 reimbursementRate = reimbursementRateText.toDoubleOrNull(),
                 paid = paid,
-                tags = tagsText.split(",").map(String::trim).filter(String::isNotBlank),
+                tags = parseCommaValues(tagsText),
                 notes = notesText,
             )
         }
@@ -378,21 +389,21 @@ fun TripEditorScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = "Start (yyyy-MM-dd HH:mm)",
                         )
-                        OutlinedTextField(
+                        NumericEntryField(
                             value = startOdometerText,
                             onValueChange = { startOdometerText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Start Odometer (${preferences.distanceUnit.storageValue})") },
-                            singleLine = true,
+                            label = "Start Odometer (${preferences.distanceUnit.storageValue})",
+                            decimalEnabled = true,
                         )
                         if (showTripLocation) {
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = startLocation,
                                 onValueChange = { startLocation = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Start Location") },
+                                label = "Start Location",
+                                choices = locationSuggestions,
                             )
-                            SuggestionRow(locationSuggestions, onSelect = { startLocation = it })
                             LocationActionSection(
                                 title = "Departure Coordinates",
                                 locationEnabled = preferences.useLocation,
@@ -423,19 +434,15 @@ fun TripEditorScreen(
                             modifier = Modifier.fillMaxWidth(),
                             label = "End (optional)",
                         )
-                        OutlinedTextField(
+                        NumericEntryField(
                             value = endOdometerText,
                             onValueChange = { endOdometerText = it },
                             modifier = Modifier.fillMaxWidth(),
-                            label = {
-                                Text(
-                                    when (endOdometerMode) {
-                                        TripEndOdometerMode.ABSOLUTE -> "End Odometer (optional)"
-                                        TripEndOdometerMode.DISTANCE_FROM_START -> "Distance From Start (optional)"
-                                    },
-                                )
+                            label = when (endOdometerMode) {
+                                TripEndOdometerMode.ABSOLUTE -> "End Odometer (optional)"
+                                TripEndOdometerMode.DISTANCE_FROM_START -> "Distance From Start (optional)"
                             },
-                            singleLine = true,
+                            decimalEnabled = true,
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -467,13 +474,13 @@ fun TripEditorScreen(
                             }
                         }
                         if (showTripLocation) {
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = endLocation,
                                 onValueChange = { endLocation = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("End Location") },
+                                label = "End Location",
+                                choices = locationSuggestions,
                             )
-                            SuggestionRow(locationSuggestions, onSelect = { endLocation = it })
                             LocationActionSection(
                                 title = "Arrival Coordinates",
                                 locationEnabled = preferences.useLocation,
@@ -499,40 +506,37 @@ fun TripEditorScreen(
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Trip Type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            tripTypes.forEach { type ->
-                                FilterChip(
-                                    selected = tripTypeId == type.id,
-                                    onClick = {
-                                        tripTypeId = if (tripTypeId == type.id) null else type.id
-                                        if (taxRateText.isBlank() && type.defaultTaxDeductionRate != null) {
-                                            taxRateText = type.defaultTaxDeductionRate.toString()
-                                        }
-                                    },
-                                    label = { Text(type.name) },
-                                )
-                            }
-                        }
+                        SingleChoiceDialogField(
+                            value = selectedTripTypeName,
+                            onValueChange = { selectedName ->
+                                val type = tripTypes.firstOrNull { it.name.equals(selectedName, ignoreCase = true) }
+                                tripTypeId = type?.id
+                                if (taxRateText.isBlank() && type?.defaultTaxDeductionRate != null) {
+                                    taxRateText = type.defaultTaxDeductionRate.toString()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Type",
+                            choices = tripTypes.map { it.name },
+                            allowCustomEntry = false,
+                        )
                         if (showTripPurpose) {
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = purpose,
                                 onValueChange = { purpose = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Purpose") },
+                                label = "Purpose",
+                                choices = purposeSuggestions,
                             )
-                            SuggestionRow(purposeSuggestions, onSelect = { purpose = it })
                         }
                         if (showTripClient) {
-                            OutlinedTextField(
+                            SingleChoiceDialogField(
                                 value = client,
                                 onValueChange = { client = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Client") },
+                                label = "Client",
+                                choices = clientSuggestions,
                             )
-                            SuggestionRow(clientSuggestions, onSelect = { client = it })
                         }
                     }
                 }
@@ -541,30 +545,33 @@ fun TripEditorScreen(
                 Card {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (showTripTaxDeduction) {
-                            OutlinedTextField(
+                            NumericEntryField(
                                 value = taxRateText,
                                 onValueChange = { taxRateText = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Tax Deduction Rate") },
-                                singleLine = true,
+                                label = "Tax Deduction Rate",
+                                decimalEnabled = true,
                             )
                         }
                         if (showTripReimbursement) {
-                            OutlinedTextField(
+                            NumericEntryField(
                                 value = reimbursementRateText,
                                 onValueChange = { reimbursementRateText = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Reimbursement Rate") },
-                                singleLine = true,
+                                label = "Reimbursement Rate",
+                                decimalEnabled = true,
                             )
                             ToggleRow("Paid", paid) { paid = it }
                         }
                         if (showTags) {
-                            OutlinedTextField(
-                                value = tagsText,
-                                onValueChange = { tagsText = it },
+                            MultiChoiceTagDialogField(
+                                selectedTags = selectedTags,
+                                suggestions = tagSuggestions,
+                                onValueChange = { tags ->
+                                    tagsText = tags.joinToString(", ")
+                                },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Tags") },
+                                label = "Tags",
                             )
                         }
                         if (showNotes) {

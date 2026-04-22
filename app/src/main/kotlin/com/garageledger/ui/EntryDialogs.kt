@@ -149,6 +149,45 @@ internal fun MultiChoiceTagDialogField(
 }
 
 @Composable
+internal fun MultiChoiceSelectionField(
+    selectedIds: Set<Long>,
+    options: List<Pair<Long, String>>,
+    onSelectionChange: (Set<Long>) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    emptyChoicesMessage: String = "No saved choices yet.",
+) {
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    val selectedLabels = remember(selectedIds, options) {
+        options
+            .filter { (id, _) -> id in selectedIds }
+            .map { it.second }
+            .joinToString(", ")
+    }
+    TapProxyOutlinedField(
+        value = selectedLabels,
+        modifier = modifier,
+        label = label,
+        onTap = { showDialog = true },
+        minLines = 1,
+        trailingContent = { Text("v", style = MaterialTheme.typography.titleMedium) },
+    )
+    if (showDialog) {
+        MultiChoiceSelectionDialog(
+            title = label,
+            selectedIds = selectedIds,
+            options = options,
+            emptyChoicesMessage = emptyChoicesMessage,
+            onDismiss = { showDialog = false },
+            onConfirm = {
+                onSelectionChange(it)
+                showDialog = false
+            },
+        )
+    }
+}
+
+@Composable
 private fun TapProxyOutlinedField(
     value: String,
     label: String,
@@ -499,6 +538,89 @@ private fun MultiChoiceTagDialog(
                     }
                     Button(
                         onClick = { onConfirm(workingTags.sortedBy(String::lowercase)) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Done")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MultiChoiceSelectionDialog(
+    title: String,
+    selectedIds: Set<Long>,
+    options: List<Pair<Long, String>>,
+    emptyChoicesMessage: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<Long>) -> Unit,
+) {
+    var workingSelection by rememberSaveable(selectedIds) { mutableStateOf(selectedIds) }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (options.isEmpty()) {
+                    Text(emptyChoicesMessage)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(options) { (id, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        workingSelection = if (id in workingSelection) {
+                                            workingSelection - id
+                                        } else {
+                                            workingSelection + id
+                                        }
+                                    }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = id in workingSelection,
+                                    onCheckedChange = { checked ->
+                                        workingSelection = if (checked) {
+                                            workingSelection + id
+                                        } else {
+                                            workingSelection - id
+                                        }
+                                    },
+                                )
+                                Text(label)
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                        Text("Cancel")
+                    }
+                    OutlinedButton(
+                        onClick = { workingSelection = emptySet() },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("Clear")
+                    }
+                    Button(
+                        onClick = { onConfirm(workingSelection) },
                         modifier = Modifier.weight(1f),
                     ) {
                         Text("Done")
