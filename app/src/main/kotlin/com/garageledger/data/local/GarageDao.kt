@@ -182,8 +182,14 @@ interface GarageDao {
     @Query("SELECT DISTINCT serviceCenterName FROM service_records WHERE serviceCenterName <> '' ORDER BY serviceCenterName COLLATE NOCASE")
     suspend fun getServiceCenterSuggestions(): List<String>
 
+    @Query("SELECT DISTINCT serviceCenterAddress FROM service_records WHERE serviceCenterAddress <> '' ORDER BY serviceCenterAddress COLLATE NOCASE")
+    suspend fun getServiceCenterAddressSuggestions(): List<String>
+
     @Query("SELECT DISTINCT expenseCenterName FROM expense_records WHERE expenseCenterName <> '' ORDER BY expenseCenterName COLLATE NOCASE")
     suspend fun getExpenseCenterSuggestions(): List<String>
+
+    @Query("SELECT DISTINCT expenseCenterAddress FROM expense_records WHERE expenseCenterAddress <> '' ORDER BY expenseCenterAddress COLLATE NOCASE")
+    suspend fun getExpenseCenterAddressSuggestions(): List<String>
 
     @Query("SELECT DISTINCT purpose FROM trip_records WHERE purpose <> '' ORDER BY purpose COLLATE NOCASE")
     suspend fun getTripPurposeSuggestions(): List<String>

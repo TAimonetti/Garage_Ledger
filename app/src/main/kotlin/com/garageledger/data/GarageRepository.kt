@@ -299,6 +299,9 @@ class GarageRepository(
     suspend fun getVehicleTrips(vehicleId: Long): List<TripRecord> =
         dao.getVehicleTripsAscending(vehicleId).map(TripRecordEntity::toDomain)
 
+    suspend fun getSuggestedCurrentOdometer(vehicleId: Long): Double? =
+        dao.getLatestOdometer(vehicleId) ?: dao.getVehicleEntity(vehicleId)?.purchaseOdometer
+
     suspend fun ensureFuelTypeCatalogChoices() {
         val current = dao.getFuelTypes().map(FuelTypeEntity::toDomain)
         if (current.any(FuelType::hasStructuredChoiceData)) return
@@ -321,13 +324,22 @@ class GarageRepository(
         DefaultDrivingModes + dao.getDrivingModeSuggestions(),
     )
 
-    suspend fun getFillUpTagSuggestions(): List<String> = normalizeSuggestions(
-        dao.getAllFillUps().flatMap(FillUpRecordEntity::tags),
+    suspend fun getTagSuggestions(): List<String> = normalizeSuggestions(
+        dao.getAllFillUps().flatMap(FillUpRecordEntity::tags) +
+            dao.getAllServices().flatMap(ServiceRecordEntity::tags) +
+            dao.getAllExpenses().flatMap(ExpenseRecordEntity::tags) +
+            dao.getAllTrips().flatMap(TripRecordEntity::tags),
     )
+
+    suspend fun getFillUpTagSuggestions(): List<String> = getTagSuggestions()
 
     suspend fun getServiceCenterSuggestions(): List<String> = dao.getServiceCenterSuggestions()
 
+    suspend fun getServiceCenterAddressSuggestions(): List<String> = dao.getServiceCenterAddressSuggestions()
+
     suspend fun getExpenseCenterSuggestions(): List<String> = dao.getExpenseCenterSuggestions()
+
+    suspend fun getExpenseCenterAddressSuggestions(): List<String> = dao.getExpenseCenterAddressSuggestions()
 
     suspend fun getTripPurposeSuggestions(): List<String> = dao.getTripPurposeSuggestions()
 
@@ -894,50 +906,52 @@ class GarageRepository(
     }
 
     suspend fun saveService(record: ServiceRecord): Long {
+        val normalized = normalizeService(record)
         validateChronology(
-            vehicleId = record.vehicleId,
-            excludedRecordId = record.id,
-            candidates = listOf(ChronoOdometerRecord(record.id, record.dateTime, record.odometerReading)),
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = listOf(ChronoOdometerRecord(normalized.id, normalized.dateTime, normalized.odometerReading)),
         )
         val savedId = database.withTransaction {
-            val recordId = if (record.id == 0L) {
-                dao.insertService(record.toEntity())
+            val recordId = if (normalized.id == 0L) {
+                dao.insertService(normalized.toEntity())
             } else {
-                dao.updateService(record.toEntity())
-                dao.deleteServiceCrossRefsForRecord(record.id)
-                record.id
+                dao.updateService(normalized.toEntity())
+                dao.deleteServiceCrossRefsForRecord(normalized.id)
+                normalized.id
             }
-            if (record.serviceTypeIds.isNotEmpty()) {
+            if (normalized.serviceTypeIds.isNotEmpty()) {
                 dao.insertServiceCrossRefs(
-                    record.serviceTypeIds.distinct().map { typeId ->
+                    normalized.serviceTypeIds.distinct().map { typeId ->
                         ServiceRecordTypeCrossRef(recordId, typeId)
                     },
                 )
             }
             recordId
         }
-        recalculateVehicleReminders(record.vehicleId)
+        recalculateVehicleReminders(normalized.vehicleId)
         onLedgerChanged()
         return savedId
     }
 
     suspend fun saveExpense(record: ExpenseRecord): Long {
+        val normalized = normalizeExpense(record)
         validateChronology(
-            vehicleId = record.vehicleId,
-            excludedRecordId = record.id,
-            candidates = listOf(ChronoOdometerRecord(record.id, record.dateTime, record.odometerReading)),
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = listOf(ChronoOdometerRecord(normalized.id, normalized.dateTime, normalized.odometerReading)),
         )
         val savedId = database.withTransaction {
-            val recordId = if (record.id == 0L) {
-                dao.insertExpense(record.toEntity())
+            val recordId = if (normalized.id == 0L) {
+                dao.insertExpense(normalized.toEntity())
             } else {
-                dao.updateExpense(record.toEntity())
-                dao.deleteExpenseCrossRefsForRecord(record.id)
-                record.id
+                dao.updateExpense(normalized.toEntity())
+                dao.deleteExpenseCrossRefsForRecord(normalized.id)
+                normalized.id
             }
-            if (record.expenseTypeIds.isNotEmpty()) {
+            if (normalized.expenseTypeIds.isNotEmpty()) {
                 dao.insertExpenseCrossRefs(
-                    record.expenseTypeIds.distinct().map { typeId ->
+                    normalized.expenseTypeIds.distinct().map { typeId ->
                         ExpenseRecordTypeCrossRef(recordId, typeId)
                     },
                 )
@@ -1578,6 +1592,12 @@ class GarageRepository(
         }
 
         return record.copy(
+            startLocation = record.startLocation.trim(),
+            endLocation = record.endLocation.trim(),
+            purpose = record.purpose.trim(),
+            client = record.client.trim(),
+            tags = normalizeSuggestions(record.tags),
+            notes = record.notes.trim(),
             distance = resolvedDistance,
             durationMillis = resolvedDuration,
             taxDeductionRate = taxRate,
@@ -1585,6 +1605,24 @@ class GarageRepository(
             reimbursementAmount = reimbursementAmount,
         )
     }
+
+    private fun normalizeService(record: ServiceRecord): ServiceRecord = record.copy(
+        paymentType = record.paymentType.trim(),
+        serviceCenterName = record.serviceCenterName.trim(),
+        serviceCenterAddress = record.serviceCenterAddress.trim(),
+        tags = normalizeSuggestions(record.tags),
+        notes = record.notes.trim(),
+        serviceTypeIds = record.serviceTypeIds.distinct(),
+    )
+
+    private fun normalizeExpense(record: ExpenseRecord): ExpenseRecord = record.copy(
+        paymentType = record.paymentType.trim(),
+        expenseCenterName = record.expenseCenterName.trim(),
+        expenseCenterAddress = record.expenseCenterAddress.trim(),
+        tags = normalizeSuggestions(record.tags),
+        notes = record.notes.trim(),
+        expenseTypeIds = record.expenseTypeIds.distinct(),
+    )
 
     private suspend fun recalculateVehicleFillUps(
         vehicleId: Long,
