@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d7cec2; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ddd4c8; stroke-width: 1.5; }
+      .title { font: 700 38px "Segoe UI", Arial, sans-serif; fill: #2d2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6c604e; }
+      .label { font: 700 24px "Segoe UI", Arial, sans-serif; fill: #2f271a; }
+      .meta { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #726654; }
+      .green { fill: #58a35b; }
+      .white { fill: #ffffff; }
+      .steel { fill: #768996; }
+      .steel-dark { fill: #556774; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="820"/>
+  <rect class="panel" x="24" y="24" width="1352" height="772" rx="30"/>
+
+  <text class="title" x="60" y="86">Trace-Based aCar-Style Shape Draft</text>
+  <text class="subtitle" x="60" y="120">This pass uses the traced aCar proportions directly so we can judge the exact neighborhood before cleaning into final originals.</text>
+
+  <g transform="translate(86 170)">
+    <rect class="tile" width="560" height="560" rx="28"/>
+    <circle cx="92" cy="74" r="34" class="green"/>
+    <rect x="85" y="50" width="14" height="48" rx="6" class="white"/>
+    <rect x="68" y="67" width="48" height="14" rx="6" class="white"/>
+    <g transform="translate(56 528) scale(0.39 -0.39)">
+      <path fill-rule="evenodd" class="steel" d="M193 1150 c-125 -50 -189 -205 -134 -325 24 -54 100 -119 156 -135 97 -27 210 13 263 92 l27 41 7 -39 c18 -101 16 -104 -84 -200 -51 -48 -144 -130 -205 -182 -90 -76 -116 -104 -129 -139 -16 -42 -16 -46 2 -91 13 -30 31 -53 52 -65 36 -21 99 -25 131 -8 10 6 61 59 112 118 51 60 136 155 188 212 l95 103 51 -6 c184 -24 219 -19 285 45 64 63 103 155 108 258 l5 85 -108 -102 c-122 -116 -134 -119 -208 -73 -49 32 -91 87 -103 134 -6 27 2 38 101 137 l108 109 -37 6 c-103 20 -282 -55 -336 -139 -14 -23 -20 -26 -20 -13 0 27 -28 78 -64 115 -69 75 -171 98 -263 62z m91 -866 c21 -20 20 -73 -1 -96 -20 -22 -70 -23 -95 -1 -22 20 -23 70 -1 95 20 22 76 24 97 2z"/>
+    </g>
+    <text class="label" x="34" y="500">Service</text>
+    <text class="meta" x="34" y="530">Uses the real aCar wrench shape as the draft baseline.</text>
+  </g>
+
+  <g transform="translate(750 170)">
+    <rect class="tile" width="560" height="560" rx="28"/>
+    <g transform="translate(76 540) scale(0.36 -0.36)">
+      <path fill-rule="evenodd" class="steel" d="M477 1083 c-4 -3 -7 -31 -8 -62 -1 -69 -8 -88 -39 -104 -14 -8 -35 -20 -47 -27 -19 -12 -29 -10 -89 18 -37 17 -71 29 -75 27 -15 -10 -120 -205 -115 -213 3 -5 30 -26 61 -47 l55 -38 0 -63 0 -62 -60 -38 c-33 -22 -61 -43 -64 -49 -3 -8 35 -77 111 -203 6 -10 23 -6 78 18 l69 32 52 -28 51 -28 7 -70 c4 -39 10 -74 15 -79 4 -4 61 -6 127 -5 l119 3 3 35 c8 111 9 114 65 144 l52 28 64 -31 c35 -16 68 -28 72 -26 10 7 119 194 119 205 0 5 -25 28 -55 51 l-55 41 0 63 0 62 60 42 c33 23 60 45 60 48 0 8 -121 213 -125 213 -1 0 -33 -14 -69 -31 l-67 -31 -53 28 -53 28 -7 69 c-3 38 -9 73 -12 78 -6 10 -237 12 -247 2z"/>
+      <circle cx="675" cy="589" r="180" class="steel-dark"/>
+      <circle cx="675" cy="589" r="72" class="white"/>
+    </g>
+    <text class="label" x="34" y="500">Parts</text>
+    <text class="meta" x="34" y="530">Uses the correct aCar settings gear shape, not the tire idea.</text>
+  </g>
+</svg>

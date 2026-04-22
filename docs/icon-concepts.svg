@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1080" viewBox="0 0 1400 1080">
+  <defs>
+    <style>
+      .bg { fill: #f4f1ea; }
+      .panel { fill: #fffdf9; stroke: #d5cec2; stroke-width: 2; }
+      .tile { fill: #fffefb; stroke: #dcd4c8; stroke-width: 1.5; }
+      .badge { stroke: rgba(0,0,0,0.08); stroke-width: 1; }
+      .title { font: 700 44px "Segoe UI", Arial, sans-serif; fill: #2d2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6a5d4b; }
+      .label { font: 700 26px "Segoe UI", Arial, sans-serif; fill: #2f2619; }
+      .meta { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #6d624f; }
+      .glyph { stroke: #ffffff; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .glyph-fill { fill: #ffffff; stroke: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="1080"/>
+  <rect class="panel" x="32" y="28" width="1336" height="1020" rx="28"/>
+
+  <text class="title" x="70" y="92">Garage Ledger Console Icon Concepts</text>
+  <text class="subtitle" x="70" y="128">aCar-inspired feel: bright, compact, mnemonic, but original artwork and palette</text>
+
+  <!-- Row 1 -->
+  <g transform="translate(70 170)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#168a63"/>
+    <rect class="glyph" x="46" y="46" width="20" height="24" rx="3"/>
+    <path class="glyph" d="M66 50 h8 c6 0 10 4 10 10 v10 c0 6-4 10-10 10 h-8"/>
+    <path class="glyph" d="M84 70 v10"/>
+    <path class="glyph" d="M58 70 v16"/>
+    <path class="glyph" d="M73 56 h12"/>
+    <path class="glyph" d="M79 50 v12"/>
+    <text class="label" x="118" y="64">Fuel-Up</text>
+    <text class="meta" x="118" y="93">Pump + add cue</text>
+    <text class="meta" x="28" y="135">Strongest color memory anchor.</text>
+  </g>
+
+  <g transform="translate(390 170)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#2f63ae"/>
+    <circle class="glyph" cx="49" cy="77" r="7"/>
+    <circle class="glyph" cx="79" cy="49" r="7"/>
+    <path class="glyph" d="M54 72 L72 54"/>
+    <path class="glyph" d="M44 86 L56 74"/>
+    <path class="glyph" d="M72 54 L86 40"/>
+    <text class="label" x="118" y="64">Service</text>
+    <text class="meta" x="118" y="93">Tool badge</text>
+    <text class="meta" x="28" y="135">Blue should read as repair and maintenance.</text>
+  </g>
+
+  <g transform="translate(710 170)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#c1841f"/>
+    <rect class="glyph" x="42" y="49" width="40" height="26" rx="5"/>
+    <circle class="glyph" cx="62" cy="62" r="6"/>
+    <path class="glyph" d="M47 55 h30"/>
+    <path class="glyph" d="M47 69 h30"/>
+    <text class="label" x="118" y="64">Expense</text>
+    <text class="meta" x="118" y="93">Banknote / receipt</text>
+    <text class="meta" x="28" y="135">Warm amber makes finance easy to spot.</text>
+  </g>
+
+  <g transform="translate(1030 170)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#c24f27"/>
+    <path class="glyph-fill" d="M51 85 L61 41 L73 41 L83 85 Z"/>
+    <path class="glyph" d="M67 48 v30"/>
+    <path class="glyph" d="M67 58 v6"/>
+    <path class="glyph" d="M67 70 v6"/>
+    <text class="label" x="118" y="64">Trip</text>
+    <text class="meta" x="118" y="93">Road silhouette</text>
+    <text class="meta" x="28" y="135">Orange feels fast and directional.</text>
+  </g>
+
+  <!-- Row 2 -->
+  <g transform="translate(70 390)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#b93c45"/>
+    <path class="glyph" d="M42 70 h40 l-4-12 c-1-4-4-7-8-7 H54 c-4 0-7 3-8 7 Z"/>
+    <circle class="glyph" cx="52" cy="76" r="5"/>
+    <circle class="glyph" cx="72" cy="76" r="5"/>
+    <path class="glyph" d="M79 46 h12"/>
+    <path class="glyph" d="M85 40 v12"/>
+    <text class="label" x="118" y="64">Add Vehicle</text>
+    <text class="meta" x="118" y="93">Car + plus</text>
+    <text class="meta" x="28" y="135">Red gives this a strong creation action.</text>
+  </g>
+
+  <g transform="translate(390 390)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#1e78ac"/>
+    <circle class="glyph" cx="58" cy="58" r="12"/>
+    <path class="glyph" d="M66 66 L82 82"/>
+    <path class="glyph" d="M42 80 h24"/>
+    <path class="glyph" d="M42 88 h20"/>
+    <text class="label" x="118" y="64">Browse</text>
+    <text class="meta" x="118" y="93">Search + records</text>
+    <text class="meta" x="28" y="135">Closer to old browse/explore than generic search.</text>
+  </g>
+
+  <g transform="translate(710 390)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#2e8b4a"/>
+    <rect class="glyph" x="44" y="44" width="36" height="40" rx="4"/>
+    <path class="glyph" d="M52 54 h4"/>
+    <path class="glyph" d="M64 54 h4"/>
+    <path class="glyph" d="M52 64 h4"/>
+    <path class="glyph" d="M64 64 h4"/>
+    <path class="glyph" d="M50 76 h24"/>
+    <text class="label" x="118" y="64">Stats</text>
+    <text class="meta" x="118" y="93">Calculator</text>
+    <text class="meta" x="28" y="135">Should feel separate from charting.</text>
+  </g>
+
+  <g transform="translate(1030 390)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#1e9297"/>
+    <path class="glyph" d="M44 82 h36"/>
+    <path class="glyph" d="M48 82 v-12"/>
+    <path class="glyph" d="M60 82 v-22"/>
+    <path class="glyph" d="M72 82 v-30"/>
+    <path class="glyph" d="M46 69 L58 58 L69 63 L80 48"/>
+    <text class="label" x="118" y="64">Charts</text>
+    <text class="meta" x="118" y="93">Bars + line</text>
+    <text class="meta" x="28" y="135">A bit more visual and alive than Stats.</text>
+  </g>
+
+  <!-- Row 3 -->
+  <g transform="translate(70 610)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#984536"/>
+    <path class="glyph" d="M42 70 h28 l-3-10 c-1-4-4-6-8-6 H51 c-4 0-7 2-8 6 Z"/>
+    <circle class="glyph" cx="50" cy="76" r="4.5"/>
+    <circle class="glyph" cx="64" cy="76" r="4.5"/>
+    <circle class="glyph" cx="77" cy="53" r="8"/>
+    <path class="glyph" d="M83 59 L90 66"/>
+    <text class="label" x="118" y="64">Details</text>
+    <text class="meta" x="118" y="93">Car + lens</text>
+    <text class="meta" x="28" y="135">Vehicle-specific, not just a generic edit icon.</text>
+  </g>
+
+  <g transform="translate(390 610)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#b87a12"/>
+    <circle class="glyph" cx="62" cy="64" r="16"/>
+    <path class="glyph" d="M55 46 L49 39"/>
+    <path class="glyph" d="M69 46 L75 39"/>
+    <path class="glyph" d="M62 64 v-8"/>
+    <path class="glyph" d="M62 64 l7 5"/>
+    <text class="label" x="118" y="64">Reminders</text>
+    <text class="meta" x="118" y="93">Alarm clock</text>
+    <text class="meta" x="28" y="135">This one should be instantly recognizable.</text>
+  </g>
+
+  <g transform="translate(710 610)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#6252a9"/>
+    <circle class="glyph" cx="62" cy="64" r="18"/>
+    <circle class="glyph" cx="62" cy="64" r="8"/>
+    <path class="glyph" d="M62 46 v6"/>
+    <path class="glyph" d="M62 76 v6"/>
+    <path class="glyph" d="M44 64 h6"/>
+    <path class="glyph" d="M74 64 h6"/>
+    <text class="label" x="118" y="64">Parts</text>
+    <text class="meta" x="118" y="93">Tire / wheel</text>
+    <text class="meta" x="28" y="135">Different from service, more component-oriented.</text>
+  </g>
+
+  <g transform="translate(1030 610)">
+    <rect class="tile" x="0" y="0" width="290" height="180" rx="24"/>
+    <rect class="badge" x="26" y="28" width="72" height="72" rx="20" fill="#4462c6"/>
+    <path class="glyph" d="M44 78 L54 66 L62 70 L72 54 L80 59"/>
+    <path class="glyph" d="M47 46 l3 6 l6 1 l-5 4 l1 6 l-5-3 l-5 3 l1-6 l-5-4 l6-1 Z"/>
+    <text class="label" x="118" y="64">Predictions</text>
+    <text class="meta" x="118" y="93">Insight graph + spark</text>
+    <text class="meta" x="28" y="135">Keeps the old "forecast" feel without copying.</text>
+  </g>
+
+  <text class="subtitle" x="70" y="1010">Suggested next step: draw final vector assets for Fuel-Up, Service, Expense, Trip, Reminders, and Predictions first.</text>
+</svg>

@@ -8,3 +8,7 @@ local.properties
 /captures/
 aCar 5.2.17.apk
 .codex-tools/
+.codex-data/
+docs/trace-work/
+docs/acar-*.png
+docs/Parts-Source*

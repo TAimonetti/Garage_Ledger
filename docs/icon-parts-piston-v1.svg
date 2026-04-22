@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="520" viewBox="0 0 720 520">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d8cfc2; stroke-width: 2; }
+      .title { font: 700 34px "Segoe UI", Arial, sans-serif; fill: #2c2418; }
+      .note { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #6b5e4d; }
+      .ink { fill: #445469; }
+      .cut { fill: #fcfaf6; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="720" height="520"/>
+  <rect class="panel" x="24" y="24" width="672" height="472" rx="28"/>
+
+  <text class="title" x="52" y="76">Parts Icon: Piston Direction</text>
+  <text class="note" x="52" y="108">Near-match to your sample, kept simple before dashboard wiring.</text>
+
+  <g transform="translate(112 128)">
+    <!-- main silhouette -->
+    <g transform="rotate(-18 240 136)">
+      <!-- piston head -->
+      <polygon class="ink" points="278,18 358,18 404,58 404,130 278,130 246,96 246,52"/>
+      <rect class="ink" x="268" y="34" width="146" height="22" rx="10"/>
+      <rect class="ink" x="258" y="60" width="156" height="18" rx="9"/>
+      <rect class="ink" x="248" y="84" width="166" height="18" rx="9"/>
+
+      <!-- connecting arm -->
+      <path class="ink" d="M208 110
+        C231 95 255 94 276 106
+        L278 154
+        C254 168 229 169 206 158
+        Z"/>
+      <path class="ink" d="M110 156
+        C135 129 165 122 194 136
+        L226 151
+        C245 160 251 185 239 202
+        L176 285
+        C165 299 147 307 129 307
+        L95 307
+        C73 307 56 289 56 268
+        L56 250
+        C56 232 63 216 76 204
+        Z"/>
+
+      <!-- little foot at left -->
+      <polygon class="ink" points="54,224 79,214 91,229 78,247 52,242"/>
+
+      <!-- piston pin circle -->
+      <circle class="cut" cx="321" cy="76" r="19"/>
+
+      <!-- rod ring -->
+      <circle class="cut" cx="122" cy="266" r="52"/>
+      <circle class="ink" cx="122" cy="266" r="25"/>
+
+      <!-- subtle bevel notch -->
+      <polygon class="cut" points="262,34 279,18 279,54"/>
+      <polygon class="cut" points="393,58 404,58 404,73"/>
+    </g>
+  </g>
+</svg>

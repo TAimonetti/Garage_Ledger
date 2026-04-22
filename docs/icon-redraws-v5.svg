@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="700" viewBox="0 0 1180 700">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d7cec2; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ddd4c8; stroke-width: 1.5; }
+      .title { font: 700 38px "Segoe UI", Arial, sans-serif; fill: #2d2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6c604e; }
+      .label { font: 700 24px "Segoe UI", Arial, sans-serif; fill: #2f271a; }
+      .meta { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #726654; }
+      .white-line { stroke: #fff; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .green { fill: #57a75f; }
+      .steel { fill: #738595; }
+      .steel-dark { fill: #44515d; }
+      .steel-light { fill: #9eb0bf; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1180" height="700"/>
+  <rect class="panel" x="24" y="24" width="1132" height="652" rx="30"/>
+
+  <text class="title" x="60" y="86">Service and Parts Final Direction</text>
+  <text class="subtitle" x="60" y="120">Closer to old aCar: more literal service wrench and a straightforward settings gear for parts.</text>
+
+  <!-- Service -->
+  <g transform="translate(78 180)">
+    <rect class="tile" width="470" height="390" rx="26"/>
+    <circle cx="84" cy="64" r="28" class="green"/>
+    <path class="white-line" d="M84 50 v28"/>
+    <path class="white-line" d="M70 64 h28"/>
+
+    <g transform="translate(78 68)">
+      <path d="M34 226
+               C26 214 27 198 38 186
+               L186 38
+               C206 18 236 11 261 20
+               L220 61
+               C214 67 214 76 220 82
+               L241 103
+               C247 109 256 109 262 103
+               L303 62
+               C312 87 305 117 285 137
+               L137 285
+               C125 296 109 297 97 289
+               L34 226 Z" class="steel"/>
+      <path d="M46 215
+               C42 207 44 199 51 192
+               L90 153
+               L147 210
+               L108 249
+               C101 256 93 258 85 254 Z" class="steel-light"/>
+      <circle cx="78" cy="221" r="20" class="steel-light"/>
+      <circle cx="78" cy="221" r="8" fill="#fffdf9"/>
+    </g>
+
+    <text class="label" x="34" y="330">Service</text>
+    <text class="meta" x="34" y="360">More like aCar: single diagonal wrench, simple and readable.</text>
+  </g>
+
+  <!-- Parts -->
+  <g transform="translate(632 180)">
+    <rect class="tile" width="470" height="390" rx="26"/>
+
+    <g transform="translate(90 36)">
+      <path d="M132 56
+               L182 56
+               L198 102
+               L240 78
+               L276 114
+               L252 156
+               L298 172
+               L298 222
+               L252 238
+               L276 280
+               L240 316
+               L198 292
+               L182 338
+               L132 338
+               L116 292
+               L74 316
+               L38 280
+               L62 238
+               L16 222
+               L16 172
+               L62 156
+               L38 114
+               L74 78
+               L116 102 Z" class="steel"/>
+      <circle cx="157" cy="197" r="86" class="steel-dark"/>
+      <circle cx="157" cy="197" r="34" fill="#fcfaf6"/>
+    </g>
+
+    <text class="label" x="34" y="330">Parts</text>
+    <text class="meta" x="34" y="360">Settings-style gear, closer to what you asked for than the tire idea.</text>
+  </g>
+</svg>

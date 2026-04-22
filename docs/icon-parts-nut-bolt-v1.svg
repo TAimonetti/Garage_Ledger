@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="980" viewBox="0 0 1400 980">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d5cdc1; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ded5c9; stroke-width: 1.5; }
+      .title { font: 700 42px "Segoe UI", Arial, sans-serif; fill: #2c2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6b5e4d; }
+      .label { font: 700 24px "Segoe UI", Arial, sans-serif; fill: #2f271b; }
+      .note { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #746755; }
+      .outline { stroke: #4f5861; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .outline-thin { stroke: #59636b; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .soft-shadow { fill: #d8d0c4; opacity: .45; }
+    </style>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0f4f8"/>
+      <stop offset="40%" stop-color="#cfd7df"/>
+      <stop offset="70%" stop-color="#aeb8c0"/>
+      <stop offset="100%" stop-color="#e8edf1"/>
+    </linearGradient>
+    <linearGradient id="steelDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b7c1c8"/>
+      <stop offset="100%" stop-color="#7f8b95"/>
+    </linearGradient>
+    <linearGradient id="goldBolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7d562"/>
+      <stop offset="45%" stop-color="#e8b93c"/>
+      <stop offset="100%" stop-color="#cc8f25"/>
+    </linearGradient>
+    <linearGradient id="blueBolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#78b4ee"/>
+      <stop offset="45%" stop-color="#4a84c4"/>
+      <stop offset="100%" stop-color="#2b5d95"/>
+    </linearGradient>
+    <linearGradient id="redBolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ef9c7b"/>
+      <stop offset="45%" stop-color="#de6645"/>
+      <stop offset="100%" stop-color="#b93e26"/>
+    </linearGradient>
+    <linearGradient id="greenBolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8ec87d"/>
+      <stop offset="45%" stop-color="#5fa14d"/>
+      <stop offset="100%" stop-color="#3d7634"/>
+    </linearGradient>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="980"/>
+  <rect class="panel" x="24" y="24" width="1352" height="932" rx="30"/>
+
+  <text class="title" x="60" y="88">Parts Icon Concepts: Nut + Bolt</text>
+  <text class="subtitle" x="60" y="124">Focused options that avoid the Settings gear and keep the same colorful console feel.</text>
+
+  <!-- Variant A -->
+  <g transform="translate(70 180)">
+    <rect class="tile" width="280" height="300" rx="24"/>
+    <ellipse class="soft-shadow" cx="145" cy="160" rx="78" ry="24"/>
+    <g transform="rotate(-28 140 138)">
+      <rect x="90" y="112" width="126" height="44" rx="18" fill="url(#blueBolt)" stroke="#355d8b" stroke-width="5"/>
+      <polygon points="74,119 99,104 99,164 74,149" fill="#90c2f4" stroke="#355d8b" stroke-width="5" stroke-linejoin="round"/>
+      <g stroke="#2d527d" stroke-width="4" stroke-linecap="round">
+        <line x1="138" y1="117" x2="138" y2="151"/>
+        <line x1="151" y1="117" x2="151" y2="151"/>
+        <line x1="164" y1="117" x2="164" y2="151"/>
+        <line x1="177" y1="117" x2="177" y2="151"/>
+        <line x1="190" y1="117" x2="190" y2="151"/>
+      </g>
+    </g>
+    <g transform="translate(148 128)">
+      <polygon points="0,28 18,0 60,0 78,28 60,56 18,56" fill="url(#steel)" stroke="#5f6870" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="21,28 31,12 47,12 57,28 47,44 31,44" fill="#fffdf9" stroke="#7b858d" stroke-width="4" stroke-linejoin="round"/>
+      <line class="outline-thin" x1="8" y1="14" x2="70" y2="14"/>
+      <line class="outline-thin" x1="8" y1="42" x2="70" y2="42"/>
+    </g>
+    <text class="label" x="30" y="248">A. Diagonal Bolt</text>
+    <text class="note" x="30" y="278">Closest to a console icon.</text>
+  </g>
+
+  <!-- Variant B -->
+  <g transform="translate(390 180)">
+    <rect class="tile" width="280" height="300" rx="24"/>
+    <ellipse class="soft-shadow" cx="145" cy="164" rx="82" ry="25"/>
+    <g transform="rotate(-38 128 145)">
+      <rect x="82" y="122" width="120" height="40" rx="17" fill="url(#goldBolt)" stroke="#a8771f" stroke-width="5"/>
+      <polygon points="68,128 88,114 88,170 68,156" fill="#f7e08f" stroke="#a8771f" stroke-width="5" stroke-linejoin="round"/>
+      <g stroke="#9d6f19" stroke-width="4" stroke-linecap="round">
+        <line x1="126" y1="126" x2="126" y2="158"/>
+        <line x1="139" y1="126" x2="139" y2="158"/>
+        <line x1="152" y1="126" x2="152" y2="158"/>
+        <line x1="165" y1="126" x2="165" y2="158"/>
+      </g>
+    </g>
+    <g transform="rotate(24 170 128)">
+      <polygon points="126,88 152,70 192,86 206,118 180,146 140,130" fill="url(#steelDark)" stroke="#5f6870" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="151,94 165,84 181,90 187,110 173,120 157,114" fill="#fffdf9" stroke="#7b858d" stroke-width="4" stroke-linejoin="round"/>
+    </g>
+    <text class="label" x="30" y="248">B. Crossed Hardware</text>
+    <text class="note" x="30" y="278">Most energetic and colorful.</text>
+  </g>
+
+  <!-- Variant C -->
+  <g transform="translate(710 180)">
+    <rect class="tile" width="280" height="300" rx="24"/>
+    <ellipse class="soft-shadow" cx="145" cy="168" rx="82" ry="25"/>
+    <g transform="rotate(-18 144 154)">
+      <rect x="112" y="148" width="108" height="32" rx="14" fill="url(#redBolt)" stroke="#8f3928" stroke-width="5"/>
+      <polygon points="98,152 115,140 115,188 98,176" fill="#f0ab90" stroke="#8f3928" stroke-width="5" stroke-linejoin="round"/>
+      <g stroke="#8a3525" stroke-width="4" stroke-linecap="round">
+        <line x1="150" y1="152" x2="150" y2="177"/>
+        <line x1="162" y1="152" x2="162" y2="177"/>
+        <line x1="174" y1="152" x2="174" y2="177"/>
+        <line x1="186" y1="152" x2="186" y2="177"/>
+      </g>
+    </g>
+    <g transform="translate(86 84)">
+      <polygon points="0,44 26,6 84,6 110,44 84,82 26,82" fill="url(#steel)" stroke="#5f6870" stroke-width="7" stroke-linejoin="round"/>
+      <polygon points="30,44 45,22 65,22 80,44 65,66 45,66" fill="#fffdf9" stroke="#7b858d" stroke-width="5" stroke-linejoin="round"/>
+      <line class="outline-thin" x1="10" y1="20" x2="100" y2="20"/>
+      <line class="outline-thin" x1="10" y1="68" x2="100" y2="68"/>
+    </g>
+    <text class="label" x="30" y="248">C. Big Hex Nut</text>
+    <text class="note" x="30" y="278">Most literal and easiest to read.</text>
+  </g>
+
+  <!-- Variant D -->
+  <g transform="translate(1030 180)">
+    <rect class="tile" width="280" height="300" rx="24"/>
+    <ellipse class="soft-shadow" cx="145" cy="170" rx="82" ry="24"/>
+    <g transform="rotate(-26 144 150)">
+      <rect x="86" y="128" width="132" height="38" rx="16" fill="url(#greenBolt)" stroke="#35632e" stroke-width="5"/>
+      <polygon points="70,134 92,120 92,174 70,160" fill="#a5d79a" stroke="#35632e" stroke-width="5" stroke-linejoin="round"/>
+      <g stroke="#2f5a29" stroke-width="4" stroke-linecap="round">
+        <line x1="140" y1="132" x2="140" y2="162"/>
+        <line x1="154" y1="132" x2="154" y2="162"/>
+        <line x1="168" y1="132" x2="168" y2="162"/>
+        <line x1="182" y1="132" x2="182" y2="162"/>
+      </g>
+    </g>
+    <g transform="translate(148 104)">
+      <polygon points="0,30 18,0 52,0 70,30 52,60 18,60" fill="url(#steel)" stroke="#5f6870" stroke-width="6" stroke-linejoin="round"/>
+      <polygon points="22,30 32,14 38,14 48,30 38,46 32,46" fill="#fffdf9" stroke="#7b858d" stroke-width="4" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(82 86)">
+      <polygon points="0,24 15,0 43,0 58,24 43,48 15,48" fill="url(#steelDark)" stroke="#606870" stroke-width="5" stroke-linejoin="round"/>
+      <polygon points="18,24 25,12 33,12 40,24 33,36 25,36" fill="#fffdf9" stroke="#7b858d" stroke-width="3.5" stroke-linejoin="round"/>
+    </g>
+    <text class="label" x="30" y="248">D. Parts Cluster</text>
+    <text class="note" x="30" y="278">Feels like a full parts bin.</text>
+  </g>
+
+  <text class="subtitle" x="62" y="560">Best candidates for the dashboard: A if you want clean and classic, C if you want the fastest read at phone size.</text>
+</svg>

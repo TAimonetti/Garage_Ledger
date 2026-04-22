@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d5cdc1; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ded5c9; stroke-width: 1.5; }
+      .title { font: 700 42px "Segoe UI", Arial, sans-serif; fill: #2c2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6b5e4d; }
+      .label { font: 700 26px "Segoe UI", Arial, sans-serif; fill: #2f271b; }
+      .note { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #746755; }
+      .soft { stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+      <feOffset dx="0" dy="8" result="off"/>
+      <feColorMatrix in="off" type="matrix"
+        values="0 0 0 0 0.42
+                0 0 0 0 0.37
+                0 0 0 0 0.30
+                0 0 0 0.25 0"/>
+      <feBlend in="SourceGraphic" mode="normal"/>
+    </filter>
+
+    <linearGradient id="steelA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fdfefe"/>
+      <stop offset="18%" stop-color="#e6ebef"/>
+      <stop offset="48%" stop-color="#b5bec6"/>
+      <stop offset="80%" stop-color="#909ba4"/>
+      <stop offset="100%" stop-color="#eef2f5"/>
+    </linearGradient>
+    <linearGradient id="steelB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d7e0e7"/>
+      <stop offset="45%" stop-color="#98a3ad"/>
+      <stop offset="100%" stop-color="#6f7a83"/>
+    </linearGradient>
+    <linearGradient id="threadSteel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8d99a4"/>
+      <stop offset="50%" stop-color="#b9c2ca"/>
+      <stop offset="100%" stop-color="#78848f"/>
+    </linearGradient>
+    <linearGradient id="bluePaint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8cc2ff"/>
+      <stop offset="40%" stop-color="#4e88c8"/>
+      <stop offset="100%" stop-color="#2f5e95"/>
+    </linearGradient>
+    <linearGradient id="goldPaint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffe08d"/>
+      <stop offset="40%" stop-color="#dfb23b"/>
+      <stop offset="100%" stop-color="#af7817"/>
+    </linearGradient>
+    <radialGradient id="nutHole" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="70%" stop-color="#f1f4f6"/>
+      <stop offset="100%" stop-color="#c0c8ce"/>
+    </radialGradient>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1440" height="920"/>
+  <rect class="panel" x="24" y="24" width="1392" height="872" rx="30"/>
+
+  <text class="title" x="60" y="88">Parts Icon Concepts: Nut + Bolt, Rendered Pass</text>
+  <text class="subtitle" x="60" y="124">Softer edges, real metal shading, less cartoon outline, and more “desktop icon” object rendering.</text>
+
+  <!-- Option A -->
+  <g transform="translate(110 190)">
+    <rect class="tile" width="520" height="430" rx="28"/>
+    <ellipse x="0" y="0" cx="254" cy="260" rx="145" ry="34" fill="#d2c8bb" opacity=".38"/>
+
+    <g filter="url(#shadow)">
+      <g transform="rotate(-26 250 200)">
+        <!-- bolt head -->
+        <polygon points="118,168 154,144 198,152 220,188 184,212 140,204"
+                 fill="url(#bluePaint)"/>
+        <polygon points="132,173 159,156 191,162 206,188 179,204 147,198"
+                 fill="rgba(255,255,255,.18)"/>
+        <!-- bolt neck -->
+        <polygon points="195,165 217,174 221,206 198,221 178,209 174,177"
+                 fill="url(#steelB)"/>
+        <!-- shaft -->
+        <rect x="212" y="173" width="150" height="42" rx="18" fill="url(#threadSteel)"/>
+        <!-- thread grooves -->
+        <g stroke="#6f7a83" stroke-width="4" opacity=".85" class="soft">
+          <line x1="233" y1="177" x2="233" y2="211"/>
+          <line x1="248" y1="177" x2="248" y2="211"/>
+          <line x1="263" y1="177" x2="263" y2="211"/>
+          <line x1="278" y1="177" x2="278" y2="211"/>
+          <line x1="293" y1="177" x2="293" y2="211"/>
+          <line x1="308" y1="177" x2="308" y2="211"/>
+          <line x1="323" y1="177" x2="323" y2="211"/>
+          <line x1="338" y1="177" x2="338" y2="211"/>
+        </g>
+        <!-- highlights -->
+        <path d="M126 176 C149 160 180 160 209 178" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="6" class="soft"/>
+        <path d="M224 181 C268 171 314 174 352 185" fill="none" stroke="rgba(255,255,255,.30)" stroke-width="5" class="soft"/>
+      </g>
+
+      <!-- nut -->
+      <g transform="translate(178 188)">
+        <polygon points="0,44 26,0 82,0 108,44 82,88 26,88" fill="url(#steelA)"/>
+        <polygon points="16,44 36,12 72,12 92,44 72,76 36,76" fill="url(#nutHole)"/>
+        <path d="M4 18 L104 18" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="4" class="soft"/>
+        <path d="M12 70 L96 70" fill="none" stroke="rgba(90,102,112,.28)" stroke-width="3" class="soft"/>
+        <path d="M25 2 L42 44 L25 86" fill="none" stroke="rgba(90,102,112,.22)" stroke-width="3" class="soft"/>
+        <path d="M83 2 L66 44 L83 86" fill="none" stroke="rgba(90,102,112,.22)" stroke-width="3" class="soft"/>
+      </g>
+
+      <!-- washer -->
+      <g transform="translate(148 220)">
+        <ellipse cx="0" cy="0" rx="26" ry="10" fill="#d7dfe5"/>
+        <ellipse cx="0" cy="0" rx="13" ry="5" fill="#fbfdff"/>
+      </g>
+    </g>
+
+    <text class="label" x="34" y="350">A. Painted Bolt + Steel Nut</text>
+    <text class="note" x="34" y="388">Best balance of colorful console feel and believable hardware rendering.</text>
+  </g>
+
+  <!-- Option B -->
+  <g transform="translate(770 190)">
+    <rect class="tile" width="520" height="430" rx="28"/>
+    <ellipse x="0" y="0" cx="250" cy="266" rx="148" ry="34" fill="#d2c8bb" opacity=".38"/>
+
+    <g filter="url(#shadow)">
+      <!-- front nut -->
+      <g transform="translate(146 172)">
+        <polygon points="0,50 32,0 98,0 130,50 98,100 32,100" fill="url(#steelA)"/>
+        <polygon points="22,50 46,15 84,15 108,50 84,85 46,85" fill="url(#nutHole)"/>
+        <path d="M6 20 L124 20" fill="none" stroke="rgba(255,255,255,.46)" stroke-width="4" class="soft"/>
+        <path d="M14 80 L116 80" fill="none" stroke="rgba(90,102,112,.24)" stroke-width="3" class="soft"/>
+      </g>
+
+      <!-- rear bolt -->
+      <g transform="rotate(-14 300 224)">
+        <polygon points="282,156 318,132 362,140 384,176 348,200 304,192"
+                 fill="url(#goldPaint)"/>
+        <polygon points="296,162 323,145 355,151 370,176 343,192 311,186"
+                 fill="rgba(255,255,255,.16)"/>
+        <polygon points="360,154 383,163 387,195 363,210 343,198 339,166"
+                 fill="url(#steelB)"/>
+        <rect x="378" y="162" width="108" height="40" rx="18" fill="url(#threadSteel)"/>
+        <g stroke="#6c7882" stroke-width="4" opacity=".85" class="soft">
+          <line x1="396" y1="166" x2="396" y2="198"/>
+          <line x1="410" y1="166" x2="410" y2="198"/>
+          <line x1="424" y1="166" x2="424" y2="198"/>
+          <line x1="438" y1="166" x2="438" y2="198"/>
+          <line x1="452" y1="166" x2="452" y2="198"/>
+          <line x1="466" y1="166" x2="466" y2="198"/>
+        </g>
+        <path d="M290 165 C316 148 347 149 374 169" fill="none" stroke="rgba(255,255,255,.40)" stroke-width="6" class="soft"/>
+      </g>
+
+      <!-- second small nut -->
+      <g transform="translate(332 192)">
+        <polygon points="0,34 22,0 66,0 88,34 66,68 22,68" fill="url(#steelB)"/>
+        <polygon points="16,34 30,13 58,13 72,34 58,55 30,55" fill="url(#nutHole)"/>
+        <path d="M5 15 L83 15" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="3.5" class="soft"/>
+      </g>
+    </g>
+
+    <text class="label" x="34" y="350">B. Workshop Hardware Cluster</text>
+    <text class="note" x="34" y="388">More like a small pile of real parts, with less logo-like symmetry.</text>
+  </g>
+</svg>

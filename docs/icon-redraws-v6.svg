@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="820" viewBox="0 0 1320 820">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d7cec2; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ddd4c8; stroke-width: 1.5; }
+      .title { font: 700 38px "Segoe UI", Arial, sans-serif; fill: #2d2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6c604e; }
+      .label { font: 700 24px "Segoe UI", Arial, sans-serif; fill: #2f271a; }
+      .meta { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #726654; }
+      .green { fill: #58a35b; }
+      .white { fill: #ffffff; }
+      .steel { fill: #768996; }
+      .steel-dark { fill: #536471; }
+      .stroke-light { stroke: #dfe6ec; stroke-width: 8; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1320" height="820"/>
+  <rect class="panel" x="24" y="24" width="1272" height="772" rx="30"/>
+
+  <text class="title" x="60" y="86">Closer aCar-Style Service and Parts</text>
+  <text class="subtitle" x="60" y="120">Redrawn from the original aCar proportions: simpler wrench silhouette and a truer 6-tooth settings gear.</text>
+
+  <!-- Service -->
+  <g transform="translate(78 170)">
+    <rect class="tile" width="540" height="560" rx="26"/>
+    <circle cx="92" cy="74" r="34" class="green"/>
+    <rect x="85" y="50" width="14" height="48" rx="6" class="white"/>
+    <rect x="68" y="67" width="48" height="14" rx="6" class="white"/>
+
+    <!-- more literal aCar-like wrench -->
+    <path d="M138 470
+             A64 64 0 1 1 228 560
+             L444 344
+             Q468 320 507 320
+             L564 320
+             Q590 320 612 306
+             Q568 290 548 270
+             L498 220
+             Q480 202 480 176
+             Q480 148 500 128
+             L548 80
+             Q568 60 612 46
+             Q590 32 564 32
+             L506 32
+             Q466 32 440 58
+             L224 274
+             A64 64 0 0 0 138 470 Z"
+          class="steel"
+          transform="translate(-70 38) scale(0.78)"/>
+    <circle cx="174" cy="484" r="19" fill="#fffdf9"/>
+
+    <text class="label" x="34" y="500">Service</text>
+    <text class="meta" x="34" y="530">Closer to old aCar: longer handle, round end, simpler jaw.</text>
+  </g>
+
+  <!-- Parts -->
+  <g transform="translate(700 170)">
+    <rect class="tile" width="540" height="560" rx="26"/>
+
+    <!-- closer 6-tooth settings gear -->
+    <path d="M236 92
+             L304 92
+             L322 150
+             L379 118
+             L427 166
+             L395 223
+             L452 241
+             L452 309
+             L395 327
+             L427 384
+             L379 432
+             L322 400
+             L304 458
+             L236 458
+             L218 400
+             L161 432
+             L113 384
+             L145 327
+             L88 309
+             L88 241
+             L145 223
+             L113 166
+             L161 118
+             L218 150 Z"
+          class="steel"
+          transform="translate(52 62) scale(1.1)"/>
+    <circle cx="272" cy="282" r="133" class="steel-dark"/>
+    <circle cx="272" cy="282" r="52" fill="#fffdf9"/>
+
+    <text class="label" x="34" y="500">Parts</text>
+    <text class="meta" x="34" y="530">Straight settings gear, much closer to the old icon than the tire.</text>
+  </g>
+</svg>

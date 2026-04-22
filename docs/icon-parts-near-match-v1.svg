@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="460" viewBox="0 0 700 460">
+  <defs>
+    <style>
+      .outline { stroke: #2d3440; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+      .thread { stroke: #2d3440; stroke-width: 4; stroke-linecap: round; fill: none; }
+      .metal { fill: #b7d7e2; }
+      .side { fill: #9fc4d0; }
+      .top { fill: #cae2ea; }
+      .inner { fill: #f9fbfc; }
+      .shadow { fill: #d6d9db; opacity: .45; }
+      .shine { stroke: rgba(255,255,255,.55); stroke-width: 4; stroke-linecap: round; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="700" height="460" fill="#ffffff"/>
+
+  <ellipse class="shadow" cx="208" cy="292" rx="120" ry="30"/>
+  <ellipse class="shadow" cx="496" cy="306" rx="118" ry="30"/>
+
+  <!-- Bolt -->
+  <g transform="rotate(-28 220 180)">
+    <!-- shaft -->
+    <rect x="224" y="126" width="236" height="62" rx="28" class="metal outline"/>
+    <!-- shaft far-end cap -->
+    <ellipse cx="460" cy="157" rx="29" ry="31" class="metal outline"/>
+    <!-- shaft neck -->
+    <polygon points="203,130 224,118 224,196 203,184" class="side outline"/>
+    <!-- head faces -->
+    <polygon points="88,110 160,108 201,127 172,204 101,204 59,184 50,136" class="metal outline"/>
+    <polygon points="160,108 201,127 201,196 172,204 172,108" class="side outline"/>
+    <polygon points="88,110 160,108 137,79 72,81 50,108" class="top outline"/>
+    <polygon points="58,183 80,193 80,207 58,205" class="side outline"/>
+    <!-- front cap redraw so it sits over body -->
+    <ellipse cx="118" cy="158" rx="67" ry="57" class="metal outline"/>
+    <!-- highlights -->
+    <path d="M74 139 C95 121 133 118 167 128" class="shine"/>
+    <path d="M232 136 C292 126 356 128 431 141" class="shine"/>
+    <!-- threads -->
+    <line x1="248" y1="130" x2="248" y2="184" class="thread"/>
+    <line x1="270" y1="128" x2="270" y2="186" class="thread"/>
+    <line x1="292" y1="128" x2="292" y2="186" class="thread"/>
+    <line x1="314" y1="128" x2="314" y2="186" class="thread"/>
+    <line x1="336" y1="128" x2="336" y2="186" class="thread"/>
+    <line x1="358" y1="128" x2="358" y2="186" class="thread"/>
+    <line x1="380" y1="128" x2="380" y2="186" class="thread"/>
+    <line x1="402" y1="128" x2="402" y2="186" class="thread"/>
+    <line x1="424" y1="130" x2="424" y2="184" class="thread"/>
+  </g>
+
+  <!-- Nut -->
+  <g transform="translate(390 132)">
+    <polygon points="0,92 48,12 146,12 194,92 146,172 48,172" class="metal outline"/>
+    <polygon points="22,92 60,30 134,30 172,92 134,154 60,154" class="inner outline"/>
+    <polygon points="146,12 194,92 162,102 124,42" class="top outline"/>
+    <polygon points="48,12 146,12 124,42 60,30" class="top outline"/>
+    <polygon points="146,172 194,92 162,102 124,154" class="side outline"/>
+    <polygon points="48,172 146,172 124,154 60,154" class="side outline"/>
+    <ellipse cx="97" cy="92" rx="45" ry="36" class="inner outline"/>
+    <!-- inner thread rings -->
+    <path d="M60 73 C70 64 123 64 134 73" class="thread"/>
+    <path d="M56 86 C68 75 125 75 138 86" class="thread"/>
+    <path d="M54 99 C67 88 126 88 140 99" class="thread"/>
+    <path d="M56 112 C68 101 125 101 138 112" class="thread"/>
+    <path d="M60 125 C71 115 123 115 134 125" class="thread"/>
+    <!-- highlights -->
+    <path d="M22 54 C56 30 133 30 170 60" class="shine"/>
+  </g>
+</svg>

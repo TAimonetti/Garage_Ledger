@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="920" viewBox="0 0 1420 920">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d5cdc1; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ded5c9; stroke-width: 1.5; }
+      .title { font: 700 42px "Segoe UI", Arial, sans-serif; fill: #2c2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6b5e4d; }
+      .label { font: 700 25px "Segoe UI", Arial, sans-serif; fill: #2f271b; }
+      .note { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #746755; }
+      .metal { fill: #b8d8e4; stroke: #313844; stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
+      .metal-dark { fill: #9ec5d3; stroke: #313844; stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; }
+      .thread { stroke: #313844; stroke-width: 4; stroke-linecap: round; fill: none; }
+      .inner-thread { stroke: #4d5760; stroke-width: 3; stroke-linecap: round; fill: none; opacity: .9; }
+      .highlight { stroke: rgba(255,255,255,.55); stroke-width: 4; stroke-linecap: round; fill: none; }
+      .shadow { fill: #d4c9bb; opacity: .3; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1420" height="920"/>
+  <rect class="panel" x="24" y="24" width="1372" height="872" rx="30"/>
+
+  <text class="title" x="60" y="88">Parts Icon Concepts: Reference-Aligned Nut + Bolt</text>
+  <text class="subtitle" x="60" y="124">Closer to your sample: dark outline, pale blue metal, visible threads, and a real hardware illustration feel.</text>
+
+  <!-- Variant A -->
+  <g transform="translate(70 180)">
+    <rect class="tile" width="390" height="420" rx="26"/>
+    <ellipse class="shadow" cx="192" cy="224" rx="110" ry="28"/>
+
+    <g transform="rotate(-23 164 176)">
+      <polygon class="metal" points="104,158 142,134 188,144 210,184 172,208 126,198"/>
+      <ellipse class="metal" cx="141" cy="171" rx="35" ry="29"/>
+      <polygon class="metal-dark" points="185,146 204,156 206,197 185,208 167,198 165,157"/>
+      <rect class="metal-dark" x="202" y="156" width="132" height="46" rx="18"/>
+      <path class="highlight" d="M112 158 C132 147 158 146 183 154"/>
+      <path class="highlight" d="M211 163 C243 155 283 155 324 165"/>
+      <g>
+        <line class="thread" x1="223" y1="159" x2="223" y2="199"/>
+        <line class="thread" x1="238" y1="159" x2="238" y2="199"/>
+        <line class="thread" x1="253" y1="159" x2="253" y2="199"/>
+        <line class="thread" x1="268" y1="159" x2="268" y2="199"/>
+        <line class="thread" x1="283" y1="159" x2="283" y2="199"/>
+        <line class="thread" x1="298" y1="159" x2="298" y2="199"/>
+        <line class="thread" x1="313" y1="159" x2="313" y2="199"/>
+      </g>
+    </g>
+
+    <g transform="translate(212 162)">
+      <polygon class="metal" points="0,46 26,0 84,0 110,46 84,92 26,92"/>
+      <ellipse cx="55" cy="46" rx="29" ry="24" fill="#fbfdfe" stroke="#313844" stroke-width="5"/>
+      <path class="highlight" d="M11 18 C30 12 76 12 98 18"/>
+      <path class="inner-thread" d="M33 28 C42 21 67 21 77 28"/>
+      <path class="inner-thread" d="M30 39 C41 31 68 31 80 39"/>
+      <path class="inner-thread" d="M29 49 C41 41 69 41 81 49"/>
+      <path class="inner-thread" d="M30 59 C42 51 68 51 80 59"/>
+      <path class="inner-thread" d="M33 69 C43 62 67 62 77 69"/>
+    </g>
+
+    <text class="label" x="28" y="348">A. Straight Closest Match</text>
+    <text class="note" x="28" y="384">Most directly follows your sample image.</text>
+  </g>
+
+  <!-- Variant B -->
+  <g transform="translate(515 180)">
+    <rect class="tile" width="390" height="420" rx="26"/>
+    <ellipse class="shadow" cx="194" cy="222" rx="114" ry="28"/>
+
+    <g transform="rotate(-29 178 176)">
+      <polygon class="metal" points="96,162 132,138 178,148 200,188 164,212 118,202"/>
+      <ellipse class="metal" cx="133" cy="175" rx="34" ry="28"/>
+      <polygon class="metal-dark" points="175,150 193,160 195,199 175,210 158,201 156,161"/>
+      <rect class="metal-dark" x="191" y="160" width="122" height="44" rx="17"/>
+      <path class="highlight" d="M105 161 C126 150 149 149 173 158"/>
+      <path class="highlight" d="M199 166 C228 159 266 159 304 168"/>
+      <g>
+        <line class="thread" x1="211" y1="163" x2="211" y2="201"/>
+        <line class="thread" x1="225" y1="163" x2="225" y2="201"/>
+        <line class="thread" x1="239" y1="163" x2="239" y2="201"/>
+        <line class="thread" x1="253" y1="163" x2="253" y2="201"/>
+        <line class="thread" x1="267" y1="163" x2="267" y2="201"/>
+        <line class="thread" x1="281" y1="163" x2="281" y2="201"/>
+        <line class="thread" x1="295" y1="163" x2="295" y2="201"/>
+      </g>
+    </g>
+
+    <g transform="translate(186 156)">
+      <polygon class="metal" points="0,40 23,0 74,0 97,40 74,80 23,80"/>
+      <ellipse cx="48" cy="40" rx="25" ry="20" fill="#fbfdfe" stroke="#313844" stroke-width="5"/>
+      <path class="highlight" d="M9 16 C27 10 68 10 88 16"/>
+      <path class="inner-thread" d="M26 24 C34 18 58 18 67 24"/>
+      <path class="inner-thread" d="M24 33 C34 26 59 26 70 33"/>
+      <path class="inner-thread" d="M23 42 C34 35 60 35 71 42"/>
+      <path class="inner-thread" d="M24 51 C35 44 59 44 70 51"/>
+      <path class="inner-thread" d="M27 59 C35 53 58 53 67 59"/>
+    </g>
+
+    <text class="label" x="28" y="348">B. Compact Dashboard Fit</text>
+    <text class="note" x="28" y="384">Tighter overlap for a smaller console tile.</text>
+  </g>
+
+  <!-- Variant C -->
+  <g transform="translate(960 180)">
+    <rect class="tile" width="390" height="420" rx="26"/>
+    <ellipse class="shadow" cx="192" cy="224" rx="116" ry="28"/>
+
+    <g transform="rotate(-12 210 192)">
+      <polygon class="metal" points="154,136 193,112 239,122 261,162 222,186 176,176"/>
+      <ellipse class="metal" cx="193" cy="149" rx="35" ry="29"/>
+      <polygon class="metal-dark" points="236,124 255,134 257,176 236,187 218,176 216,135"/>
+      <rect class="metal-dark" x="252" y="134" width="120" height="44" rx="17"/>
+      <path class="highlight" d="M164 136 C184 125 212 124 235 132"/>
+      <path class="highlight" d="M259 140 C288 133 326 133 362 142"/>
+      <g>
+        <line class="thread" x1="271" y1="137" x2="271" y2="175"/>
+        <line class="thread" x1="285" y1="137" x2="285" y2="175"/>
+        <line class="thread" x1="299" y1="137" x2="299" y2="175"/>
+        <line class="thread" x1="313" y1="137" x2="313" y2="175"/>
+        <line class="thread" x1="327" y1="137" x2="327" y2="175"/>
+        <line class="thread" x1="341" y1="137" x2="341" y2="175"/>
+        <line class="thread" x1="355" y1="137" x2="355" y2="175"/>
+      </g>
+    </g>
+
+    <g transform="translate(126 192)">
+      <polygon class="metal" points="0,44 26,0 82,0 108,44 82,88 26,88"/>
+      <ellipse cx="54" cy="44" rx="28" ry="23" fill="#fbfdfe" stroke="#313844" stroke-width="5"/>
+      <path class="highlight" d="M10 17 C30 11 73 11 95 17"/>
+      <path class="inner-thread" d="M31 26 C40 20 65 20 75 26"/>
+      <path class="inner-thread" d="M28 36 C40 28 67 28 78 36"/>
+      <path class="inner-thread" d="M27 46 C40 38 68 38 79 46"/>
+      <path class="inner-thread" d="M28 56 C40 48 67 48 78 56"/>
+      <path class="inner-thread" d="M31 66 C41 60 65 60 75 66"/>
+    </g>
+
+    <text class="label" x="28" y="348">C. Nut Forward</text>
+    <text class="note" x="28" y="384">More object depth, with the nut leading the composition.</text>
+  </g>
+</svg>

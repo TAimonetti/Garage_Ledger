@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980">
+  <defs>
+    <style>
+      .bg { fill: #f3efe7; }
+      .panel { fill: #fcfaf6; stroke: #d7cec2; stroke-width: 2; }
+      .tile { fill: #fffdf9; stroke: #ddd4c8; stroke-width: 1.5; }
+      .title { font: 700 40px "Segoe UI", Arial, sans-serif; fill: #2d2418; }
+      .subtitle { font: 500 20px "Segoe UI", Arial, sans-serif; fill: #6c604e; }
+      .label { font: 700 24px "Segoe UI", Arial, sans-serif; fill: #2f271a; }
+      .meta { font: 500 18px "Segoe UI", Arial, sans-serif; fill: #726654; }
+      .white-line { stroke: #fff; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+      .dark { fill: #485460; }
+      .steel { fill: #758696; }
+      .steel-light { fill: #9fb0c1; }
+      .green { fill: #57a75f; }
+      .orange { fill: #e48a3b; }
+      .red { fill: #d55a55; }
+      .tan { fill: #c99b61; }
+      .wheel-dark { fill: #39444d; }
+      .wheel-mid { fill: #647585; }
+      .wheel-light { fill: #aebcca; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1440" height="980"/>
+  <rect class="panel" x="24" y="24" width="1392" height="932" rx="30"/>
+
+  <text class="title" x="60" y="88">Service and Parts Variants</text>
+  <text class="subtitle" x="60" y="124">Top row: Service alternatives. Bottom row: Parts alternatives. Left option in each row stays closest to old aCar.</text>
+
+  <!-- Service A -->
+  <g transform="translate(70 180)">
+    <rect class="tile" width="390" height="300" rx="24"/>
+    <circle cx="82" cy="62" r="26" class="green"/>
+    <path class="white-line" d="M82 49 v26"/>
+    <path class="white-line" d="M69 62 h26"/>
+    <path d="M172 196 L264 104 C275 93 278 77 272 63 L238 97 L209 68 L243 34 C227 27 208 31 196 43 L104 135 C93 146 89 165 95 180 Z" class="steel"/>
+    <path d="M172 196 L195 173 L120 98 L97 121 Z" class="steel-light"/>
+    <circle cx="122" cy="148" r="18" class="steel"/>
+    <circle cx="122" cy="148" r="8" fill="#fffdf9"/>
+    <text class="label" x="34" y="252">Service A</text>
+    <text class="meta" x="34" y="280">Closer to the original aCar wrench.</text>
+  </g>
+
+  <!-- Service B -->
+  <g transform="translate(525 180)">
+    <rect class="tile" width="390" height="300" rx="24"/>
+    <circle cx="82" cy="62" r="26" class="green"/>
+    <path class="white-line" d="M82 49 v26"/>
+    <path class="white-line" d="M69 62 h26"/>
+    <path d="M134 186 L222 98 C233 87 236 72 231 58 L199 90 L174 65 L205 34 C191 28 174 31 163 42 L75 130 C65 140 61 156 66 170 Z" class="steel"/>
+    <path d="M246 60 L274 88 L160 202 L132 174 Z" class="orange"/>
+    <rect x="257" y="49" width="20" height="58" rx="8" fill="#f1c27a" transform="rotate(45 267 78)"/>
+    <text class="label" x="34" y="252">Service B</text>
+    <text class="meta" x="34" y="280">Crossed tools, more detailed and more visual.</text>
+  </g>
+
+  <!-- Service C -->
+  <g transform="translate(980 180)">
+    <rect class="tile" width="390" height="300" rx="24"/>
+    <circle cx="82" cy="62" r="26" class="green"/>
+    <path class="white-line" d="M82 49 v26"/>
+    <path class="white-line" d="M69 62 h26"/>
+    <rect x="112" y="122" width="150" height="74" rx="12" class="red"/>
+    <rect x="146" y="102" width="80" height="28" rx="12" class="red"/>
+    <rect x="148" y="132" width="78" height="18" rx="8" fill="#f7c37a"/>
+    <path d="M188 172 L240 120 C247 113 249 101 245 92 L226 111 L211 96 L230 77 C220 73 208 75 200 83 L148 135 C142 142 139 151 142 159 Z" fill="#f0f1f3"/>
+    <circle cx="158" cy="145" r="10" fill="#f0f1f3"/>
+    <circle cx="158" cy="145" r="4" fill="#d55a55"/>
+    <text class="label" x="34" y="252">Service C</text>
+    <text class="meta" x="34" y="280">Toolbox version if wrench-only still feels weak.</text>
+  </g>
+
+  <!-- Parts A -->
+  <g transform="translate(70 550)">
+    <rect class="tile" width="390" height="300" rx="24"/>
+    <ellipse cx="186" cy="150" rx="72" ry="98" class="wheel-dark"/>
+    <ellipse cx="198" cy="150" rx="84" ry="110" class="wheel-mid"/>
+    <ellipse cx="198" cy="150" rx="48" ry="74" fill="#fffdf9"/>
+    <path d="M126 84 C112 95 108 111 112 128" stroke="#2c353c" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M126 216 C112 205 108 189 112 172" stroke="#2c353c" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M270 84 C284 95 288 111 284 128" stroke="#2c353c" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M270 216 C284 205 288 189 284 172" stroke="#2c353c" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <path d="M152 52 L146 72" stroke="#2c353c" stroke-width="10" stroke-linecap="round"/>
+    <path d="M244 52 L250 72" stroke="#2c353c" stroke-width="10" stroke-linecap="round"/>
+    <path d="M152 248 L146 228" stroke="#2c353c" stroke-width="10" stroke-linecap="round"/>
+    <path d="M244 248 L250 228" stroke="#2c353c" stroke-width="10" stroke-linecap="round"/>
+    <path d="M118 150 H98" stroke="#2c353c" stroke-width="12" stroke-linecap="round"/>
+    <path d="M298 150 H278" stroke="#2c353c" stroke-width="12" stroke-linecap="round"/>
+    <text class="label" x="34" y="252">Parts A</text>
+    <text class="meta" x="34" y="280">Closest to old aCar: clear tire with tread.</text>
+  </g>
+
+  <!-- Parts B -->
+  <g transform="translate(525 550)">
+    <rect class="tile" width="390" height="300" rx="24"/>
+    <circle cx="196" cy="150" r="102" class="wheel-dark"/>
+    <circle cx="196" cy="150" r="76" class="wheel-light"/>
+    <circle cx="196" cy="150" r="22" class="wheel-mid"/>
+    <path d="M196 74 L214 128 L178 128 Z" class="steel"/>
+    <path d="M272 116 L220 138 L228 102 Z" class="steel"/>
+    <path d="M272 184 L220 162 L252 150 Z" class="steel"/>
+    <path d="M196 226 L178 172 L214 172 Z" class="steel"/>
+    <path d="M120 184 L172 162 L164 198 Z" class="steel"/>
+    <path d="M120 116 L172 138 L140 150 Z" class="steel"/>
+    <circle cx="196" cy="150" r="10" fill="#fffdf9"/>
+    <text class="label" x="34" y="252">Parts B</text>
+    <text class="meta" x="34" y="280">Wheel / rim version, more mechanical than tire.</text>
+  </g>
+
+  <!-- Parts C -->
+  <g transform="translate(980 550)">
+    <rect class="tile" width="390" height="300" rx="24"/>
+    <rect x="124" y="126" width="144" height="78" rx="12" fill="#d6a162"/>
+    <rect x="138" y="108" width="116" height="32" rx="8" class="tan"/>
+    <rect x="174" y="144" width="44" height="14" rx="7" fill="#8f5c2d"/>
+    <path d="M148 194 L210 132 C220 122 222 108 217 95 L193 119 L173 99 L196 76 C183 71 167 74 157 84 L95 146 C86 156 83 170 88 183 Z" class="steel"/>
+    <circle cx="108" cy="159" r="12" class="steel"/>
+    <circle cx="108" cy="159" r="5" fill="#d6a162"/>
+    <text class="label" x="34" y="252">Parts C</text>
+    <text class="meta" x="34" y="280">Parts crate if tire/rim feels too literal.</text>
+  </g>
+</svg>

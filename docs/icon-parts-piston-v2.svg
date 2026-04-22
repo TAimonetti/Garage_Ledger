@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="420" viewBox="0 0 420 420">
+  <rect width="420" height="420" fill="#ffffff"/>
+
+  <g transform="rotate(-24 210 210)">
+    <!-- big end -->
+    <circle cx="110" cy="285" r="58" fill="#445469"/>
+    <circle cx="110" cy="285" r="26" fill="#ffffff"/>
+
+    <!-- lower tabs -->
+    <polygon points="52,282 70,268 76,292 58,304" fill="#445469"/>
+    <polygon points="78,333 96,325 104,349 86,356" fill="#445469"/>
+
+    <!-- main rod -->
+    <path d="M137 250
+             C160 220 184 200 214 186
+             L236 176
+             C247 171 259 176 264 187
+             L272 205
+             C277 216 272 228 262 234
+             L242 246
+             C216 262 194 285 174 320
+             L164 338
+             C158 348 146 352 136 347
+             L118 338
+             C108 333 104 321 109 310
+             Z"
+          fill="#445469"/>
+
+    <!-- wrist connector -->
+    <rect x="235" y="172" width="42" height="24" rx="12" fill="#445469"/>
+
+    <!-- piston head -->
+    <rect x="272" y="136" width="108" height="76" rx="9" fill="#445469"/>
+    <rect x="270" y="142" width="112" height="10" rx="5" fill="#445469"/>
+    <rect x="268" y="159" width="114" height="9" rx="4.5" fill="#445469"/>
+    <rect x="266" y="176" width="116" height="9" rx="4.5" fill="#445469"/>
+    <circle cx="323" cy="182" r="12" fill="#ffffff"/>
+
+    <!-- groove cut lines -->
+    <rect x="282" y="145" width="78" height="5" rx="2.5" fill="#ffffff"/>
+    <rect x="280" y="162" width="82" height="4.5" rx="2.25" fill="#ffffff"/>
+    <rect x="278" y="179" width="86" height="4.5" rx="2.25" fill="#ffffff"/>
+  </g>
+</svg>
