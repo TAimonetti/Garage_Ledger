@@ -129,16 +129,35 @@ data class FuelType(
     val cetane: Int? = null,
     val notes: String = "",
 ) {
+    val categoryDisplayName: String
+        get() = category.toFuelCategoryDisplayName()
+
+    val hasStructuredChoiceData: Boolean
+        get() = grade.isNotBlank() || (octane ?: 0) > 0 || (cetane ?: 0) > 0
+
     val displayName: String
         get() = buildString {
-            append(category.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() })
-            append(" - ")
-            append(grade)
+            val normalizedGrade = grade.trim()
+            if (normalizedGrade.isNotBlank()) {
+                append(normalizedGrade)
+            } else {
+                append(categoryDisplayName)
+            }
             when {
-                octane != null && octane > 0 -> append(" ($octane)")
-                cetane != null && cetane > 0 -> append(" ($cetane)")
+                octane != null && octane > 0 -> append(" [$octane]")
+                cetane != null && cetane > 0 -> append(" [$cetane]")
             }
         }
+}
+
+fun String.toFuelCategoryDisplayName(): String = when (trim().lowercase()) {
+    "gasoline" -> "Gasoline"
+    "diesel" -> "Diesel"
+    "biodiesel" -> "Biodiesel"
+    "bioalcohol" -> "Bioalcohol"
+    "gas" -> "Gas"
+    "other" -> "Other"
+    else -> trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
 
 data class ServiceType(

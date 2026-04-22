@@ -6,13 +6,18 @@ import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,10 +26,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
@@ -68,8 +72,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -77,6 +89,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.garageledger.R
 import com.garageledger.core.model.VolumeUnit
 import com.garageledger.data.GarageRepository
 import com.garageledger.data.backup.LocalBackupManager
@@ -485,12 +498,10 @@ private fun ConsoleScreen(
     onAddTrip: (Long) -> Unit,
     onEditTrip: (Long, Long) -> Unit,
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     val vehicles by repository.observeVehicles().collectAsStateWithLifecycle(initialValue = emptyList())
     val preferences by repository.preferences.collectAsStateWithLifecycle(initialValue = AppPreferenceSnapshot())
     var selectedVehicleId by rememberSaveable { mutableLongStateOf(0L) }
     var menuExpanded by remember { mutableStateOf(false) }
-    var shortcutStatus by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(vehicles) {
         if (selectedVehicleId == 0L && vehicles.isNotEmpty()) {
@@ -528,9 +539,10 @@ private fun ConsoleScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(padding)
+                .navigationBarsPadding(),
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 Card(
@@ -541,31 +553,63 @@ private fun ConsoleScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("Console", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text("Dashboard-first, local-first, and ready for import parity.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Box {
-                            TextButton(onClick = { menuExpanded = true }) {
-                                Icon(Icons.Outlined.DirectionsCar, contentDescription = null)
-                                Spacer(Modifier.size(8.dp))
-                                Text(selectedVehicle?.name ?: "Choose Vehicle")
-                            }
-                            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                                vehicles.forEach { vehicle ->
-                                    DropdownMenuItem(
-                                        text = { Text(vehicle.name) },
-                                        onClick = {
-                                            selectedVehicleId = vehicle.id
-                                            menuExpanded = false
-                                        },
-                                    )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("Console", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Box {
+                                TextButton(onClick = { menuExpanded = true }) {
+                                    Icon(Icons.Outlined.DirectionsCar, contentDescription = null)
+                                    Spacer(Modifier.size(6.dp))
+                                    Text(selectedVehicle?.name ?: "Choose Vehicle")
+                                }
+                                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                                    vehicles.forEach { vehicle ->
+                                        DropdownMenuItem(
+                                            text = { Text(vehicle.name) },
+                                            onClick = {
+                                                selectedVehicleId = vehicle.id
+                                                menuExpanded = false
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
                         if (detail != null) {
-                            StatsRow(detail = detail!!)
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                openTrip?.let { trip ->
+                                    AssistChip(
+                                        onClick = { onEditTrip(trip.vehicleId, trip.id) },
+                                        label = { Text("Finish Trip") },
+                                    )
+                                }
+                                if (detail!!.upcomingReminders.isNotEmpty()) {
+                                    AssistChip(
+                                        onClick = { onOpenReminders(detail!!.vehicle.id) },
+                                        label = { Text("${detail!!.upcomingReminders.size} Reminders") },
+                                    )
+                                }
+                                prediction?.let { predictionSummary ->
+                                    AssistChip(
+                                        onClick = { onOpenPredictions(predictionSummary.vehicleId) },
+                                        label = {
+                                            Text(
+                                                predictionSummary.nextFillUpDateTime?.let { "Next Fill-Up" }
+                                                    ?: "Predictions",
+                                            )
+                                        },
+                                    )
+                                }
+                            }
                         } else {
                             Text("Import data or add a vehicle to get started.")
                         }
@@ -593,139 +637,11 @@ private fun ConsoleScreen(
                 )
             }
             if (detail != null) {
-                openTrip?.let { trip ->
-                    item {
-                        Card {
-                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("Open Trip", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    listOfNotNull(
-                                        trip.startDateTime.formatForDisplay(preferences),
-                                        trip.startLocation.takeIf { it.isNotBlank() },
-                                        trip.startOdometerReading.toStableString() + " " + trip.distanceUnit.storageValue,
-                                    ).joinToString(" | "),
-                                )
-                                AssistChip(
-                                    onClick = { onEditTrip(trip.vehicleId, trip.id) },
-                                    label = { Text("Finish Open Trip") },
-                                )
-                            }
-                        }
-                    }
-                }
                 item {
-                    Card {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("Pin Quick Actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Create launcher shortcuts for the old aCar-style fast entry paths.")
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                QuickActionTarget.entries.forEach { target ->
-                                    AssistChip(
-                                        onClick = {
-                                            val requested = QuickActionShortcutManager.requestPinnedShortcut(context, target)
-                                            shortcutStatus = if (requested) {
-                                                "${target.shortLabel} pin request sent to the launcher."
-                                            } else {
-                                                "Pinned shortcuts are not supported by this launcher."
-                                            }
-                                        },
-                                        label = { Text(target.shortLabel.removePrefix("New ")) },
-                                    )
-                                }
-                            }
-                            shortcutStatus?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        }
-                    }
-                }
-                item {
-                    Card {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("Upcoming Reminders", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            if (detail!!.upcomingReminders.isEmpty()) {
-                                Text("No reminder schedules imported yet.")
-                            } else {
-                                detail!!.upcomingReminders.take(4).forEach { item ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onOpenReminders(detail!!.vehicle.id) },
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
-                                        Column(Modifier.weight(1f)) {
-                                            Text(item.serviceTypeName)
-                                            Text(
-                                                listOfNotNull(
-                                                    item.reminder.dueDate?.let { "Due ${it.formatForDisplay(preferences, compact = true)}" },
-                                                    item.reminder.dueDistance?.let {
-                                                        val distanceUnitLabel = detail!!.vehicle.distanceUnitOverride?.storageValue
-                                                            ?: preferences.distanceUnit.storageValue
-                                                        "At ${it.toInt()} $distanceUnitLabel"
-                                                    },
-                                                ).joinToString(" | ").ifBlank { "Scheduled" },
-                                            )
-                                        }
-                                        Text("Manage")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                prediction?.let { predictionSummary ->
-                    item {
-                        Card(
-                            modifier = Modifier.clickable { onOpenPredictions(predictionSummary.vehicleId) },
-                        ) {
-                            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("Predictions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    listOfNotNull(
-                                        predictionSummary.nextFillUpDateTime?.formatForDisplay(preferences),
-                                        predictionSummary.nextFillUpOdometerReading?.let {
-                                            "${it.toStableString()} ${predictionSummary.distanceUnitLabel}"
-                                        },
-                                    ).joinToString(" | ").ifBlank { "Not enough fill-up history yet." },
-                                )
-                                Text(
-                                    listOfNotNull(
-                                        predictionSummary.carRange?.let { "Range ${it.formatOneDecimal()} ${predictionSummary.distanceUnitLabel}" },
-                                        predictionSummary.tripCostPer100DistanceUnit?.let {
-                                            "${it.asCurrency(predictionSummary.currencySymbol)}/100${predictionSummary.distanceUnitLabel}"
-                                        },
-                                    ).joinToString(" | ").ifBlank { "Open the predictions screen for more detail." },
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-                item {
-                    Card {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("Recent Fill-Ups", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            if (detail!!.recentFillUps.isEmpty()) {
-                                Text("No fuel-ups yet.")
-                            } else {
-                                detail!!.recentFillUps.take(6).forEach { record ->
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onOpenVehicle(detail!!.vehicle.id) },
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
-                                        Column {
-                                            Text(record.dateTime.formatForDisplay(preferences))
-                                            Text("${record.odometerReading.toInt()} ${record.distanceUnit.storageValue} | ${record.volume} ${record.volumeUnit.storageValue}")
-                                        }
-                                        Text(record.totalCost.asCurrency())
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    ConsoleLastFillUpSummary(
+                        detail = detail!!,
+                        preferences = preferences,
+                    )
                 }
             }
         }
@@ -753,46 +669,251 @@ private fun ActionGrid(
     onAddTrip: () -> Unit,
 ) {
     val actions = listOf(
-        DashboardAction("Fuel-Up", Icons.Outlined.LocalGasStation, onAddFuelUp, enabled = hasSelectedVehicle),
-        DashboardAction("Service", Icons.Outlined.Build, onAddService, enabled = hasSelectedVehicle),
-        DashboardAction("Expense", Icons.AutoMirrored.Outlined.ReceiptLong, onAddExpense, enabled = hasSelectedVehicle),
-        DashboardAction("Trip", Icons.Outlined.Map, onAddTrip, enabled = hasSelectedVehicle),
-        DashboardAction("Add Vehicle", Icons.Outlined.DirectionsCar, onAddVehicle),
-        DashboardAction("Browse Records", Icons.Outlined.Search, onOpenBrowse),
-        DashboardAction("Statistics", Icons.Outlined.BarChart, onOpenStats, enabled = hasSelectedVehicle),
-        DashboardAction("Charts", Icons.Outlined.BarChart, onOpenStats, enabled = hasSelectedVehicle),
-        DashboardAction("Vehicle Details", Icons.Outlined.Edit, onOpenVehicle, enabled = hasSelectedVehicle),
-        DashboardAction("Reminders", Icons.Outlined.Notifications, onOpenReminders, enabled = hasSelectedVehicle),
-        DashboardAction("Vehicle Parts", Icons.Outlined.Build, onOpenVehicleParts, enabled = hasSelectedVehicle),
-        DashboardAction("Predictions", Icons.Outlined.LocalGasStation, onOpenPredictions, enabled = hasSelectedVehicle),
-        DashboardAction("Import/Export", Icons.Outlined.Archive, onOpenImport),
-        DashboardAction("Vehicles", Icons.Outlined.Storage, onOpenVehicles),
-        DashboardAction("Settings", Icons.Outlined.Settings, onOpenSettings),
-        DashboardAction("Types", Icons.Outlined.Category, onOpenTypes),
+        DashboardAction(
+            label = "Fuel-Up",
+            iconRes = R.drawable.console_action_fuel_up,
+            onClick = onAddFuelUp,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Service",
+            iconRes = R.drawable.console_action_service,
+            onClick = onAddService,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Expense",
+            iconRes = R.drawable.console_action_expense,
+            onClick = onAddExpense,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Trip",
+            iconRes = R.drawable.console_action_trip,
+            onClick = onAddTrip,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Add Vehicle",
+            iconRes = R.drawable.console_action_add_vehicle,
+            onClick = onAddVehicle,
+        ),
+        DashboardAction(
+            label = "Browse",
+            iconRes = R.drawable.console_action_browse,
+            onClick = onOpenBrowse,
+        ),
+        DashboardAction(
+            label = "Stats",
+            iconRes = R.drawable.console_action_stats,
+            onClick = onOpenStats,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Charts",
+            iconRes = R.drawable.console_action_charts,
+            onClick = onOpenStats,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Details",
+            iconRes = R.drawable.console_action_details,
+            onClick = onOpenVehicle,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Reminders",
+            iconRes = R.drawable.console_action_reminders,
+            onClick = onOpenReminders,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Parts",
+            iconRes = R.drawable.console_action_parts,
+            onClick = onOpenVehicleParts,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Predictions",
+            iconRes = R.drawable.console_action_predictions,
+            onClick = onOpenPredictions,
+            enabled = hasSelectedVehicle,
+        ),
+        DashboardAction(
+            label = "Import",
+            iconRes = R.drawable.console_action_import,
+            onClick = onOpenImport,
+        ),
+        DashboardAction(
+            label = "Vehicles",
+            iconRes = R.drawable.console_action_vehicles,
+            onClick = onOpenVehicles,
+        ),
+        DashboardAction(
+            label = "Settings",
+            iconRes = R.drawable.console_action_settings,
+            onClick = onOpenSettings,
+        ),
+        DashboardAction(
+            label = "Types",
+            iconRes = R.drawable.console_action_types,
+            onClick = onOpenTypes,
+        ),
     )
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        maxItemsInEachRow = 3,
-    ) {
-        actions.forEach { action ->
-            Card(
-                modifier = Modifier
-                    .size(width = 104.dp, height = 90.dp)
-                    .clickable(enabled = action.enabled, onClick = action.onClick),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (action.enabled) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
-                ),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columns = if (maxWidth >= 360.dp) 4 else 3
+        val gap = 6.dp
+        val tileWidth = (maxWidth - gap * (columns - 1)) / columns
+        val tileHeight = 94.dp
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            verticalArrangement = Arrangement.spacedBy(gap),
+            maxItemsInEachRow = columns,
+        ) {
+            actions.forEach { action ->
+                Card(
+                    modifier = Modifier
+                        .width(tileWidth)
+                        .height(tileHeight)
+                        .alpha(if (action.enabled) 1f else 0.5f)
+                        .clickable(enabled = action.enabled, onClick = action.onClick),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFDF9)),
+                    border = BorderStroke(1.dp, Color(0xFFD8CFC2)),
                 ) {
-                    Icon(action.icon, contentDescription = null)
-                    Text(action.label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Image(
+                            painter = painterResource(id = action.iconRes),
+                            contentDescription = action.label,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(42.dp)
+                                .padding(horizontal = 6.dp),
+                        )
+                        Text(
+                            text = action.label,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontSize = 11.sp,
+                                lineHeight = 12.sp,
+                            ),
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF4A4033),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 2.dp),
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ConsoleLastFillUpSummary(
+    detail: VehicleDetailBundle,
+    preferences: AppPreferenceSnapshot,
+) {
+    val latestFillUp = detail.recentFillUps.firstOrNull()
+    val distanceUnitLabel = detail.vehicle.distanceUnitOverride?.storageValue
+        ?: latestFillUp?.distanceUnit?.storageValue
+        ?: preferences.distanceUnit.storageValue
+    val fuelEfficiencyUnitLabel = detail.vehicle.fuelEfficiencyUnitOverride?.storageValue
+        ?: latestFillUp?.fuelEfficiencyUnit?.storageValue
+        ?: detail.recentFillUps.firstNotNullOfOrNull { it.fuelEfficiencyUnit?.storageValue }
+        ?: preferences.fuelEfficiencyUnit.storageValue
+    val lastMiles = latestFillUp?.distanceSincePrevious?.formatOneDecimal()?.let { value ->
+        "$value $distanceUnitLabel"
+    } ?: "n/a"
+    val lastFuelCost = latestFillUp?.totalCost?.asCurrency(preferences.currencySymbol) ?: "n/a"
+    val lastMpgValue = latestFillUp?.fuelEfficiency
+        ?: latestFillUp?.importedFuelEfficiency
+        ?: detail.stats.lastFuelEfficiency
+    val lastMpg = lastMpgValue?.formatOneDecimal()?.let { value ->
+        "$value $fuelEfficiencyUnitLabel"
+    } ?: "n/a"
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+        ) {
+            val gap = 10.dp
+            val cellWidth = (maxWidth - (gap * 2)) / 3
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ConsoleSummaryCell(
+                    label = "Last Miles",
+                    value = lastMiles,
+                    modifier = Modifier.width(cellWidth),
+                )
+                ConsoleSummaryCell(
+                    label = "Last Fuel Cost",
+                    value = lastFuelCost,
+                    modifier = Modifier.width(cellWidth),
+                )
+                ConsoleSummaryCell(
+                    label = "Last MPG",
+                    value = lastMpg,
+                    modifier = Modifier.width(cellWidth),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConsoleSummaryCell(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1698,7 +1819,97 @@ private fun tripEditorRoute(
 
 private data class DashboardAction(
     val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    @DrawableRes val iconRes: Int,
     val onClick: () -> Unit,
     val enabled: Boolean = true,
 )
+
+private data class DashboardActionStyle(
+    val tileColor: Color,
+    val badgeColor: Color,
+    val iconTint: Color = Color.White,
+    val labelColor: Color,
+) {
+    companion object {
+        val FuelUp = DashboardActionStyle(
+            tileColor = Color(0xFF1FA67A),
+            badgeColor = Color(0xFF118A63),
+            labelColor = Color(0xFF0E5A42),
+        )
+        val Service = DashboardActionStyle(
+            tileColor = Color(0xFF3A7BD5),
+            badgeColor = Color(0xFF2F63AE),
+            labelColor = Color(0xFF244B83),
+        )
+        val Expense = DashboardActionStyle(
+            tileColor = Color(0xFFE0A13A),
+            badgeColor = Color(0xFFC1841F),
+            labelColor = Color(0xFF8A5D0A),
+        )
+        val Trip = DashboardActionStyle(
+            tileColor = Color(0xFFE36A3E),
+            badgeColor = Color(0xFFC24F27),
+            labelColor = Color(0xFF8E3415),
+        )
+        val AddVehicle = DashboardActionStyle(
+            tileColor = Color(0xFFD24F57),
+            badgeColor = Color(0xFFB93C45),
+            labelColor = Color(0xFF8A2930),
+        )
+        val Browse = DashboardActionStyle(
+            tileColor = Color(0xFF2C90C9),
+            badgeColor = Color(0xFF1E78AC),
+            labelColor = Color(0xFF16597F),
+        )
+        val Statistics = DashboardActionStyle(
+            tileColor = Color(0xFF4AAA67),
+            badgeColor = Color(0xFF2E8B4A),
+            labelColor = Color(0xFF236639),
+        )
+        val Charts = DashboardActionStyle(
+            tileColor = Color(0xFF39B7BD),
+            badgeColor = Color(0xFF1E9297),
+            labelColor = Color(0xFF15696D),
+        )
+        val Details = DashboardActionStyle(
+            tileColor = Color(0xFFB95A4A),
+            badgeColor = Color(0xFF984536),
+            labelColor = Color(0xFF703126),
+        )
+        val Reminders = DashboardActionStyle(
+            tileColor = Color(0xFFD89B27),
+            badgeColor = Color(0xFFB87A12),
+            labelColor = Color(0xFF85570A),
+        )
+        val Parts = DashboardActionStyle(
+            tileColor = Color(0xFF7C6BC5),
+            badgeColor = Color(0xFF6252A9),
+            labelColor = Color(0xFF473D7A),
+        )
+        val Predictions = DashboardActionStyle(
+            tileColor = Color(0xFF5B7BE0),
+            badgeColor = Color(0xFF4462C6),
+            labelColor = Color(0xFF324890),
+        )
+        val ImportExport = DashboardActionStyle(
+            tileColor = Color(0xFF4B9BC1),
+            badgeColor = Color(0xFF327DA0),
+            labelColor = Color(0xFF255C75),
+        )
+        val Vehicles = DashboardActionStyle(
+            tileColor = Color(0xFF6A8AA3),
+            badgeColor = Color(0xFF547087),
+            labelColor = Color(0xFF3C5261),
+        )
+        val Settings = DashboardActionStyle(
+            tileColor = Color(0xFF7A7F88),
+            badgeColor = Color(0xFF5F646C),
+            labelColor = Color(0xFF474B52),
+        )
+        val Types = DashboardActionStyle(
+            tileColor = Color(0xFF6A72D9),
+            badgeColor = Color(0xFF5058BF),
+            labelColor = Color(0xFF3C4390),
+        )
+    }
+}

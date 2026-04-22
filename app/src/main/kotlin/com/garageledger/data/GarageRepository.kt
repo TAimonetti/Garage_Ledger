@@ -299,15 +299,27 @@ class GarageRepository(
     suspend fun getVehicleTrips(vehicleId: Long): List<TripRecord> =
         dao.getVehicleTripsAscending(vehicleId).map(TripRecordEntity::toDomain)
 
-    suspend fun getPaymentTypeSuggestions(): List<String> = dao.getPaymentTypeSuggestions()
+    suspend fun ensureFuelTypeCatalogChoices() {
+        val current = dao.getFuelTypes().map(FuelTypeEntity::toDomain)
+        if (current.any(FuelType::hasStructuredChoiceData)) return
+        dao.insertFuelTypes(DefaultFuelTypeCatalog.map { it.toEntity(idOverride = 0L) })
+    }
 
-    suspend fun getFuelBrandSuggestions(): List<String> = dao.getFuelBrandSuggestions()
+    suspend fun getPaymentTypeSuggestions(): List<String> = normalizeSuggestions(
+        DefaultPaymentTypes + dao.getPaymentTypeSuggestions(),
+    )
+
+    suspend fun getFuelBrandSuggestions(): List<String> = normalizeSuggestions(
+        DefaultFuelBrands + dao.getFuelBrandSuggestions(),
+    )
 
     suspend fun getFuelStationSuggestions(): List<String> = dao.getFuelStationSuggestions()
 
     suspend fun getFuelAdditiveSuggestions(): List<String> = dao.getFuelAdditiveSuggestions()
 
-    suspend fun getDrivingModeSuggestions(): List<String> = dao.getDrivingModeSuggestions()
+    suspend fun getDrivingModeSuggestions(): List<String> = normalizeSuggestions(
+        DefaultDrivingModes + dao.getDrivingModeSuggestions(),
+    )
 
     suspend fun getFillUpTagSuggestions(): List<String> = normalizeSuggestions(
         dao.getAllFillUps().flatMap(FillUpRecordEntity::tags),
@@ -855,18 +867,28 @@ class GarageRepository(
     }
 
     suspend fun saveFillUp(record: FillUpRecord): Long {
-        validateChronology(
-            vehicleId = record.vehicleId,
-            excludedRecordId = record.id,
-            candidates = listOf(ChronoOdometerRecord(record.id, record.dateTime, record.odometerReading)),
+        val normalized = record.copy(
+            paymentType = record.paymentType.trim(),
+            importedFuelTypeText = record.importedFuelTypeText?.trim()?.takeIf(String::isNotBlank),
+            fuelAdditiveName = record.fuelAdditiveName.trim(),
+            fuelBrand = record.fuelBrand.trim(),
+            stationAddress = record.stationAddress.trim(),
+            drivingMode = record.drivingMode.trim(),
+            tags = normalizeSuggestions(record.tags),
+            notes = record.notes.trim(),
         )
-        val savedId = if (record.id == 0L) {
-            dao.insertFillUp(record.toEntity())
+        validateChronology(
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = listOf(ChronoOdometerRecord(normalized.id, normalized.dateTime, normalized.odometerReading)),
+        )
+        val savedId = if (normalized.id == 0L) {
+            dao.insertFillUp(normalized.toEntity())
         } else {
-            dao.updateFillUp(record.toEntity())
-            record.id
+            dao.updateFillUp(normalized.toEntity())
+            normalized.id
         }
-        recalculateVehicleFillUps(record.vehicleId)
+        recalculateVehicleFillUps(normalized.vehicleId)
         onLedgerChanged()
         return savedId
     }
@@ -1988,4 +2010,80 @@ class GarageRepository(
         val serviceCrossRefs: List<ServiceRecordTypeCrossRef>,
         val expenseCrossRefs: List<ExpenseRecordTypeCrossRef>,
     )
+
+    private companion object {
+        val DefaultPaymentTypes = listOf(
+            "Cash",
+            "Credit Card",
+            "Debit Card",
+            "Check",
+            "Fleet Card",
+            "Gift Card",
+        )
+
+        val DefaultFuelBrands = listOf(
+            "76",
+            "Amoco",
+            "ARCO",
+            "BP",
+            "Chevron",
+            "Circle K",
+            "Citgo",
+            "Costco",
+            "Exxon",
+            "Flying J",
+            "Love's",
+            "Marathon",
+            "Mobil",
+            "Murphy",
+            "Phillips 66",
+            "Pilot",
+            "QuikTrip",
+            "Sam's Club",
+            "Shell",
+            "Sinclair",
+            "Sunoco",
+            "Texaco",
+            "Valero",
+        )
+
+        val DefaultDrivingModes = listOf(
+            "Normal",
+            "Economy",
+            "Sport",
+            "Towing",
+            "Winter",
+        )
+
+        val DefaultFuelTypeCatalog = listOf(
+            FuelType(legacySourceId = 40L, category = "bioalcohol", grade = "E10"),
+            FuelType(legacySourceId = 41L, category = "bioalcohol", grade = "E100"),
+            FuelType(legacySourceId = 42L, category = "bioalcohol", grade = "E22 - Gasohol"),
+            FuelType(legacySourceId = 43L, category = "bioalcohol", grade = "E50"),
+            FuelType(legacySourceId = 44L, category = "bioalcohol", grade = "E85"),
+            FuelType(legacySourceId = 45L, category = "bioalcohol", grade = "E93"),
+            FuelType(legacySourceId = 35L, category = "biodiesel", grade = "B99"),
+            FuelType(legacySourceId = 36L, category = "biodiesel", grade = "Blend B2"),
+            FuelType(legacySourceId = 38L, category = "biodiesel", grade = "Blend B5"),
+            FuelType(legacySourceId = 37L, category = "biodiesel", grade = "Blend B20", cetane = 50),
+            FuelType(legacySourceId = 34L, category = "biodiesel", grade = "B100", cetane = 55),
+            FuelType(legacySourceId = 32L, category = "diesel", grade = "4D"),
+            FuelType(legacySourceId = 57L, category = "diesel", grade = "Synthetic"),
+            FuelType(legacySourceId = 31L, category = "diesel", grade = "2D", cetane = 40),
+            FuelType(legacySourceId = 30L, category = "diesel", grade = "1D", cetane = 44),
+            FuelType(legacySourceId = 33L, category = "gas", grade = "Autogas/LPG"),
+            FuelType(legacySourceId = 39L, category = "gas", grade = "CNG - Methane"),
+            FuelType(legacySourceId = 47L, category = "gasoline", grade = "Low", octane = 85),
+            FuelType(legacySourceId = 53L, category = "gasoline", grade = "Regular", octane = 87),
+            FuelType(legacySourceId = 48L, category = "gasoline", grade = "Mid", octane = 88),
+            FuelType(legacySourceId = 49L, category = "gasoline", grade = "Mid", octane = 89),
+            FuelType(legacySourceId = 46L, category = "gasoline", grade = "High", octane = 90),
+            FuelType(legacySourceId = 50L, category = "gasoline", grade = "Premium", octane = 91),
+            FuelType(legacySourceId = 51L, category = "gasoline", grade = "Premium", octane = 92),
+            FuelType(legacySourceId = 52L, category = "gasoline", grade = "Premium", octane = 93),
+            FuelType(legacySourceId = 54L, category = "gasoline", grade = "Super Premium", octane = 94),
+            FuelType(legacySourceId = 55L, category = "gasoline", grade = "Super Premium", octane = 95),
+            FuelType(legacySourceId = 56L, category = "gasoline", grade = "Super Premium", octane = 98),
+        )
+    }
 }
