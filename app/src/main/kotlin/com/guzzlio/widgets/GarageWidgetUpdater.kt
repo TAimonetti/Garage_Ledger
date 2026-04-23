@@ -1,0 +1,17 @@
+package com.guzzlio.widgets
+
+import android.content.Context
+
+class GarageWidgetUpdater(
+    context: Context,
+) {
+    private val appContext = context.applicationContext
+
+    suspend fun refreshAll() {
+        QuickAddWidgetProvider.refreshAll(appContext)
+        ReminderWidgetProvider.refreshAll(appContext)
+        FuelEfficiencyWidgetProvider.refreshAll(appContext)
+        FuelPriceWidgetProvider.refreshAll(appContext)
+        PredictionWidgetProvider.refreshAll(appContext)
+    }
+}

@@ -21,7 +21,7 @@ if (-not (Test-Path $CsvPath)) {
 }
 
 & .\gradlew.bat `
-    "-DgarageLedger.fixture.abp=$AbpPath" `
-    "-DgarageLedger.fixture.csv=$CsvPath" `
+    "-Dguzzlio.fixture.abp=$AbpPath" `
+    "-Dguzzlio.fixture.csv=$CsvPath" `
     testDebugUnitTest `
-    --tests "com.garageledger.data.importer.AcarImportRegressionTest"
+    --tests "com.guzzlio.data.importer.AcarImportRegressionTest"

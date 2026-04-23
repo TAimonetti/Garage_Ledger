@@ -1,6 +1,6 @@
 # Icon Theme Direction
 
-This document defines an aCar-inspired but original icon direction for Garage Ledger.
+This document defines an aCar-inspired but original icon direction for Guzzlio.
 
 ## Reference Points
 
@@ -27,7 +27,7 @@ Important note:
 - Most console actions looked like "tiny illustrated tools" instead of flat outline glyphs.
 - Labels were short and secondary to the icon itself.
 
-## Garage Ledger Direction
+## Guzzlio Direction
 
 We should keep the same strengths:
 

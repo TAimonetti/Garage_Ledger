@@ -108,7 +108,7 @@ Behavior:
 The app exports and restores a ZIP with two entries:
 
 - `metadata.json`
-- `garage-ledger-backup.json`
+- `guzzlio-backup.json`
 
 Behavior:
 
