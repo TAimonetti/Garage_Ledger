@@ -7,7 +7,7 @@ Use this checklist before calling a build ready for day-to-day use.
 - Run `scripts/run-full-verification.ps1`
 - Run `scripts/run-full-verification.ps1 -IncludeSampleFixtures` on a machine that has the supplied aCar `.abp` and sectioned CSV files
 - Confirm `lintDebug` passes with no errors
-- Confirm the sample fixture regression still matches the expected counts in [migration-notes.md](D:/Code/Codex/Garage_Ledger/docs/migration-notes.md)
+- Confirm the sample fixture regression still matches the expected counts in [migration-notes.md](D:/Code/Codex/Guzzlio/docs/migration-notes.md)
 
 ## Device and emulator QA
 
@@ -25,6 +25,6 @@ Use this checklist before calling a build ready for day-to-day use.
 
 ## Final sanity checks
 
-- Review [known-differences-vs-acar.md](D:/Code/Codex/Garage_Ledger/docs/known-differences-vs-acar.md) and keep it honest
+- Review [known-differences-vs-acar.md](D:/Code/Codex/Guzzlio/docs/known-differences-vs-acar.md) and keep it honest
 - Confirm `main` is green in GitHub Actions
 - Tag the release commit and capture the APK artifact used for testing

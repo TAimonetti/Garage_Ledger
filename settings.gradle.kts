@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Garage Ledger"
+rootProject.name = "Guzzlio"
 include(":app")

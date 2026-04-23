@@ -11,11 +11,11 @@ ksp {
 }
 
 android {
-    namespace = "com.garageledger"
+    namespace = "com.guzzlio"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.garageledger"
+        applicationId = "com.guzzlio"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

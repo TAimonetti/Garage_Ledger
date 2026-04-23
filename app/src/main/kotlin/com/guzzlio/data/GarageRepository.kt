@@ -1,0 +1,2291 @@
+package com.guzzlio.data
+
+import androidx.room.withTransaction
+import com.guzzlio.data.export.BrowseRecordsCsvExporter
+import com.guzzlio.data.export.ExportSnapshot
+import com.guzzlio.data.export.OpenJsonBackupExporter
+import com.guzzlio.data.export.SectionedCsvExporter
+import com.guzzlio.data.export.StatisticsCsvExporter
+import com.guzzlio.data.export.StatisticsHtmlExporter
+import com.guzzlio.data.importer.AcarAbpImporter
+import com.guzzlio.data.importer.AcarCsvImporter
+import com.guzzlio.data.importer.FuellyCsvImporter
+import com.guzzlio.data.importer.OpenJsonBackupImporter
+import com.guzzlio.data.local.ExpenseRecordEntity
+import com.guzzlio.data.local.ExpenseRecordTypeCrossRef
+import com.guzzlio.data.local.FillUpRecordEntity
+import com.guzzlio.data.local.GarageDatabase
+import com.guzzlio.data.local.ServiceRecordEntity
+import com.guzzlio.data.local.ServiceRecordTypeCrossRef
+import com.guzzlio.data.local.ServiceReminderEntity
+import com.guzzlio.data.local.ExpenseTypeEntity
+import com.guzzlio.data.local.FuelTypeEntity
+import com.guzzlio.data.local.ServiceTypeEntity
+import com.guzzlio.data.local.TripTypeEntity
+import com.guzzlio.data.local.TripRecordEntity
+import com.guzzlio.data.local.VehicleEntity
+import com.guzzlio.data.local.VehiclePartEntity
+import com.guzzlio.data.local.toDomain
+import com.guzzlio.data.local.toEntity
+import com.guzzlio.data.preferences.AppPreferencesRepository
+import com.guzzlio.core.model.FuelEfficiencyUnit
+import com.guzzlio.domain.calc.ChronoOdometerRecord
+import com.guzzlio.domain.calc.FuelEfficiencyCalculator
+import com.guzzlio.domain.calc.PredictionsCalculator
+import com.guzzlio.domain.calc.RecordConsistencyValidator
+import com.guzzlio.domain.calc.ReminderAlertEvaluator
+import com.guzzlio.domain.calc.ReminderScheduler
+import com.guzzlio.domain.calc.StatisticsReportBuilder
+import com.guzzlio.domain.calc.TripCostBreakdown
+import com.guzzlio.domain.calc.TripCostCalculator
+import com.guzzlio.domain.model.AppPreferenceSnapshot
+import com.guzzlio.domain.model.BrowseRecordItem
+import com.guzzlio.domain.model.ReminderAlert
+import com.guzzlio.domain.model.ReminderCenterItem
+import com.guzzlio.domain.model.ReminderDisplayItem
+import com.guzzlio.domain.model.ReminderWidgetItem
+import com.guzzlio.domain.model.ExpenseRecord
+import com.guzzlio.domain.model.ExpenseType
+import com.guzzlio.domain.model.FillUpRecord
+import com.guzzlio.domain.model.FuelWidgetItem
+import com.guzzlio.domain.model.FuelWidgetMetric
+import com.guzzlio.domain.model.FuellyCsvImportConfig
+import com.guzzlio.domain.model.FuellyCsvPreview
+import com.guzzlio.domain.model.FuelType
+import com.guzzlio.domain.model.ImportIssue
+import com.guzzlio.domain.model.ImportReport
+import com.guzzlio.domain.model.ImportedGarageData
+import com.guzzlio.domain.model.OptionalFieldToggle
+import com.guzzlio.domain.model.PredictionWidgetItem
+import com.guzzlio.domain.model.RecordFamily
+import com.guzzlio.domain.model.RecordAttachment
+import com.guzzlio.domain.model.ServiceRecord
+import com.guzzlio.domain.model.ServiceReminder
+import com.guzzlio.domain.model.ServiceType
+import com.guzzlio.domain.model.StatisticsDashboard
+import com.guzzlio.domain.model.StatisticsFilter
+import com.guzzlio.domain.model.StatisticsSource
+import com.guzzlio.domain.model.StatisticsTimeframe
+import com.guzzlio.domain.model.TripRecord
+import com.guzzlio.domain.model.TripType
+import com.guzzlio.domain.model.Vehicle
+import com.guzzlio.domain.model.VehicleDetailBundle
+import com.guzzlio.domain.model.VehicleLifecycle
+import com.guzzlio.domain.model.VehiclePart
+import com.guzzlio.domain.model.VehiclePredictionSummary
+import com.guzzlio.domain.model.VehicleStatistics
+import java.io.InputStream
+import java.io.OutputStream
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+
+class GarageRepository(
+    private val database: GarageDatabase,
+    private val preferencesRepository: AppPreferencesRepository,
+    private val acarCsvImporter: AcarCsvImporter = AcarCsvImporter(),
+    private val acarAbpImporter: AcarAbpImporter = AcarAbpImporter(),
+    private val fuellyCsvImporter: FuellyCsvImporter = FuellyCsvImporter(),
+    private val openJsonBackupImporter: OpenJsonBackupImporter = OpenJsonBackupImporter(),
+    private val browseRecordsCsvExporter: BrowseRecordsCsvExporter = BrowseRecordsCsvExporter(),
+    private val sectionedCsvExporter: SectionedCsvExporter = SectionedCsvExporter(),
+    private val openJsonBackupExporter: OpenJsonBackupExporter = OpenJsonBackupExporter(),
+    private val statisticsCsvExporter: StatisticsCsvExporter = StatisticsCsvExporter(),
+    private val statisticsHtmlExporter: StatisticsHtmlExporter = StatisticsHtmlExporter(),
+    private val statisticsReportBuilder: StatisticsReportBuilder = StatisticsReportBuilder(),
+    private val onLedgerChanged: suspend () -> Unit = {},
+) {
+    private val dao = database.garageDao()
+
+    val preferences = preferencesRepository.preferences
+
+    fun observeVehicles(): Flow<List<Vehicle>> = dao.observeVehicles().map { list -> list.map(VehicleEntity::toDomain) }
+
+    fun observeFuelTypes(): Flow<List<FuelType>> = dao.observeFuelTypes().map { list -> list.map(FuelTypeEntity::toDomain) }
+
+    fun observeServiceTypes(): Flow<List<ServiceType>> = dao.observeServiceTypes().map { list -> list.map(ServiceTypeEntity::toDomain) }
+
+    fun observeExpenseTypes(): Flow<List<ExpenseType>> = dao.observeExpenseTypes().map { list -> list.map(ExpenseTypeEntity::toDomain) }
+
+    fun observeTripTypes(): Flow<List<TripType>> = dao.observeTripTypes().map { list -> list.map(TripTypeEntity::toDomain) }
+
+    fun observeVehicleParts(vehicleId: Long): Flow<List<VehiclePart>> =
+        dao.observeVehicleParts(vehicleId).map { list -> list.map(VehiclePartEntity::toDomain) }
+
+    fun observeReminderCenter(vehicleId: Long? = null): Flow<List<ReminderCenterItem>> = combine(
+        combine(
+            dao.observeVehicles(),
+            dao.observeServiceTypes(),
+            dao.observeAllServiceReminders(),
+        ) { vehicles, serviceTypes, reminders ->
+            ReminderCenterPrimarySnapshot(
+                vehicles = vehicles,
+                serviceTypes = serviceTypes,
+                reminders = reminders,
+            )
+        },
+        combine(
+            dao.observeAllFillUps(),
+            dao.observeAllServices(),
+            dao.observeAllExpenses(),
+            dao.observeAllTrips(),
+        ) { fillUps, services, expenses, trips ->
+            ReminderCenterOdometerSnapshot(
+                fillUps = fillUps,
+                services = services,
+                expenses = expenses,
+                trips = trips,
+            )
+        },
+        preferencesRepository.preferences,
+    ) { primary, odometer, preferences ->
+        buildReminderCenterItems(
+            vehicleId = vehicleId,
+            vehicles = primary.vehicles,
+            serviceTypes = primary.serviceTypes,
+            reminders = primary.reminders,
+            fillUps = odometer.fillUps,
+            services = odometer.services,
+            expenses = odometer.expenses,
+            trips = odometer.trips,
+            defaultDistanceUnitLabel = preferences.distanceUnit.storageValue,
+        )
+    }
+
+    fun observePredictions(vehicleId: Long? = null): Flow<List<VehiclePredictionSummary>> = combine(
+        combine(
+            dao.observeVehicles(),
+            dao.observeAllFillUps(),
+            dao.observeAllServices(),
+            dao.observeAllExpenses(),
+            dao.observeAllTrips(),
+        ) { vehicles, fillUps, services, expenses, trips ->
+            PredictionPrimarySnapshot(
+                vehicles = vehicles,
+                fillUps = fillUps,
+                services = services,
+                expenses = expenses,
+                trips = trips,
+            )
+        },
+        preferencesRepository.preferences,
+    ) { primary, preferences ->
+        buildPredictionSummaries(
+            vehicleId = vehicleId,
+            vehicles = primary.vehicles,
+            fillUps = primary.fillUps,
+            services = primary.services,
+            expenses = primary.expenses,
+            trips = primary.trips,
+            currencySymbol = preferences.currencySymbol,
+            now = LocalDateTime.now(),
+        )
+    }
+
+    fun observeVehicleDetail(vehicleId: Long): Flow<VehicleDetailBundle?> = combine(
+        combine(
+            combine(
+                dao.observeVehicle(vehicleId),
+                dao.observeVehicleParts(vehicleId),
+                dao.observeVehicleReminders(vehicleId),
+                dao.observeVehicleFillUps(vehicleId),
+                dao.observeVehicleServices(vehicleId),
+            ) { vehicle, parts, reminders, fillUps, services ->
+                VehicleDetailPrimarySnapshot(
+                    vehicle = vehicle,
+                    parts = parts,
+                    reminders = reminders,
+                    fillUps = fillUps,
+                    services = services,
+                    serviceTypes = emptyList(),
+                )
+            },
+            dao.observeServiceTypes(),
+        ) { primary, serviceTypes ->
+            VehicleDetailPrimarySnapshot(
+                vehicle = primary.vehicle,
+                parts = primary.parts,
+                reminders = primary.reminders,
+                fillUps = primary.fillUps,
+                services = primary.services,
+                serviceTypes = serviceTypes,
+            )
+        },
+        combine(
+            dao.observeVehicleExpenses(vehicleId),
+            dao.observeVehicleTrips(vehicleId),
+        ) { expenses, trips ->
+            VehicleDetailSecondarySnapshot(
+                expenses = expenses,
+                trips = trips,
+            )
+        },
+    ) { primary, secondary ->
+        val currentVehicle = primary.vehicle?.toDomain() ?: return@combine null
+        val domainFillUps = primary.fillUps.map(FillUpRecordEntity::toDomain)
+        val domainServices = primary.services.map { it.toDomain(emptyList()) }
+        val domainExpenses = secondary.expenses.map { it.toDomain(emptyList()) }
+        val domainTrips = secondary.trips.map(TripRecordEntity::toDomain)
+        val stats = buildStats(vehicleId, domainFillUps, domainServices, domainExpenses, domainTrips)
+        val reminderDisplays = buildReminderDisplays(
+            reminders = primary.reminders,
+            serviceTypes = primary.serviceTypes,
+        )
+        VehicleDetailBundle(
+            vehicle = currentVehicle,
+            parts = primary.parts.map(VehiclePartEntity::toDomain),
+            reminders = primary.reminders.map(ServiceReminderEntity::toDomain),
+            upcomingReminders = reminderDisplays,
+            recentFillUps = domainFillUps.sortedByDescending { it.dateTime }.take(15),
+            recentServices = domainServices.sortedByDescending { it.dateTime }.take(10),
+            recentExpenses = domainExpenses.sortedByDescending { it.dateTime }.take(10),
+            recentTrips = domainTrips.sortedByDescending { it.startDateTime }.take(10),
+            stats = stats,
+        )
+    }
+
+    suspend fun getFillUp(recordId: Long): FillUpRecord? = dao.getFillUp(recordId)?.toDomain()
+
+    suspend fun getService(recordId: Long): ServiceRecord? {
+        val entity = dao.getService(recordId) ?: return null
+        val typeIds = dao.getServiceRecordCrossRefs(listOf(recordId))
+            .filter { it.serviceRecordId == recordId }
+            .map(ServiceRecordTypeCrossRef::serviceTypeId)
+        return entity.toDomain(typeIds)
+    }
+
+    suspend fun getExpense(recordId: Long): ExpenseRecord? {
+        val entity = dao.getExpense(recordId) ?: return null
+        val typeIds = dao.getExpenseRecordCrossRefs(listOf(recordId))
+            .filter { it.expenseRecordId == recordId }
+            .map(ExpenseRecordTypeCrossRef::expenseTypeId)
+        return entity.toDomain(typeIds)
+    }
+
+    suspend fun getTrip(recordId: Long): TripRecord? = dao.getTrip(recordId)?.toDomain()
+
+    suspend fun getVehicle(vehicleId: Long): Vehicle? = dao.getVehicleEntity(vehicleId)?.toDomain()
+
+    suspend fun getVehiclePart(partId: Long): VehiclePart? = dao.getVehiclePart(partId)?.toDomain()
+
+    suspend fun getReminder(reminderId: Long): ServiceReminder? = dao.getServiceReminder(reminderId)?.toDomain()
+
+    suspend fun getRecordAttachments(recordFamily: RecordFamily, recordId: Long): List<RecordAttachment> =
+        dao.getRecordAttachments(recordFamily, recordId).map(com.guzzlio.data.local.RecordAttachmentEntity::toDomain)
+
+    suspend fun estimateTripCost(record: TripRecord): TripCostBreakdown {
+        val normalized = normalizeTrip(record)
+        val endOdometer = normalized.endOdometerReading ?: normalized.startOdometerReading
+        val fillUps = dao.getVehicleFillUpsAscending(record.vehicleId).map(FillUpRecordEntity::toDomain)
+        val services = dao.getVehicleServicesAscending(record.vehicleId).map { it.toDomain(emptyList()) }
+        val directExpenses = dao.getVehicleExpensesAscending(record.vehicleId)
+            .map { it.toDomain(emptyList()) }
+            .filter { it.odometerReading in normalized.startOdometerReading..endOdometer }
+        return TripCostCalculator.calculate(
+            trip = normalized,
+            directExpenses = directExpenses,
+            fuelCostPerDistance = TripCostCalculator.deriveFuelCostPerDistance(fillUps),
+            serviceCostPerDistance = TripCostCalculator.deriveServiceCostPerDistance(services),
+        )
+    }
+
+    suspend fun getVehicleFillUps(vehicleId: Long): List<FillUpRecord> =
+        dao.getVehicleFillUpsAscending(vehicleId).map(FillUpRecordEntity::toDomain)
+
+    suspend fun getVehicleTrips(vehicleId: Long): List<TripRecord> =
+        dao.getVehicleTripsAscending(vehicleId).map(TripRecordEntity::toDomain)
+
+    suspend fun getSuggestedCurrentOdometer(vehicleId: Long): Double? =
+        dao.getLatestOdometer(vehicleId) ?: dao.getVehicleEntity(vehicleId)?.purchaseOdometer
+
+    suspend fun ensureFuelTypeCatalogChoices() {
+        val current = dao.getFuelTypes().map(FuelTypeEntity::toDomain)
+        if (current.any(FuelType::hasStructuredChoiceData)) return
+        dao.insertFuelTypes(DefaultFuelTypeCatalog.map { it.toEntity(idOverride = 0L) })
+    }
+
+    suspend fun ensureServiceTypeCatalogChoices() {
+        if (dao.getServiceTypes().any { it.name.isNotBlank() }) return
+        dao.insertServiceTypes(DefaultServiceTypeCatalog.map { it.toEntity(idOverride = 0L) })
+    }
+
+    suspend fun ensureExpenseTypeCatalogChoices() {
+        if (dao.getExpenseTypes().any { it.name.isNotBlank() }) return
+        dao.insertExpenseTypes(DefaultExpenseTypeCatalog.map { it.toEntity(idOverride = 0L) })
+    }
+
+    suspend fun ensureTripTypeCatalogChoices() {
+        if (dao.getTripTypes().any { it.name.isNotBlank() }) return
+        dao.insertTripTypes(DefaultTripTypeCatalog.map { it.toEntity(idOverride = 0L) })
+    }
+
+    suspend fun getPaymentTypeSuggestions(): List<String> = normalizeSuggestions(
+        DefaultPaymentTypes + dao.getPaymentTypeSuggestions(),
+    )
+
+    suspend fun getFuelBrandSuggestions(): List<String> = normalizeSuggestions(
+        DefaultFuelBrands + dao.getFuelBrandSuggestions(),
+    )
+
+    suspend fun getFuelStationSuggestions(): List<String> = dao.getFuelStationSuggestions()
+
+    suspend fun getFuelAdditiveSuggestions(): List<String> = dao.getFuelAdditiveSuggestions()
+
+    suspend fun getDrivingModeSuggestions(): List<String> = normalizeSuggestions(
+        DefaultDrivingModes + dao.getDrivingModeSuggestions(),
+    )
+
+    suspend fun getTagSuggestions(): List<String> = normalizeSuggestions(
+        dao.getAllFillUps().flatMap(FillUpRecordEntity::tags) +
+            dao.getAllServices().flatMap(ServiceRecordEntity::tags) +
+            dao.getAllExpenses().flatMap(ExpenseRecordEntity::tags) +
+            dao.getAllTrips().flatMap(TripRecordEntity::tags),
+    )
+
+    suspend fun getFillUpTagSuggestions(): List<String> = getTagSuggestions()
+
+    suspend fun getServiceCenterSuggestions(): List<String> = dao.getServiceCenterSuggestions()
+
+    suspend fun getServiceCenterAddressSuggestions(): List<String> = dao.getServiceCenterAddressSuggestions()
+
+    suspend fun getExpenseCenterSuggestions(): List<String> = dao.getExpenseCenterSuggestions()
+
+    suspend fun getExpenseCenterAddressSuggestions(): List<String> = dao.getExpenseCenterAddressSuggestions()
+
+    suspend fun getTripPurposeSuggestions(): List<String> = dao.getTripPurposeSuggestions()
+
+    suspend fun getTripClientSuggestions(): List<String> = dao.getTripClientSuggestions()
+
+    suspend fun getTripLocationSuggestions(): List<String> = dao.getTripLocationSuggestions()
+
+    suspend fun getServiceTypes(): List<ServiceType> = dao.getServiceTypes().map(ServiceTypeEntity::toDomain)
+
+    suspend fun getExpenseTypes(): List<ExpenseType> = dao.getExpenseTypes().map(ExpenseTypeEntity::toDomain)
+
+    suspend fun getTripTypes(): List<TripType> = dao.getTripTypes().map(TripTypeEntity::toDomain)
+
+    suspend fun suggestReminderSchedule(
+        vehicleId: Long,
+        serviceTypeId: Long,
+        intervalTimeMonths: Int,
+        intervalDistance: Double?,
+        reminderId: Long = 0L,
+    ): ServiceReminder {
+        val serviceHistory = loadVehicleServiceHistory(vehicleId)
+        return ReminderScheduler.schedule(
+            reminder = ServiceReminder(
+                id = reminderId,
+                vehicleId = vehicleId,
+                serviceTypeId = serviceTypeId,
+                intervalTimeMonths = intervalTimeMonths,
+                intervalDistance = intervalDistance,
+            ),
+            serviceHistory = serviceHistory,
+            currentDate = LocalDate.now(),
+            currentOdometer = resolveVehicleCurrentOdometer(vehicleId),
+        )
+    }
+
+    suspend fun seedReminderDefaultsForVehicle(vehicleId: Long): Int = seedReminderDefaultsForVehicle(
+        vehicleId = vehicleId,
+        notifyChange = true,
+    )
+
+    suspend fun ensureReminderDefaultsForActiveVehicles(): Int {
+        val activeVehicleIds = dao.getVehicles()
+            .filter { it.lifecycle == VehicleLifecycle.ACTIVE.name }
+            .map(VehicleEntity::id)
+        if (activeVehicleIds.isEmpty()) return 0
+        var created = 0
+        activeVehicleIds.forEach { vehicleId ->
+            created += seedReminderDefaultsForVehicle(vehicleId = vehicleId, notifyChange = false)
+        }
+        if (created > 0) {
+            onLedgerChanged()
+        }
+        return created
+    }
+
+    private suspend fun seedReminderDefaultsForVehicle(
+        vehicleId: Long,
+        notifyChange: Boolean,
+    ): Int {
+        val vehicle = dao.getVehicleEntity(vehicleId) ?: return 0
+        if (vehicle.lifecycle == VehicleLifecycle.RETIRED.name) return 0
+        val serviceTypes = dao.getServiceTypes()
+            .map(ServiceTypeEntity::toDomain)
+            .filter { it.defaultTimeReminderMonths > 0 || (it.defaultDistanceReminder ?: 0.0) > 0.0 }
+        if (serviceTypes.isEmpty()) return 0
+
+        val existingTypeIds = dao.observeVehicleReminders(vehicleId)
+            .first()
+            .map(ServiceReminderEntity::serviceTypeId)
+            .toSet()
+        val missingTypes = serviceTypes.filterNot { it.id in existingTypeIds }
+        if (missingTypes.isEmpty()) return 0
+
+        val serviceHistory = loadVehicleServiceHistory(vehicleId)
+        val currentOdometer = resolveVehicleCurrentOdometer(vehicleId)
+        val reminders = missingTypes.map { type ->
+            ReminderScheduler.schedule(
+                reminder = ServiceReminder(
+                    vehicleId = vehicleId,
+                    serviceTypeId = type.id,
+                    intervalTimeMonths = type.defaultTimeReminderMonths,
+                    intervalDistance = type.defaultDistanceReminder,
+                ),
+                serviceHistory = serviceHistory,
+                currentDate = LocalDate.now(),
+                currentOdometer = currentOdometer,
+            ).toEntity()
+        }
+        database.withTransaction {
+            dao.insertServiceReminders(reminders)
+        }
+        if (notifyChange) {
+            onLedgerChanged()
+        }
+        return reminders.size
+    }
+
+    suspend fun getPreferenceSnapshot(): AppPreferenceSnapshot = preferencesRepository.currentSnapshot()
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        preferencesRepository.update { current -> current.copy(notificationsEnabled = enabled) }
+    }
+
+    suspend fun setVisibleField(toggle: OptionalFieldToggle, visible: Boolean) {
+        preferencesRepository.update { current ->
+            val updated = current.visibleFields.toMutableSet().apply {
+                if (visible) add(toggle) else remove(toggle)
+            }
+            current.copy(visibleFields = updated)
+        }
+    }
+
+    suspend fun updatePreferences(transform: (AppPreferenceSnapshot) -> AppPreferenceSnapshot) {
+        val current = preferencesRepository.currentSnapshot()
+        val updated = transform(current)
+        preferencesRepository.replace(updated)
+        if (
+            current.fuelEfficiencyAssignmentMethod != updated.fuelEfficiencyAssignmentMethod ||
+            current.fuelEfficiencyUnit != updated.fuelEfficiencyUnit
+        ) {
+            dao.getVehicles().forEach { vehicle ->
+                recalculateVehicleFillUps(vehicle.id, updated)
+            }
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun exportSectionedCsv(outputStream: OutputStream) {
+        val snapshot = buildExportSnapshot()
+        val servicesByRecord = snapshot.serviceRecordTypes.groupBy(
+            keySelector = ServiceRecordTypeCrossRef::serviceRecordId,
+            valueTransform = ServiceRecordTypeCrossRef::serviceTypeId,
+        )
+        val expensesByRecord = snapshot.expenseRecordTypes.groupBy(
+            keySelector = ExpenseRecordTypeCrossRef::expenseRecordId,
+            valueTransform = ExpenseRecordTypeCrossRef::expenseTypeId,
+        )
+        val csv = sectionedCsvExporter.export(
+            preferences = snapshot.preferences,
+            vehicles = snapshot.vehicles.map(VehicleEntity::toDomain),
+            fillUps = snapshot.fillUpRecords.map(FillUpRecordEntity::toDomain),
+            services = snapshot.serviceRecords.map { it.toDomain(servicesByRecord[it.id].orEmpty()) },
+            expenses = snapshot.expenseRecords.map { it.toDomain(expensesByRecord[it.id].orEmpty()) },
+            trips = snapshot.tripRecords.map(TripRecordEntity::toDomain),
+            serviceTypes = snapshot.serviceTypes.map(ServiceTypeEntity::toDomain),
+            expenseTypes = snapshot.expenseTypes.map(ExpenseTypeEntity::toDomain),
+            tripTypes = snapshot.tripTypes.map(TripTypeEntity::toDomain),
+        )
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
+    }
+
+    suspend fun exportBrowseRecordsCsv(
+        outputStream: OutputStream,
+        records: List<BrowseRecordItem>,
+        sortDescending: Boolean,
+    ) {
+        val csv = browseRecordsCsvExporter.export(
+            records = records,
+            sortDescending = sortDescending,
+        )
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
+    }
+
+    suspend fun exportOpenJsonBackup(outputStream: OutputStream) {
+        openJsonBackupExporter.export(
+            snapshot = buildExportSnapshot(),
+            outputStream = outputStream,
+        )
+    }
+
+    fun observeStatisticsDashboard(
+        vehicleId: Long? = null,
+        timeframe: StatisticsTimeframe = StatisticsTimeframe.ALL_TIME,
+    ): Flow<StatisticsDashboard> {
+        val catalogFlow = combine(
+            dao.observeVehicles(),
+            dao.observeFuelTypes(),
+            dao.observeTripTypes(),
+        ) { vehicles, fuelTypes, tripTypes ->
+            StatisticsCatalogSnapshot(
+                vehicles = vehicles,
+                fuelTypes = fuelTypes,
+                tripTypes = tripTypes,
+            )
+        }
+        val primaryFlow = combine(
+            catalogFlow,
+            dao.observeAllFillUps(),
+            dao.observeAllServices(),
+            dao.observeAllExpenses(),
+        ) { catalog, fillUps, services, expenses ->
+            StatisticsPrimarySnapshot(
+                vehicles = catalog.vehicles,
+                fuelTypes = catalog.fuelTypes,
+                tripTypes = catalog.tripTypes,
+                fillUps = fillUps,
+                services = services,
+                expenses = expenses,
+            )
+        }
+        val sourceFlow = combine(primaryFlow, dao.observeAllTrips()) { primary, trips ->
+            StatisticsSource(
+                vehicles = primary.vehicles.map(VehicleEntity::toDomain),
+                fuelTypes = primary.fuelTypes.map(FuelTypeEntity::toDomain),
+                tripTypes = primary.tripTypes.map(TripTypeEntity::toDomain),
+                fillUps = primary.fillUps.map(FillUpRecordEntity::toDomain),
+                services = primary.services.map { it.toDomain(emptyList()) },
+                expenses = primary.expenses.map { it.toDomain(emptyList()) },
+                trips = trips.map(TripRecordEntity::toDomain),
+            )
+        }
+        return combine(sourceFlow, preferencesRepository.preferences) { source, preferences ->
+            statisticsReportBuilder.build(
+                source = source.copy(preferences = preferences),
+                filter = StatisticsFilter(vehicleId = vehicleId, timeframe = timeframe),
+            )
+        }
+    }
+
+    suspend fun exportStatisticsCsv(
+        outputStream: OutputStream,
+        filter: StatisticsFilter = StatisticsFilter(),
+    ) {
+        val dashboard = statisticsReportBuilder.build(
+            source = buildStatisticsSource(buildExportSnapshot()),
+            filter = filter,
+        )
+        val csv = statisticsCsvExporter.export(dashboard)
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(csv) }
+    }
+
+    suspend fun exportStatisticsHtml(
+        outputStream: OutputStream,
+        filter: StatisticsFilter = StatisticsFilter(),
+    ) {
+        val dashboard = statisticsReportBuilder.build(
+            source = buildStatisticsSource(buildExportSnapshot()),
+            filter = filter,
+        )
+        val html = statisticsHtmlExporter.export(dashboard)
+        outputStream.writer(Charsets.UTF_8).use { writer -> writer.write(html) }
+    }
+
+    suspend fun getDueReminderAlerts(now: LocalDateTime = LocalDateTime.now()): List<ReminderAlert> {
+        val preferences = preferencesRepository.currentSnapshot()
+        val reminders = dao.getAllServiceReminders()
+        if (reminders.isEmpty()) return emptyList()
+        val vehiclesById = dao.getVehicles().associateBy(VehicleEntity::id)
+        val serviceTypesById = dao.getServiceTypes().associateBy(ServiceTypeEntity::id)
+        val odometerByVehicle = reminders.map(ServiceReminderEntity::vehicleId).distinct().associateWith { vehicleId ->
+            dao.getLatestOdometer(vehicleId)
+        }
+        return reminders.mapNotNull { entity ->
+            val trigger = ReminderAlertEvaluator.evaluate(
+                reminder = entity.toDomain(),
+                now = now,
+                currentOdometer = odometerByVehicle[entity.vehicleId],
+                timeThresholdPercent = preferences.reminderTimeAlertPercent,
+                distanceThresholdPercent = preferences.reminderDistanceAlertPercent,
+            ) ?: return@mapNotNull null
+            ReminderAlert(
+                reminderId = entity.id,
+                vehicleId = entity.vehicleId,
+                vehicleName = vehiclesById[entity.vehicleId]?.name.orEmpty(),
+                serviceTypeId = entity.serviceTypeId,
+                serviceTypeName = serviceTypesById[entity.serviceTypeId]?.name ?: "Service",
+                dueDate = entity.dueDate,
+                dueDistance = entity.dueDistance,
+                currentOdometer = odometerByVehicle[entity.vehicleId],
+                triggeredByTime = trigger.byTime,
+                triggeredByDistance = trigger.byDistance,
+            )
+        }.sortedWith(
+            compareBy<ReminderAlert> { it.dueDate ?: LocalDate.MAX }
+                .thenBy { it.dueDistance ?: Double.MAX_VALUE },
+        )
+    }
+
+    suspend fun getUpcomingReminderWidgets(limit: Int = 3): List<ReminderWidgetItem> {
+        val reminders = dao.getAllServiceReminders()
+        if (reminders.isEmpty()) return emptyList()
+        val vehiclesById = dao.getVehicles().associateBy(VehicleEntity::id)
+        val serviceTypesById = dao.getServiceTypes().associateBy(ServiceTypeEntity::id)
+        return reminders
+            .sortedWith(compareBy<ServiceReminderEntity> { it.dueDate ?: LocalDate.MAX }.thenBy { it.dueDistance ?: Double.MAX_VALUE })
+            .take(limit.coerceAtLeast(1))
+            .map { reminder ->
+                ReminderWidgetItem(
+                    reminderId = reminder.id,
+                    vehicleName = vehiclesById[reminder.vehicleId]?.name.orEmpty(),
+                    serviceTypeName = serviceTypesById[reminder.serviceTypeId]?.name ?: "Service",
+                    dueDate = reminder.dueDate,
+                    dueDistance = reminder.dueDistance,
+                )
+            }
+    }
+
+    suspend fun getFuelWidgetItems(
+        metric: FuelWidgetMetric,
+        limit: Int = 3,
+    ): List<FuelWidgetItem> {
+        val preferences = preferencesRepository.currentSnapshot()
+        val vehicles = dao.getVehicles().map(VehicleEntity::toDomain)
+        val fillUpsByVehicle = dao.getAllFillUps()
+            .map(FillUpRecordEntity::toDomain)
+            .groupBy(FillUpRecord::vehicleId)
+
+        val candidateVehicles = vehicles
+            .filter { it.lifecycle == com.guzzlio.domain.model.VehicleLifecycle.ACTIVE && !fillUpsByVehicle[it.id].isNullOrEmpty() }
+            .ifEmpty { vehicles.filter { !fillUpsByVehicle[it.id].isNullOrEmpty() } }
+
+        return candidateVehicles
+            .mapNotNull { vehicle ->
+                val fillUps = fillUpsByVehicle[vehicle.id].orEmpty().sortedBy(FillUpRecord::dateTime)
+                if (fillUps.isEmpty()) return@mapNotNull null
+                val latest = fillUps.last()
+                when (metric) {
+                    FuelWidgetMetric.FUEL_EFFICIENCY -> {
+                        val efficiencyValues = fillUps.mapNotNull { it.fuelEfficiency ?: it.importedFuelEfficiency }
+                        if (efficiencyValues.isEmpty()) return@mapNotNull null
+                        FuelWidgetItem(
+                            vehicleId = vehicle.id,
+                            vehicleName = vehicle.name,
+                            metric = metric,
+                            latestValue = latest.fuelEfficiency ?: latest.importedFuelEfficiency,
+                            averageValue = efficiencyValues.average(),
+                            unitLabel = latest.fuelEfficiencyUnit?.storageValue
+                                ?: vehicle.fuelEfficiencyUnitOverride?.storageValue
+                                ?: preferences.fuelEfficiencyUnit.storageValue,
+                        )
+                    }
+
+                    FuelWidgetMetric.FUEL_PRICE -> FuelWidgetItem(
+                        vehicleId = vehicle.id,
+                        vehicleName = vehicle.name,
+                        metric = metric,
+                        latestValue = latest.pricePerUnit,
+                        averageValue = fillUps.map(FillUpRecord::pricePerUnit).average(),
+                        unitLabel = "${preferences.currencySymbol}/${latest.volumeUnit.storageValue}",
+                    )
+                }
+            }
+            .sortedByDescending { item ->
+                fillUpsByVehicle[item.vehicleId]
+                    ?.maxOfOrNull(FillUpRecord::dateTime)
+                    ?: LocalDateTime.MIN
+            }
+            .take(limit.coerceAtLeast(1))
+    }
+
+    suspend fun getPredictionWidgets(limit: Int = 1): List<PredictionWidgetItem> {
+        val preferences = preferencesRepository.currentSnapshot()
+        val vehicles = dao.getVehicles()
+        val activeVehicleIds = vehicles.filter { it.lifecycle == VehicleLifecycle.ACTIVE.name }.map(VehicleEntity::id).toSet()
+        val predictions = buildPredictionSummaries(
+            vehicleId = null,
+            vehicles = vehicles,
+            fillUps = dao.getAllFillUps(),
+            services = dao.getAllServices(),
+            expenses = dao.getAllExpenses(),
+            trips = dao.getAllTrips(),
+            currencySymbol = preferences.currencySymbol,
+            now = LocalDateTime.now(),
+        )
+        return predictions
+            .filter {
+                it.nextFillUpDateTime != null ||
+                    it.nextFillUpOdometerReading != null ||
+                    it.carRange != null ||
+                    it.tripCostPer100DistanceUnit != null
+            }
+            .sortedWith(compareBy<VehiclePredictionSummary> { it.vehicleId !in activeVehicleIds }.thenBy { it.nextFillUpDateTime ?: LocalDateTime.MAX })
+            .take(limit.coerceAtLeast(1))
+            .map { summary ->
+                PredictionWidgetItem(
+                    vehicleId = summary.vehicleId,
+                    vehicleName = summary.vehicleName,
+                    nextFillUpDateTime = summary.nextFillUpDateTime,
+                    nextFillUpOdometerReading = summary.nextFillUpOdometerReading,
+                    carRange = summary.carRange,
+                    tripCostPer100DistanceUnit = summary.tripCostPer100DistanceUnit,
+                    distanceUnitLabel = summary.distanceUnitLabel,
+                    currencySymbol = summary.currencySymbol,
+                )
+            }
+    }
+
+    suspend fun markReminderAlertsDelivered(
+        alerts: List<ReminderAlert>,
+        deliveredAt: LocalDateTime = LocalDateTime.now(),
+    ) {
+        if (alerts.isEmpty()) return
+        val remindersById = dao.getServiceReminders(alerts.map(ReminderAlert::reminderId)).associateBy(ServiceReminderEntity::id)
+        val updated = alerts.mapNotNull { alert ->
+            remindersById[alert.reminderId]?.copy(
+                lastTimeAlert = if (alert.triggeredByTime) deliveredAt else remindersById[alert.reminderId]?.lastTimeAlert,
+                lastDistanceAlert = if (alert.triggeredByDistance) deliveredAt else remindersById[alert.reminderId]?.lastDistanceAlert,
+            )
+        }
+        if (updated.isNotEmpty()) {
+            dao.updateReminders(updated)
+            onLedgerChanged()
+        }
+    }
+
+    fun observeBrowseRecords(): Flow<List<BrowseRecordItem>> = combine(
+        combine(
+            dao.observeVehicles(),
+            dao.observeAllFillUps(),
+            dao.observeAllServices(),
+            dao.observeAllExpenses(),
+            dao.observeAllTrips(),
+        ) { vehicles, fillUps, services, expenses, trips ->
+            BrowsePrimarySnapshot(
+                vehicles = vehicles,
+                fillUps = fillUps,
+                services = services,
+                expenses = expenses,
+                trips = trips,
+            )
+        },
+        combine(
+            combine(
+                dao.observeServiceTypes(),
+                dao.observeExpenseTypes(),
+                dao.observeTripTypes(),
+                dao.observeServiceRecordCrossRefs(),
+                dao.observeExpenseRecordCrossRefs(),
+            ) { serviceTypes, expenseTypes, tripTypes, serviceCrossRefs, expenseCrossRefs ->
+                BrowseSecondarySnapshot(
+                    serviceTypes = serviceTypes,
+                    expenseTypes = expenseTypes,
+                    tripTypes = tripTypes,
+                    fuelTypes = emptyList(),
+                    serviceCrossRefs = serviceCrossRefs,
+                    expenseCrossRefs = expenseCrossRefs,
+                )
+            },
+            dao.observeFuelTypes(),
+        ) { secondary, fuelTypes ->
+            secondary.copy(fuelTypes = fuelTypes)
+        },
+    ) { primary, secondary ->
+        buildBrowseRecords(primary, secondary)
+    }
+
+    suspend fun importAcarCsv(inputStream: InputStream): ImportReport = persistImportedData(
+        sourceLabel = "aCar CSV",
+        imported = acarCsvImporter.import(inputStream),
+        replaceExisting = false,
+    )
+
+    suspend fun importAcarAbp(inputStream: InputStream): ImportReport = persistImportedData(
+        sourceLabel = "aCar ABP",
+        imported = acarAbpImporter.import(inputStream),
+        replaceExisting = true,
+    )
+
+    suspend fun importOpenJsonBackup(inputStream: InputStream): ImportReport = persistImportedData(
+        sourceLabel = "Open Backup Zip",
+        imported = openJsonBackupImporter.import(inputStream),
+        replaceExisting = true,
+    )
+
+    suspend fun previewFuellyCsv(inputStream: InputStream): FuellyCsvPreview = fuellyCsvImporter.preview(inputStream)
+
+    suspend fun importFuellyCsv(
+        inputStream: InputStream,
+        config: FuellyCsvImportConfig,
+    ): ImportReport {
+        val imported = fuellyCsvImporter.importFillUps(inputStream, config)
+        return persistImportedData(
+            sourceLabel = "Fuelly CSV",
+            imported = ImportedGarageData(
+                fillUpRecords = imported.fillUpRecords,
+                issues = imported.issues,
+            ),
+            replaceExisting = false,
+        )
+    }
+
+    suspend fun saveVehicle(vehicle: Vehicle): Long {
+        require(vehicle.name.isNotBlank()) { "Vehicle name is required." }
+        val isNewVehicle = vehicle.id == 0L
+        return database.withTransaction {
+            if (vehicle.id == 0L) {
+                dao.insertVehicle(vehicle.toEntity(idOverride = 0L))
+            } else {
+                dao.updateVehicle(vehicle.toEntity())
+                vehicle.id
+            }
+        }.also { savedVehicleId ->
+            if (isNewVehicle) {
+                seedReminderDefaultsForVehicle(savedVehicleId, notifyChange = false)
+            }
+            onLedgerChanged()
+        }
+    }
+
+    suspend fun setVehicleLifecycle(
+        vehicleId: Long,
+        lifecycle: VehicleLifecycle,
+    ) {
+        val vehicle = dao.getVehicleEntity(vehicleId)?.toDomain() ?: return
+        if (vehicle.lifecycle == lifecycle) return
+        database.withTransaction {
+            dao.updateVehicle(vehicle.copy(lifecycle = lifecycle).toEntity())
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteVehicle(vehicleId: Long) {
+        if (dao.getVehicleEntity(vehicleId) == null) return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForVehicle(vehicleId)
+            dao.deleteServiceCrossRefsForVehicle(vehicleId)
+            dao.deleteExpenseCrossRefsForVehicle(vehicleId)
+            dao.deleteServiceRemindersForVehicle(vehicleId)
+            dao.deleteFillUpsForVehicle(vehicleId)
+            dao.deleteServicesForVehicle(vehicleId)
+            dao.deleteExpensesForVehicle(vehicleId)
+            dao.deleteTripsForVehicle(vehicleId)
+            dao.deleteVehiclePartsForVehicle(vehicleId)
+            dao.deleteVehicle(vehicleId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun saveVehiclePart(part: VehiclePart): Long {
+        require(part.vehicleId > 0L) { "Choose a vehicle first." }
+        require(part.name.isNotBlank()) { "Part name is required." }
+        return database.withTransaction {
+            if (part.id == 0L) {
+                dao.insertVehiclePart(part.toEntity(vehicleIdOverride = part.vehicleId))
+            } else {
+                dao.updateVehiclePart(part.toEntity())
+                part.id
+            }
+        }.also { onLedgerChanged() }
+    }
+
+    suspend fun deleteVehiclePart(partId: Long) {
+        if (dao.getVehiclePart(partId) == null) return
+        database.withTransaction { dao.deleteVehiclePart(partId) }
+        onLedgerChanged()
+    }
+
+    suspend fun saveReminder(reminder: ServiceReminder): Long {
+        require(reminder.vehicleId > 0L) { "Choose a vehicle first." }
+        require(reminder.serviceTypeId > 0L) { "Choose a service type first." }
+        val duplicates = dao.countVehicleReminderDuplicates(
+            vehicleId = reminder.vehicleId,
+            serviceTypeId = reminder.serviceTypeId,
+            excludedReminderId = reminder.id,
+        )
+        if (duplicates > 0) {
+            throw IllegalArgumentException("A reminder for this vehicle and service type already exists.")
+        }
+        val normalized = autofillReminderDueFields(reminder)
+        return database.withTransaction {
+            if (normalized.id == 0L) {
+                dao.insertServiceReminder(normalized.toEntity())
+            } else {
+                dao.updateReminder(normalized.toEntity())
+                normalized.id
+            }
+        }.also { onLedgerChanged() }
+    }
+
+    suspend fun deleteReminder(reminderId: Long) {
+        if (dao.getServiceReminder(reminderId) == null) return
+        database.withTransaction { dao.deleteServiceReminder(reminderId) }
+        onLedgerChanged()
+    }
+
+    suspend fun saveFillUp(record: FillUpRecord): Long {
+        val normalized = record.copy(
+            paymentType = record.paymentType.trim(),
+            importedFuelTypeText = record.importedFuelTypeText?.trim()?.takeIf(String::isNotBlank),
+            fuelAdditiveName = record.fuelAdditiveName.trim(),
+            fuelBrand = record.fuelBrand.trim(),
+            stationAddress = record.stationAddress.trim(),
+            drivingMode = record.drivingMode.trim(),
+            tags = normalizeSuggestions(record.tags),
+            notes = record.notes.trim(),
+        )
+        validateChronology(
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = listOf(ChronoOdometerRecord(normalized.id, normalized.dateTime, normalized.odometerReading)),
+        )
+        val savedId = if (normalized.id == 0L) {
+            dao.insertFillUp(normalized.toEntity())
+        } else {
+            dao.updateFillUp(normalized.toEntity())
+            normalized.id
+        }
+        recalculateVehicleFillUps(normalized.vehicleId)
+        onLedgerChanged()
+        return savedId
+    }
+
+    suspend fun saveService(record: ServiceRecord): Long {
+        val normalized = normalizeService(record)
+        validateChronology(
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = listOf(ChronoOdometerRecord(normalized.id, normalized.dateTime, normalized.odometerReading)),
+        )
+        val savedId = database.withTransaction {
+            val recordId = if (normalized.id == 0L) {
+                dao.insertService(normalized.toEntity())
+            } else {
+                dao.updateService(normalized.toEntity())
+                dao.deleteServiceCrossRefsForRecord(normalized.id)
+                normalized.id
+            }
+            if (normalized.serviceTypeIds.isNotEmpty()) {
+                dao.insertServiceCrossRefs(
+                    normalized.serviceTypeIds.distinct().map { typeId ->
+                        ServiceRecordTypeCrossRef(recordId, typeId)
+                    },
+                )
+            }
+            recordId
+        }
+        recalculateVehicleReminders(normalized.vehicleId)
+        onLedgerChanged()
+        return savedId
+    }
+
+    suspend fun saveExpense(record: ExpenseRecord): Long {
+        val normalized = normalizeExpense(record)
+        validateChronology(
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = listOf(ChronoOdometerRecord(normalized.id, normalized.dateTime, normalized.odometerReading)),
+        )
+        val savedId = database.withTransaction {
+            val recordId = if (normalized.id == 0L) {
+                dao.insertExpense(normalized.toEntity())
+            } else {
+                dao.updateExpense(normalized.toEntity())
+                dao.deleteExpenseCrossRefsForRecord(normalized.id)
+                normalized.id
+            }
+            if (normalized.expenseTypeIds.isNotEmpty()) {
+                dao.insertExpenseCrossRefs(
+                    normalized.expenseTypeIds.distinct().map { typeId ->
+                        ExpenseRecordTypeCrossRef(recordId, typeId)
+                    },
+                )
+            }
+            recordId
+        }
+        onLedgerChanged()
+        return savedId
+    }
+
+    suspend fun saveTrip(record: TripRecord): Long {
+        val normalized = normalizeTrip(record)
+        val candidates = buildList {
+            add(ChronoOdometerRecord(normalized.id, normalized.startDateTime, normalized.startOdometerReading))
+            if (normalized.endDateTime != null && normalized.endOdometerReading != null) {
+                add(ChronoOdometerRecord(normalized.id, normalized.endDateTime, normalized.endOdometerReading))
+            }
+        }
+        validateChronology(
+            vehicleId = normalized.vehicleId,
+            excludedRecordId = normalized.id,
+            candidates = candidates,
+        )
+        val savedId = if (normalized.id == 0L) {
+            dao.insertTrip(normalized.toEntity())
+        } else {
+            dao.updateTrip(normalized.toEntity())
+            normalized.id
+        }
+        onLedgerChanged()
+        return savedId
+    }
+
+    suspend fun deleteFillUp(recordId: Long) {
+        val record = dao.getFillUp(recordId)?.toDomain() ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.FILL_UP, recordId)
+            dao.deleteFillUp(recordId)
+            recalculateVehicleFillUps(record.vehicleId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteService(recordId: Long) {
+        val record = getService(recordId) ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.SERVICE, recordId)
+            dao.deleteServiceCrossRefsForRecord(recordId)
+            dao.deleteService(recordId)
+            recalculateVehicleReminders(record.vehicleId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteExpense(recordId: Long) {
+        val record = getExpense(recordId) ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.EXPENSE, recordId)
+            dao.deleteExpenseCrossRefsForRecord(recordId)
+            dao.deleteExpense(recordId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteTrip(recordId: Long) {
+        val record = dao.getTrip(recordId)?.toDomain() ?: return
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(RecordFamily.TRIP, recordId)
+            dao.deleteTrip(recordId)
+        }
+        onLedgerChanged()
+    }
+
+    suspend fun saveFuelType(type: FuelType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertFuelTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateFuelType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun saveServiceType(type: ServiceType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertServiceTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateServiceType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun saveExpenseType(type: ExpenseType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertExpenseTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateExpenseType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun saveTripType(type: TripType): Long = database.withTransaction {
+        if (type.id == 0L) {
+            dao.insertTripTypes(listOf(type.toEntity(idOverride = 0L))).single()
+        } else {
+            dao.updateTripType(type.toEntity())
+            type.id
+        }
+    }.also { onLedgerChanged() }
+
+    suspend fun deleteFuelType(typeId: Long) {
+        val inUse = dao.countFuelTypeUsage(typeId)
+        if (inUse > 0) {
+            throw IllegalArgumentException("This fuel type is already used by $inUse fill-up record(s).")
+        }
+        database.withTransaction { dao.deleteFuelType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteServiceType(typeId: Long) {
+        val recordUsage = dao.countServiceTypeRecordUsage(typeId)
+        val reminderUsage = dao.countServiceTypeReminderUsage(typeId)
+        val totalUsage = recordUsage + reminderUsage
+        if (totalUsage > 0) {
+            throw IllegalArgumentException("This service type is already used by records or reminders.")
+        }
+        database.withTransaction { dao.deleteServiceType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteExpenseType(typeId: Long) {
+        val inUse = dao.countExpenseTypeUsage(typeId)
+        if (inUse > 0) {
+            throw IllegalArgumentException("This expense type is already used by $inUse expense record(s).")
+        }
+        database.withTransaction { dao.deleteExpenseType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun deleteTripType(typeId: Long) {
+        val inUse = dao.countTripTypeUsage(typeId)
+        if (inUse > 0) {
+            throw IllegalArgumentException("This trip type is already used by $inUse trip record(s).")
+        }
+        database.withTransaction { dao.deleteTripType(typeId) }
+        onLedgerChanged()
+    }
+
+    suspend fun replaceRecordAttachments(
+        vehicleId: Long,
+        recordFamily: RecordFamily,
+        recordId: Long,
+        attachments: List<RecordAttachment>,
+    ) {
+        database.withTransaction {
+            dao.deleteRecordAttachmentsForRecord(recordFamily, recordId)
+            if (attachments.isNotEmpty()) {
+                dao.insertRecordAttachments(
+                    attachments.map { attachment ->
+                        attachment.copy(
+                            id = 0L,
+                            vehicleId = vehicleId,
+                            recordFamily = recordFamily,
+                            recordId = recordId,
+                        ).toEntity()
+                    },
+                )
+            }
+        }
+        onLedgerChanged()
+    }
+
+    private suspend fun persistImportedData(
+        sourceLabel: String,
+        imported: ImportedGarageData,
+        replaceExisting: Boolean,
+    ): ImportReport {
+        val affectedVehicleIds = mutableSetOf<Long>()
+        val importedVehicleIdMap = mutableMapOf<Long, Long>()
+        val persistenceIssues = mutableListOf<ImportIssue>()
+        database.withTransaction {
+            if (replaceExisting) {
+                dao.clearServiceCrossRefs()
+                dao.clearExpenseCrossRefs()
+                dao.clearAttachments()
+                dao.clearServiceReminders()
+                dao.clearFillUps()
+                dao.clearServices()
+                dao.clearExpenses()
+                dao.clearTrips()
+                dao.clearVehicleParts()
+                dao.clearFuelTypes()
+                dao.clearServiceTypes()
+                dao.clearExpenseTypes()
+                dao.clearTripTypes()
+                dao.clearVehicles()
+            }
+
+            val vehicleIdMap = upsertVehicles(imported.vehicles, replaceExisting)
+            importedVehicleIdMap += vehicleIdMap
+            affectedVehicleIds += vehicleIdMap.values
+
+            val serviceTypeIdMap = upsertServiceTypes(imported.serviceTypes, replaceExisting)
+            val expenseTypeIdMap = upsertExpenseTypes(imported.expenseTypes, replaceExisting)
+            val tripTypeIdMap = upsertTripTypes(imported.tripTypes, replaceExisting)
+            val fuelTypeIdMap = upsertFuelTypes(imported.fuelTypes, replaceExisting)
+            val fillUpIdMap = mutableMapOf<Long, Long>()
+            val serviceIdMap = mutableMapOf<Long, Long>()
+            val expenseIdMap = mutableMapOf<Long, Long>()
+            val tripIdMap = mutableMapOf<Long, Long>()
+
+            if (imported.vehicleParts.isNotEmpty()) {
+                val partEntities = imported.vehicleParts.mapNotNull { part ->
+                    val mappedVehicleId = vehicleIdMap[part.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped vehicle part '${part.name}' because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        part.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L)
+                    }
+                }
+                if (partEntities.isNotEmpty()) {
+                    dao.insertVehicleParts(partEntities)
+                }
+            }
+
+            if (imported.fillUpRecords.isNotEmpty()) {
+                val preparedFillUps = imported.fillUpRecords.mapNotNull { fillUp ->
+                    val mappedVehicleId = vehicleIdMap[fillUp.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped fill-up on ${fillUp.dateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        (fillUp.legacySourceId ?: fillUp.id) to fillUp.toEntity(vehicleIdOverride = mappedVehicleId).copy(
+                            id = 0L,
+                            fuelTypeId = fillUp.fuelTypeId?.let(fuelTypeIdMap::get),
+                        )
+                    }
+                }
+                if (preparedFillUps.isNotEmpty()) {
+                    val fillUpIds = dao.insertFillUps(preparedFillUps.map { it.second })
+                    preparedFillUps.zip(fillUpIds).forEach { (prepared, insertedId) ->
+                        if (prepared.first > 0L) {
+                            fillUpIdMap[prepared.first] = insertedId
+                        }
+                    }
+                }
+            }
+
+            if (imported.serviceRecords.isNotEmpty()) {
+                val preparedServices = imported.serviceRecords.mapNotNull { record ->
+                    val mappedVehicleId = vehicleIdMap[record.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped service record on ${record.dateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        Triple(
+                            record.legacySourceId ?: record.id,
+                            record,
+                            record.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L),
+                        )
+                    }
+                }
+                val serviceIds = if (preparedServices.isNotEmpty()) dao.insertServices(preparedServices.map { it.third }) else emptyList()
+                preparedServices.zip(serviceIds).forEach { (prepared, insertedId) ->
+                    if (prepared.first > 0L) {
+                        serviceIdMap[prepared.first] = insertedId
+                    }
+                }
+                val crossRefs = preparedServices.zip(serviceIds).flatMap { (prepared, insertedId) ->
+                    prepared.second.serviceTypeIds.mapNotNull { legacyTypeId ->
+                        serviceTypeIdMap[legacyTypeId]?.let { ServiceRecordTypeCrossRef(insertedId, it) }
+                    }
+                }
+                if (crossRefs.isNotEmpty()) {
+                    dao.insertServiceCrossRefs(crossRefs)
+                }
+            }
+
+            if (imported.expenseRecords.isNotEmpty()) {
+                val preparedExpenses = imported.expenseRecords.mapNotNull { record ->
+                    val mappedVehicleId = vehicleIdMap[record.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped expense record on ${record.dateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        Triple(
+                            record.legacySourceId ?: record.id,
+                            record,
+                            record.toEntity(vehicleIdOverride = mappedVehicleId).copy(id = 0L),
+                        )
+                    }
+                }
+                val expenseIds = if (preparedExpenses.isNotEmpty()) dao.insertExpenses(preparedExpenses.map { it.third }) else emptyList()
+                preparedExpenses.zip(expenseIds).forEach { (prepared, insertedId) ->
+                    if (prepared.first > 0L) {
+                        expenseIdMap[prepared.first] = insertedId
+                    }
+                }
+                val crossRefs = preparedExpenses.zip(expenseIds).flatMap { (prepared, insertedId) ->
+                    prepared.second.expenseTypeIds.mapNotNull { legacyTypeId ->
+                        expenseTypeIdMap[legacyTypeId]?.let { ExpenseRecordTypeCrossRef(insertedId, it) }
+                    }
+                }
+                if (crossRefs.isNotEmpty()) {
+                    dao.insertExpenseCrossRefs(crossRefs)
+                }
+            }
+
+            if (imported.tripRecords.isNotEmpty()) {
+                val preparedTrips = imported.tripRecords.mapNotNull { trip ->
+                    val mappedVehicleId = vehicleIdMap[trip.vehicleId]
+                    if (mappedVehicleId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped trip starting ${trip.startDateTime} because its vehicle reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        (trip.legacySourceId ?: trip.id) to trip.toEntity(vehicleIdOverride = mappedVehicleId).copy(
+                            id = 0L,
+                            tripTypeId = trip.tripTypeId?.let(tripTypeIdMap::get),
+                        )
+                    }
+                }
+                if (preparedTrips.isNotEmpty()) {
+                    val tripIds = dao.insertTrips(preparedTrips.map { it.second })
+                    preparedTrips.zip(tripIds).forEach { (prepared, insertedId) ->
+                        if (prepared.first > 0L) {
+                            tripIdMap[prepared.first] = insertedId
+                        }
+                    }
+                }
+            }
+
+            if (imported.serviceReminders.isNotEmpty()) {
+                val reminderEntities = imported.serviceReminders.mapNotNull { reminder ->
+                    val mappedVehicleId = vehicleIdMap[reminder.vehicleId]
+                    val mappedServiceTypeId = serviceTypeIdMap[reminder.serviceTypeId]
+                    if (mappedVehicleId == null || mappedServiceTypeId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped reminder for vehicle ${reminder.vehicleId} because one of its references could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        reminder.toEntity(
+                            vehicleIdOverride = mappedVehicleId,
+                            serviceTypeIdOverride = mappedServiceTypeId,
+                        ).copy(id = 0L)
+                    }
+                }
+                if (reminderEntities.isNotEmpty()) {
+                    dao.insertServiceReminders(reminderEntities)
+                }
+            }
+
+            if (imported.attachments.isNotEmpty()) {
+                val attachmentEntities = imported.attachments.mapNotNull { attachment ->
+                    val mappedVehicleId = vehicleIdMap[attachment.vehicleId]
+                    val mappedRecordId = when (attachment.recordFamily) {
+                        RecordFamily.FILL_UP -> fillUpIdMap[attachment.recordId]
+                        RecordFamily.SERVICE -> serviceIdMap[attachment.recordId]
+                        RecordFamily.EXPENSE -> expenseIdMap[attachment.recordId]
+                        RecordFamily.TRIP -> tripIdMap[attachment.recordId]
+                    }
+                    if (mappedVehicleId == null || mappedRecordId == null) {
+                        persistenceIssues += ImportIssue(
+                            severity = ImportIssue.Severity.WARNING,
+                            message = "Skipped attachment '${attachment.displayName.ifBlank { attachment.uri }}' because its record reference could not be resolved.",
+                            section = sourceLabel,
+                        )
+                        null
+                    } else {
+                        attachment.copy(vehicleId = mappedVehicleId, recordId = mappedRecordId).toEntity().copy(id = 0L)
+                    }
+                }
+                if (attachmentEntities.isNotEmpty()) {
+                    dao.insertRecordAttachments(attachmentEntities)
+                }
+            }
+        }
+
+        if (imported.preferences != null) {
+            preferencesRepository.replace(
+                imported.preferences.copy(
+                    savedBrowseSearches = imported.preferences.savedBrowseSearches.map { search ->
+                        search.copy(vehicleId = search.vehicleId?.let(importedVehicleIdMap::get))
+                    },
+                ),
+            )
+        }
+        affectedVehicleIds.forEach { vehicleId ->
+            recalculateVehicleFillUps(vehicleId)
+            recalculateVehicleReminders(vehicleId)
+        }
+        ensureReminderDefaultsForActiveVehicles()
+        onLedgerChanged()
+
+        return ImportReport(
+            sourceLabel = sourceLabel,
+            vehiclesImported = imported.vehicles.size,
+            fillUpsImported = imported.fillUpRecords.size,
+            serviceRecordsImported = imported.serviceRecords.size,
+            expenseRecordsImported = imported.expenseRecords.size,
+            tripRecordsImported = imported.tripRecords.size,
+            vehiclePartsImported = imported.vehicleParts.size,
+            attachmentsImported = imported.attachments.size,
+            serviceTypesImported = imported.serviceTypes.size,
+            expenseTypesImported = imported.expenseTypes.size,
+            tripTypesImported = imported.tripTypes.size,
+            fuelTypesImported = imported.fuelTypes.size,
+            skippedRows = (imported.issues + persistenceIssues).count { it.severity == ImportIssue.Severity.ERROR },
+            issues = imported.issues + persistenceIssues,
+        )
+    }
+
+    private suspend fun upsertVehicles(items: List<Vehicle>, replaceExisting: Boolean): Map<Long, Long> {
+        if (items.isEmpty()) return emptyMap()
+        if (replaceExisting) {
+            val inserted = dao.insertVehicles(items.map { it.toEntity(idOverride = 0L) })
+            return items.zip(inserted).associate { (item, id) -> (item.legacySourceId ?: id) to id }
+        }
+        val existingByName = dao.getVehicles().associateBy { it.name.lowercase() }
+        val result = mutableMapOf<Long, Long>()
+        val toInsert = mutableListOf<Vehicle>()
+        items.forEach { vehicle ->
+            val existing = existingByName[vehicle.name.lowercase()]
+            if (existing != null) {
+                result[vehicle.legacySourceId ?: existing.id] = existing.id
+            } else {
+                toInsert += vehicle
+            }
+        }
+        val inserted = if (toInsert.isNotEmpty()) dao.insertVehicles(toInsert.map { it.toEntity(idOverride = 0L) }) else emptyList()
+        toInsert.zip(inserted).forEach { (vehicle, id) -> result[vehicle.legacySourceId ?: id] = id }
+        return result
+    }
+
+    private suspend fun upsertServiceTypes(
+        items: List<com.guzzlio.domain.model.ServiceType>,
+        replaceExisting: Boolean,
+    ): Map<Long, Long> {
+        if (items.isEmpty()) return emptyMap()
+        if (replaceExisting) {
+            val inserted = dao.insertServiceTypes(items.map { it.toEntity(idOverride = 0L) })
+            return items.zip(inserted).associate { (item, id) -> (item.legacySourceId ?: id) to id }
+        }
+        val existing = dao.getServiceTypes().associateBy { it.name.lowercase() }
+        val result = mutableMapOf<Long, Long>()
+        val toInsert = mutableListOf<com.guzzlio.domain.model.ServiceType>()
+        items.forEach { item ->
+            val match = existing[item.name.lowercase()]
+            if (match != null) {
+                result[item.legacySourceId ?: match.id] = match.id
+            } else {
+                toInsert += item
+            }
+        }
+        val inserted = if (toInsert.isNotEmpty()) dao.insertServiceTypes(toInsert.map { it.toEntity(idOverride = 0L) }) else emptyList()
+        toInsert.zip(inserted).forEach { (item, id) -> result[item.legacySourceId ?: id] = id }
+        return result
+    }
+
+    private suspend fun upsertExpenseTypes(
+        items: List<com.guzzlio.domain.model.ExpenseType>,
+        replaceExisting: Boolean,
+    ): Map<Long, Long> {
+        if (items.isEmpty()) return emptyMap()
+        if (replaceExisting) {
+            val inserted = dao.insertExpenseTypes(items.map { it.toEntity(idOverride = 0L) })
+            return items.zip(inserted).associate { (item, id) -> (item.legacySourceId ?: id) to id }
+        }
+        val existing = dao.getExpenseTypes().associateBy { it.name.lowercase() }
+        val result = mutableMapOf<Long, Long>()
+        val toInsert = mutableListOf<com.guzzlio.domain.model.ExpenseType>()
+        items.forEach { item ->
+            val match = existing[item.name.lowercase()]
+            if (match != null) {
+                result[item.legacySourceId ?: match.id] = match.id
+            } else {
+                toInsert += item
+            }
+        }
+        val inserted = if (toInsert.isNotEmpty()) dao.insertExpenseTypes(toInsert.map { it.toEntity(idOverride = 0L) }) else emptyList()
+        toInsert.zip(inserted).forEach { (item, id) -> result[item.legacySourceId ?: id] = id }
+        return result
+    }
+
+    private suspend fun upsertTripTypes(
+        items: List<com.guzzlio.domain.model.TripType>,
+        replaceExisting: Boolean,
+    ): Map<Long, Long> {
+        if (items.isEmpty()) return emptyMap()
+        if (replaceExisting) {
+            val inserted = dao.insertTripTypes(items.map { it.toEntity(idOverride = 0L) })
+            return items.zip(inserted).associate { (item, id) -> (item.legacySourceId ?: id) to id }
+        }
+        val existing = dao.getTripTypes().associateBy { it.name.lowercase() }
+        val result = mutableMapOf<Long, Long>()
+        val toInsert = mutableListOf<com.guzzlio.domain.model.TripType>()
+        items.forEach { item ->
+            val match = existing[item.name.lowercase()]
+            if (match != null) {
+                result[item.legacySourceId ?: match.id] = match.id
+            } else {
+                toInsert += item
+            }
+        }
+        val inserted = if (toInsert.isNotEmpty()) dao.insertTripTypes(toInsert.map { it.toEntity(idOverride = 0L) }) else emptyList()
+        toInsert.zip(inserted).forEach { (item, id) -> result[item.legacySourceId ?: id] = id }
+        return result
+    }
+
+    private suspend fun upsertFuelTypes(items: List<com.guzzlio.domain.model.FuelType>, replaceExisting: Boolean): Map<Long, Long> {
+        if (items.isEmpty()) return emptyMap()
+        if (replaceExisting) {
+            val inserted = dao.insertFuelTypes(items.map { it.toEntity(idOverride = 0L) })
+            return items.zip(inserted).associate { (item, id) -> (item.legacySourceId ?: id) to id }
+        }
+        val existing = dao.getFuelTypes().associateBy { "${it.category}|${it.grade}|${it.octane}|${it.cetane}".lowercase() }
+        val result = mutableMapOf<Long, Long>()
+        val toInsert = mutableListOf<com.guzzlio.domain.model.FuelType>()
+        items.forEach { fuelType ->
+            val key = "${fuelType.category}|${fuelType.grade}|${fuelType.octane}|${fuelType.cetane}".lowercase()
+            val match = existing[key]
+            if (match != null) {
+                result[fuelType.legacySourceId ?: match.id] = match.id
+            } else {
+                toInsert += fuelType
+            }
+        }
+        val inserted = if (toInsert.isNotEmpty()) dao.insertFuelTypes(toInsert.map { it.toEntity(idOverride = 0L) }) else emptyList()
+        toInsert.zip(inserted).forEach { (item, id) -> result[item.legacySourceId ?: id] = id }
+        return result
+    }
+
+    private suspend fun validateChronology(
+        vehicleId: Long,
+        excludedRecordId: Long,
+        candidates: List<ChronoOdometerRecord>,
+    ) {
+        val fillUps = dao.getVehicleFillUpsAscending(vehicleId)
+            .filterNot { it.id == excludedRecordId }
+            .map { ChronoOdometerRecord(it.id, it.dateTime, it.odometerReading) }
+        val services = dao.getVehicleServicesAscending(vehicleId)
+            .filterNot { it.id == excludedRecordId }
+            .map { ChronoOdometerRecord(it.id, it.dateTime, it.odometerReading) }
+        val expenses = dao.getVehicleExpensesAscending(vehicleId)
+            .filterNot { it.id == excludedRecordId }
+            .map { ChronoOdometerRecord(it.id, it.dateTime, it.odometerReading) }
+        val trips = dao.getVehicleTripsAscending(vehicleId)
+            .filterNot { it.id == excludedRecordId }
+            .flatMap { trip ->
+            buildList {
+                add(ChronoOdometerRecord(trip.id, trip.startDateTime, trip.startOdometerReading))
+                if (trip.endDateTime != null && trip.endOdometerReading != null) {
+                    add(ChronoOdometerRecord(trip.id, trip.endDateTime, trip.endOdometerReading))
+                }
+            }
+        }
+
+        val result = RecordConsistencyValidator.validateTimeline(fillUps + services + expenses + trips + candidates)
+        if (result is RecordConsistencyValidator.ValidationResult.Invalid) {
+            throw IllegalArgumentException(result.message)
+        }
+    }
+
+    private suspend fun loadVehicleServiceHistory(vehicleId: Long): List<ServiceRecord> {
+        val services = dao.getVehicleServicesAscending(vehicleId)
+        val crossRefs = dao.getServiceRecordCrossRefs(services.map(ServiceRecordEntity::id))
+        val serviceTypeIdsByRecord = crossRefs.groupBy(
+            keySelector = ServiceRecordTypeCrossRef::serviceRecordId,
+            valueTransform = ServiceRecordTypeCrossRef::serviceTypeId,
+        )
+        return services.map { entity -> entity.toDomain(serviceTypeIdsByRecord[entity.id].orEmpty()) }
+    }
+
+    private suspend fun resolveVehicleCurrentOdometer(vehicleId: Long): Double? =
+        dao.getLatestOdometer(vehicleId) ?: dao.getVehicleEntity(vehicleId)?.purchaseOdometer
+
+    private suspend fun autofillReminderDueFields(reminder: ServiceReminder): ServiceReminder {
+        if (reminder.vehicleId <= 0L || reminder.serviceTypeId <= 0L) return reminder
+        val shouldFillDate = reminder.dueDate == null && reminder.intervalTimeMonths > 0
+        val shouldFillDistance = reminder.dueDistance == null && (reminder.intervalDistance ?: 0.0) > 0.0
+        if (!shouldFillDate && !shouldFillDistance) return reminder
+        val suggested = suggestReminderSchedule(
+            vehicleId = reminder.vehicleId,
+            serviceTypeId = reminder.serviceTypeId,
+            intervalTimeMonths = reminder.intervalTimeMonths,
+            intervalDistance = reminder.intervalDistance,
+            reminderId = reminder.id,
+        )
+        return reminder.copy(
+            dueDate = reminder.dueDate ?: suggested.dueDate,
+            dueDistance = reminder.dueDistance ?: suggested.dueDistance,
+        )
+    }
+
+    private suspend fun normalizeTrip(record: TripRecord): TripRecord {
+        if (record.endDateTime != null && record.endDateTime.isBefore(record.startDateTime)) {
+            throw IllegalArgumentException("Trip end time must be on or after the start time.")
+        }
+        if (record.endOdometerReading != null && record.endOdometerReading < record.startOdometerReading) {
+            throw IllegalArgumentException("Trip end odometer must be on or after the start odometer.")
+        }
+
+        val resolvedDistance = record.endOdometerReading?.let { end ->
+            (end - record.startOdometerReading).takeIf { it >= 0.0 }
+        } ?: record.distance
+        val resolvedDuration = record.endDateTime?.let { end ->
+            Duration.between(record.startDateTime, end).toMillis().takeIf { it >= 0L }
+        } ?: record.durationMillis
+        val taxRate = record.taxDeductionRate ?: record.tripTypeId?.let { tripTypeId ->
+            dao.getTripTypes().firstOrNull { it.id == tripTypeId }?.defaultTaxDeductionRate
+        }
+        val taxAmount = if (taxRate != null && resolvedDistance != null) taxRate * resolvedDistance else record.taxDeductionAmount
+        val reimbursementAmount = if (record.reimbursementRate != null && resolvedDistance != null) {
+            record.reimbursementRate * resolvedDistance
+        } else {
+            record.reimbursementAmount
+        }
+
+        return record.copy(
+            startLocation = record.startLocation.trim(),
+            endLocation = record.endLocation.trim(),
+            purpose = record.purpose.trim(),
+            client = record.client.trim(),
+            tags = normalizeSuggestions(record.tags),
+            notes = record.notes.trim(),
+            distance = resolvedDistance,
+            durationMillis = resolvedDuration,
+            taxDeductionRate = taxRate,
+            taxDeductionAmount = taxAmount,
+            reimbursementAmount = reimbursementAmount,
+        )
+    }
+
+    private fun normalizeService(record: ServiceRecord): ServiceRecord = record.copy(
+        paymentType = record.paymentType.trim(),
+        serviceCenterName = record.serviceCenterName.trim(),
+        serviceCenterAddress = record.serviceCenterAddress.trim(),
+        tags = normalizeSuggestions(record.tags),
+        notes = record.notes.trim(),
+        serviceTypeIds = record.serviceTypeIds.distinct(),
+    )
+
+    private fun normalizeExpense(record: ExpenseRecord): ExpenseRecord = record.copy(
+        paymentType = record.paymentType.trim(),
+        expenseCenterName = record.expenseCenterName.trim(),
+        expenseCenterAddress = record.expenseCenterAddress.trim(),
+        tags = normalizeSuggestions(record.tags),
+        notes = record.notes.trim(),
+        expenseTypeIds = record.expenseTypeIds.distinct(),
+    )
+
+    private suspend fun recalculateVehicleFillUps(
+        vehicleId: Long,
+        preferencesSnapshot: AppPreferenceSnapshot? = null,
+    ) {
+        val fillUps = dao.getVehicleFillUpsAscending(vehicleId).map(FillUpRecordEntity::toDomain)
+        if (fillUps.isEmpty()) return
+        val resolvedPreferences = preferencesSnapshot ?: preferencesRepository.currentSnapshot()
+        val fuelEfficiencyUnit = resolveFuelEfficiencyUnit(vehicleId, resolvedPreferences)
+        val recalculated = FuelEfficiencyCalculator.recalculate(
+            records = fillUps,
+            assignmentMethod = resolvedPreferences.fuelEfficiencyAssignmentMethod,
+            fuelEfficiencyUnit = fuelEfficiencyUnit,
+        )
+        dao.updateFillUps(recalculated.map(FillUpRecord::toEntity))
+    }
+
+    private suspend fun resolveFuelEfficiencyUnit(
+        vehicleId: Long,
+        preferencesSnapshot: AppPreferenceSnapshot,
+    ): FuelEfficiencyUnit = dao.getVehicleEntity(vehicleId)
+        ?.toDomain()
+        ?.fuelEfficiencyUnitOverride
+        ?: preferencesSnapshot.fuelEfficiencyUnit
+
+    private suspend fun recalculateVehicleReminders(vehicleId: Long) {
+        val reminders = dao.observeVehicleReminders(vehicleId).first()
+        if (reminders.isEmpty()) return
+        val serviceHistory = loadVehicleServiceHistory(vehicleId)
+        val currentOdometer = resolveVehicleCurrentOdometer(vehicleId)
+        val updated = reminders.map { entity ->
+            ReminderScheduler.schedule(
+                reminder = entity.toDomain(),
+                serviceHistory = serviceHistory,
+                currentDate = LocalDate.now(),
+                currentOdometer = currentOdometer,
+            ).toEntity()
+        }
+        dao.updateReminders(updated)
+    }
+
+    private fun buildStats(
+        vehicleId: Long,
+        fillUps: List<FillUpRecord>,
+        services: List<ServiceRecord>,
+        expenses: List<ExpenseRecord> = emptyList(),
+        trips: List<TripRecord> = emptyList(),
+    ): VehicleStatistics {
+        val usableEfficiencies = fillUps.mapNotNull { it.fuelEfficiency }
+        val averageFuelEfficiency = if (usableEfficiencies.isEmpty()) null else usableEfficiencies.average()
+        val pricePoints = fillUps.map { it.pricePerUnit }
+        return VehicleStatistics(
+            vehicleId = vehicleId,
+            fillUpCount = fillUps.size,
+            totalFuelVolume = fillUps.sumOf { it.volume },
+            totalFuelCost = fillUps.sumOf { it.totalCost },
+            totalDistance = fillUps.sumOf { it.distanceSincePrevious ?: 0.0 },
+            averageFuelEfficiency = averageFuelEfficiency,
+            lastFuelEfficiency = fillUps.sortedByDescending { it.dateTime }.firstNotNullOfOrNull { it.fuelEfficiency },
+            averagePricePerUnit = if (pricePoints.isEmpty()) null else pricePoints.average(),
+            serviceCostTotal = services.sumOf { it.totalCost },
+            expenseCostTotal = expenses.sumOf { it.totalCost },
+            tripDistanceTotal = trips.sumOf { it.distance ?: 0.0 },
+        )
+    }
+
+    private fun buildBrowseRecords(
+        primary: BrowsePrimarySnapshot,
+        secondary: BrowseSecondarySnapshot,
+    ): List<BrowseRecordItem> {
+        val vehicleNamesById = primary.vehicles.associate { it.id to it.name }
+        val vehicleLifecyclesById = primary.vehicles.associate { it.id to it.toDomain().lifecycle }
+        val serviceTypeNames = secondary.serviceTypes.associate { it.id to it.name }
+        val expenseTypeNames = secondary.expenseTypes.associate { it.id to it.name }
+        val tripTypeNames = secondary.tripTypes.associate { it.id to it.name }
+        val fuelTypeNames = secondary.fuelTypes.associate { it.id to it.toDomain().displayName }
+        val serviceTypeNamesByRecord = secondary.serviceCrossRefs
+            .groupBy(ServiceRecordTypeCrossRef::serviceRecordId, ServiceRecordTypeCrossRef::serviceTypeId)
+            .mapValues { (_, ids) -> ids.mapNotNull(serviceTypeNames::get).distinct().sorted() }
+        val expenseTypeNamesByRecord = secondary.expenseCrossRefs
+            .groupBy(ExpenseRecordTypeCrossRef::expenseRecordId, ExpenseRecordTypeCrossRef::expenseTypeId)
+            .mapValues { (_, ids) -> ids.mapNotNull(expenseTypeNames::get).distinct().sorted() }
+
+        val fuelUps = primary.fillUps.map { fillUp ->
+            val fuelTypeLabel = fillUp.fuelTypeId?.let(fuelTypeNames::get) ?: fillUp.importedFuelTypeText.orEmpty()
+            BrowseRecordItem(
+                recordId = fillUp.id,
+                vehicleId = fillUp.vehicleId,
+                vehicleName = vehicleNamesById[fillUp.vehicleId].orEmpty(),
+                family = RecordFamily.FILL_UP,
+                occurredAt = fillUp.dateTime,
+                title = "Fuel-Up ${fillUp.volume.toPrettyNumber()} ${fillUp.volumeUnit}",
+                subtitle = listOfNotNull(fillUp.fuelBrand.takeIf { it.isNotBlank() }, fillUp.stationAddress.takeIf { it.isNotBlank() }).joinToString(" | "),
+                amount = fillUp.totalCost,
+                odometerReading = fillUp.odometerReading,
+                tags = fillUp.tags,
+                paymentType = fillUp.paymentType,
+                eventPlaceName = fillUp.stationAddress,
+                fuelBrand = fillUp.fuelBrand,
+                fuelTypeLabel = fuelTypeLabel,
+                fuelAdditiveName = fillUp.fuelAdditiveName,
+                drivingMode = fillUp.drivingMode,
+                fuelVolumeLabel = "${fillUp.volume.toPrettyNumber()} ${compactBrowseVolumeUnitLabel(fillUp.volumeUnit)}",
+                fuelEfficiencyLabel = fillUp.fuelEfficiency?.let {
+                    "${it.toPrettyNumber()} ${compactBrowseFuelEfficiencyUnitLabel(fillUp.fuelEfficiencyUnit)}"
+                }.orEmpty(),
+                fuelPricePerUnitLabel = fillUp.pricePerUnit.takeIf { it > 0.0 }?.let {
+                    "$${"%,.2f".format(it)}/${compactBrowseVolumeUnitLabel(fillUp.volumeUnit)}"
+                }.orEmpty(),
+                notes = fillUp.notes,
+                searchText = buildSearchText(
+                    vehicleNamesById[fillUp.vehicleId],
+                    fillUp.paymentType,
+                    fillUp.fuelBrand,
+                    fillUp.stationAddress,
+                    fillUp.notes,
+                    fuelTypeLabel,
+                    fillUp.fuelAdditiveName,
+                    fillUp.drivingMode,
+                    fillUp.tags,
+                ),
+                vehicleLifecycle = vehicleLifecyclesById[fillUp.vehicleId] ?: VehicleLifecycle.ACTIVE,
+            )
+        }
+        val services = primary.services.map { service ->
+            val typeNames = serviceTypeNamesByRecord[service.id].orEmpty()
+            BrowseRecordItem(
+                recordId = service.id,
+                vehicleId = service.vehicleId,
+                vehicleName = vehicleNamesById[service.vehicleId].orEmpty(),
+                family = RecordFamily.SERVICE,
+                occurredAt = service.dateTime,
+                title = typeNames.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Service",
+                subtitle = listOfNotNull(service.serviceCenterName.takeIf { it.isNotBlank() }, service.serviceCenterAddress.takeIf { it.isNotBlank() }).joinToString(" | "),
+                amount = service.totalCost,
+                odometerReading = service.odometerReading,
+                tags = service.tags,
+                subtypeNames = typeNames,
+                paymentType = service.paymentType,
+                eventPlaceName = listOfNotNull(
+                    service.serviceCenterName.takeIf { it.isNotBlank() },
+                    service.serviceCenterAddress.takeIf { it.isNotBlank() },
+                ).joinToString(" | "),
+                notes = service.notes,
+                searchText = buildSearchText(
+                    vehicleNamesById[service.vehicleId],
+                    service.paymentType,
+                    service.serviceCenterName,
+                    service.serviceCenterAddress,
+                    service.notes,
+                    typeNames,
+                    service.tags,
+                ),
+                vehicleLifecycle = vehicleLifecyclesById[service.vehicleId] ?: VehicleLifecycle.ACTIVE,
+            )
+        }
+        val expenses = primary.expenses.map { expense ->
+            val typeNames = expenseTypeNamesByRecord[expense.id].orEmpty()
+            BrowseRecordItem(
+                recordId = expense.id,
+                vehicleId = expense.vehicleId,
+                vehicleName = vehicleNamesById[expense.vehicleId].orEmpty(),
+                family = RecordFamily.EXPENSE,
+                occurredAt = expense.dateTime,
+                title = typeNames.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "Expense",
+                subtitle = listOfNotNull(expense.expenseCenterName.takeIf { it.isNotBlank() }, expense.expenseCenterAddress.takeIf { it.isNotBlank() }).joinToString(" | "),
+                amount = expense.totalCost,
+                odometerReading = expense.odometerReading,
+                tags = expense.tags,
+                subtypeNames = typeNames,
+                paymentType = expense.paymentType,
+                eventPlaceName = listOfNotNull(
+                    expense.expenseCenterName.takeIf { it.isNotBlank() },
+                    expense.expenseCenterAddress.takeIf { it.isNotBlank() },
+                ).joinToString(" | "),
+                notes = expense.notes,
+                searchText = buildSearchText(
+                    vehicleNamesById[expense.vehicleId],
+                    expense.paymentType,
+                    expense.expenseCenterName,
+                    expense.expenseCenterAddress,
+                    expense.notes,
+                    typeNames,
+                    expense.tags,
+                ),
+                vehicleLifecycle = vehicleLifecyclesById[expense.vehicleId] ?: VehicleLifecycle.ACTIVE,
+            )
+        }
+        val trips = primary.trips.map { trip ->
+            val typeName = trip.tripTypeId?.let(tripTypeNames::get)
+            val tripLocations = listOfNotNull(
+                trip.startLocation.takeIf { it.isNotBlank() },
+                trip.endLocation.takeIf { it.isNotBlank() },
+            )
+            BrowseRecordItem(
+                recordId = trip.id,
+                vehicleId = trip.vehicleId,
+                vehicleName = vehicleNamesById[trip.vehicleId].orEmpty(),
+                family = RecordFamily.TRIP,
+                occurredAt = trip.startDateTime,
+                title = typeName ?: "Trip",
+                subtitle = tripLocations.joinToString(" -> "),
+                amount = trip.reimbursementAmount ?: trip.taxDeductionAmount,
+                odometerReading = trip.startOdometerReading,
+                tags = trip.tags,
+                subtypeNames = listOfNotNull(typeName),
+                tripPurpose = trip.purpose,
+                tripClient = trip.client,
+                tripLocations = tripLocations,
+                tripDistanceLabel = trip.distance?.takeIf { it > 0.0 }?.let {
+                    "${it.toPrettyNumber()} ${compactBrowseDistanceUnitLabel(trip.distanceUnit)}"
+                }.orEmpty(),
+                tripPaidStatus = if (trip.paid) com.guzzlio.domain.model.BrowseTripPaidStatus.PAID else com.guzzlio.domain.model.BrowseTripPaidStatus.UNPAID,
+                notes = trip.notes,
+                searchText = buildSearchText(
+                    vehicleNamesById[trip.vehicleId],
+                    trip.purpose,
+                    trip.client,
+                    trip.startLocation,
+                    trip.endLocation,
+                    typeName,
+                    trip.notes,
+                    trip.tags,
+                ),
+                tripOpen = trip.endDateTime == null || trip.endOdometerReading == null,
+                vehicleLifecycle = vehicleLifecyclesById[trip.vehicleId] ?: VehicleLifecycle.ACTIVE,
+            )
+        }
+
+        return (fuelUps + services + expenses + trips).sortedByDescending(BrowseRecordItem::occurredAt)
+    }
+
+    private fun buildSearchText(vararg values: Any?): String = values.flatMap { value ->
+        when (value) {
+            null -> emptyList()
+            is String -> listOf(value)
+            is Iterable<*> -> value.filterIsInstance<String>()
+            else -> listOf(value.toString())
+        }
+    }.joinToString(" ").lowercase()
+
+    private fun normalizeSuggestions(values: List<String>): List<String> {
+        val distinct = linkedMapOf<String, String>()
+        values.forEach { value ->
+            val normalized = value.trim()
+            if (normalized.isNotBlank()) {
+                distinct.putIfAbsent(normalized.lowercase(), normalized)
+            }
+        }
+        return distinct.values.sortedBy(String::lowercase)
+    }
+
+    private fun Double.toPrettyNumber(): String = if (this % 1.0 == 0.0) {
+        this.toInt().toString()
+    } else {
+        "%,.2f".format(this).replace(",", "")
+    }
+
+    private suspend fun buildExportSnapshot(): ExportSnapshot = ExportSnapshot(
+        preferences = preferencesRepository.currentSnapshot(),
+        vehicles = dao.getVehicles(),
+        vehicleParts = dao.getAllVehicleParts(),
+        fuelTypes = dao.getFuelTypes(),
+        serviceTypes = dao.getServiceTypes(),
+        expenseTypes = dao.getExpenseTypes(),
+        tripTypes = dao.getTripTypes(),
+        serviceReminders = dao.getAllServiceReminders(),
+        fillUpRecords = dao.getAllFillUps(),
+        serviceRecords = dao.getAllServices(),
+        serviceRecordTypes = dao.getAllServiceRecordCrossRefs(),
+        expenseRecords = dao.getAllExpenses(),
+        expenseRecordTypes = dao.getAllExpenseRecordCrossRefs(),
+        tripRecords = dao.getAllTrips(),
+        attachments = dao.getAllAttachments(),
+    )
+
+    private fun buildStatisticsSource(snapshot: ExportSnapshot): StatisticsSource = StatisticsSource(
+        preferences = snapshot.preferences,
+        vehicles = snapshot.vehicles.map(VehicleEntity::toDomain),
+        fuelTypes = snapshot.fuelTypes.map(FuelTypeEntity::toDomain),
+        tripTypes = snapshot.tripTypes.map(TripTypeEntity::toDomain),
+        fillUps = snapshot.fillUpRecords.map(FillUpRecordEntity::toDomain),
+        services = snapshot.serviceRecords.map { it.toDomain(emptyList()) },
+        expenses = snapshot.expenseRecords.map { it.toDomain(emptyList()) },
+        trips = snapshot.tripRecords.map(TripRecordEntity::toDomain),
+    )
+
+    private fun buildReminderDisplays(
+        reminders: List<ServiceReminderEntity>,
+        serviceTypes: List<ServiceTypeEntity>,
+    ): List<ReminderDisplayItem> {
+        val serviceTypeNames = serviceTypes.associate { it.id to it.name }
+        return reminders
+            .map(ServiceReminderEntity::toDomain)
+            .sortedWith(compareBy({ it.dueDate ?: LocalDate.MAX }, { it.dueDistance ?: Double.MAX_VALUE }))
+            .map { reminder ->
+                ReminderDisplayItem(
+                    reminder = reminder,
+                    serviceTypeName = serviceTypeNames[reminder.serviceTypeId] ?: "Service",
+                )
+            }
+    }
+
+    private fun buildReminderCenterItems(
+        vehicleId: Long?,
+        vehicles: List<VehicleEntity>,
+        serviceTypes: List<ServiceTypeEntity>,
+        reminders: List<ServiceReminderEntity>,
+        fillUps: List<FillUpRecordEntity>,
+        services: List<ServiceRecordEntity>,
+        expenses: List<ExpenseRecordEntity>,
+        trips: List<TripRecordEntity>,
+        defaultDistanceUnitLabel: String,
+    ): List<ReminderCenterItem> {
+        val vehiclesById = vehicles.associateBy(VehicleEntity::id)
+        val serviceTypeNames = serviceTypes.associate { it.id to it.name }
+        val odometerByVehicle = vehicles.associate { vehicle ->
+            val latestRecorded = sequenceOf(
+                fillUps.filter { it.vehicleId == vehicle.id }.maxOfOrNull(FillUpRecordEntity::odometerReading),
+                services.filter { it.vehicleId == vehicle.id }.maxOfOrNull(ServiceRecordEntity::odometerReading),
+                expenses.filter { it.vehicleId == vehicle.id }.maxOfOrNull(ExpenseRecordEntity::odometerReading),
+                trips.filter { it.vehicleId == vehicle.id }.maxOfOrNull { trip ->
+                    trip.endOdometerReading ?: trip.startOdometerReading
+                },
+                vehicle.purchaseOdometer,
+            ).filterNotNull().maxOrNull()
+            vehicle.id to latestRecorded
+        }
+        return reminders
+            .asSequence()
+            .filter { vehicleId == null || it.vehicleId == vehicleId }
+            .map(ServiceReminderEntity::toDomain)
+            .sortedWith(compareBy({ it.dueDate ?: LocalDate.MAX }, { it.dueDistance ?: Double.MAX_VALUE }))
+            .map { reminder ->
+                val vehicle = vehiclesById[reminder.vehicleId]
+                ReminderCenterItem(
+                    reminder = reminder,
+                    vehicleName = vehicle?.name.orEmpty(),
+                    serviceTypeName = serviceTypeNames[reminder.serviceTypeId] ?: "Service",
+                    distanceUnitLabel = vehicle?.distanceUnitOverride ?: defaultDistanceUnitLabel,
+                    currentOdometer = odometerByVehicle[reminder.vehicleId],
+                )
+            }
+            .toList()
+    }
+
+    private fun buildPredictionSummaries(
+        vehicleId: Long?,
+        vehicles: List<VehicleEntity>,
+        fillUps: List<FillUpRecordEntity>,
+        services: List<ServiceRecordEntity>,
+        expenses: List<ExpenseRecordEntity>,
+        trips: List<TripRecordEntity>,
+        currencySymbol: String,
+        now: LocalDateTime,
+    ): List<VehiclePredictionSummary> {
+        val fillUpsByVehicle = fillUps.groupBy(FillUpRecordEntity::vehicleId)
+        val servicesByVehicle = services.groupBy(ServiceRecordEntity::vehicleId)
+        val expensesByVehicle = expenses.groupBy(ExpenseRecordEntity::vehicleId)
+        val tripsByVehicle = trips.groupBy(TripRecordEntity::vehicleId)
+
+        return vehicles
+            .asSequence()
+            .map(VehicleEntity::toDomain)
+            .filter { vehicleId == null || it.id == vehicleId }
+            .map { vehicle ->
+                PredictionsCalculator.build(
+                    vehicle = vehicle,
+                    fillUps = fillUpsByVehicle[vehicle.id].orEmpty().map(FillUpRecordEntity::toDomain),
+                    services = servicesByVehicle[vehicle.id].orEmpty().map { it.toDomain(emptyList()) },
+                    expenses = expensesByVehicle[vehicle.id].orEmpty().map { it.toDomain(emptyList()) },
+                    trips = tripsByVehicle[vehicle.id].orEmpty().map(TripRecordEntity::toDomain),
+                    now = now,
+                    currencySymbol = currencySymbol,
+                ).copy(
+                    distanceUnitLabel = vehicle.distanceUnitOverride?.storageValue
+                        ?: fillUpsByVehicle[vehicle.id].orEmpty().lastOrNull()?.distanceUnit
+                        ?: "mi",
+                )
+            }
+            .sortedBy { summary ->
+                summary.nextFillUpDateTime ?: LocalDateTime.MAX
+            }
+            .toList()
+    }
+
+    private data class VehicleDetailPrimarySnapshot(
+        val vehicle: VehicleEntity?,
+        val parts: List<VehiclePartEntity>,
+        val reminders: List<ServiceReminderEntity>,
+        val fillUps: List<FillUpRecordEntity>,
+        val services: List<ServiceRecordEntity>,
+        val serviceTypes: List<ServiceTypeEntity>,
+    )
+
+    private data class VehicleDetailSecondarySnapshot(
+        val expenses: List<ExpenseRecordEntity>,
+        val trips: List<TripRecordEntity>,
+    )
+
+    private data class BrowsePrimarySnapshot(
+        val vehicles: List<VehicleEntity>,
+        val fillUps: List<FillUpRecordEntity>,
+        val services: List<ServiceRecordEntity>,
+        val expenses: List<ExpenseRecordEntity>,
+        val trips: List<TripRecordEntity>,
+    )
+
+    private data class ReminderCenterPrimarySnapshot(
+        val vehicles: List<VehicleEntity>,
+        val serviceTypes: List<ServiceTypeEntity>,
+        val reminders: List<ServiceReminderEntity>,
+    )
+
+    private data class ReminderCenterOdometerSnapshot(
+        val fillUps: List<FillUpRecordEntity>,
+        val services: List<ServiceRecordEntity>,
+        val expenses: List<ExpenseRecordEntity>,
+        val trips: List<TripRecordEntity>,
+    )
+
+    private data class PredictionPrimarySnapshot(
+        val vehicles: List<VehicleEntity>,
+        val fillUps: List<FillUpRecordEntity>,
+        val services: List<ServiceRecordEntity>,
+        val expenses: List<ExpenseRecordEntity>,
+        val trips: List<TripRecordEntity>,
+    )
+
+    private data class StatisticsPrimarySnapshot(
+        val vehicles: List<VehicleEntity>,
+        val fuelTypes: List<FuelTypeEntity>,
+        val tripTypes: List<TripTypeEntity>,
+        val fillUps: List<FillUpRecordEntity>,
+        val services: List<ServiceRecordEntity>,
+        val expenses: List<ExpenseRecordEntity>,
+    )
+
+    private data class StatisticsCatalogSnapshot(
+        val vehicles: List<VehicleEntity>,
+        val fuelTypes: List<FuelTypeEntity>,
+        val tripTypes: List<TripTypeEntity>,
+    )
+
+    private data class BrowseSecondarySnapshot(
+        val serviceTypes: List<ServiceTypeEntity>,
+        val expenseTypes: List<ExpenseTypeEntity>,
+        val tripTypes: List<TripTypeEntity>,
+        val fuelTypes: List<FuelTypeEntity>,
+        val serviceCrossRefs: List<ServiceRecordTypeCrossRef>,
+        val expenseCrossRefs: List<ExpenseRecordTypeCrossRef>,
+    )
+
+    private companion object {
+        val DefaultPaymentTypes = listOf(
+            "Cash",
+            "Credit Card",
+            "Debit Card",
+            "Check",
+            "Fleet Card",
+            "Gift Card",
+        )
+
+        val DefaultFuelBrands = listOf(
+            "76",
+            "Amoco",
+            "ARCO",
+            "BP",
+            "Chevron",
+            "Circle K",
+            "Citgo",
+            "Costco",
+            "Exxon",
+            "Flying J",
+            "Love's",
+            "Marathon",
+            "Mobil",
+            "Murphy",
+            "Phillips 66",
+            "Pilot",
+            "QuikTrip",
+            "Sam's Club",
+            "Shell",
+            "Sinclair",
+            "Sunoco",
+            "Texaco",
+            "Valero",
+        )
+
+        val DefaultDrivingModes = listOf(
+            "Normal",
+            "Economy",
+            "Sport",
+            "Towing",
+            "Winter",
+        )
+
+        val DefaultFuelTypeCatalog = listOf(
+            FuelType(legacySourceId = 40L, category = "bioalcohol", grade = "E10"),
+            FuelType(legacySourceId = 41L, category = "bioalcohol", grade = "E100"),
+            FuelType(legacySourceId = 42L, category = "bioalcohol", grade = "E22 - Gasohol"),
+            FuelType(legacySourceId = 43L, category = "bioalcohol", grade = "E50"),
+            FuelType(legacySourceId = 44L, category = "bioalcohol", grade = "E85"),
+            FuelType(legacySourceId = 45L, category = "bioalcohol", grade = "E93"),
+            FuelType(legacySourceId = 35L, category = "biodiesel", grade = "B99"),
+            FuelType(legacySourceId = 36L, category = "biodiesel", grade = "Blend B2"),
+            FuelType(legacySourceId = 38L, category = "biodiesel", grade = "Blend B5"),
+            FuelType(legacySourceId = 37L, category = "biodiesel", grade = "Blend B20", cetane = 50),
+            FuelType(legacySourceId = 34L, category = "biodiesel", grade = "B100", cetane = 55),
+            FuelType(legacySourceId = 32L, category = "diesel", grade = "4D"),
+            FuelType(legacySourceId = 57L, category = "diesel", grade = "Synthetic"),
+            FuelType(legacySourceId = 31L, category = "diesel", grade = "2D", cetane = 40),
+            FuelType(legacySourceId = 30L, category = "diesel", grade = "1D", cetane = 44),
+            FuelType(legacySourceId = 33L, category = "gas", grade = "Autogas/LPG"),
+            FuelType(legacySourceId = 39L, category = "gas", grade = "CNG - Methane"),
+            FuelType(legacySourceId = 47L, category = "gasoline", grade = "Low", octane = 85),
+            FuelType(legacySourceId = 53L, category = "gasoline", grade = "Regular", octane = 87),
+            FuelType(legacySourceId = 48L, category = "gasoline", grade = "Mid", octane = 88),
+            FuelType(legacySourceId = 49L, category = "gasoline", grade = "Mid", octane = 89),
+            FuelType(legacySourceId = 46L, category = "gasoline", grade = "High", octane = 90),
+            FuelType(legacySourceId = 50L, category = "gasoline", grade = "Premium", octane = 91),
+            FuelType(legacySourceId = 51L, category = "gasoline", grade = "Premium", octane = 92),
+            FuelType(legacySourceId = 52L, category = "gasoline", grade = "Premium", octane = 93),
+            FuelType(legacySourceId = 54L, category = "gasoline", grade = "Super Premium", octane = 94),
+            FuelType(legacySourceId = 55L, category = "gasoline", grade = "Super Premium", octane = 95),
+            FuelType(legacySourceId = 56L, category = "gasoline", grade = "Super Premium", octane = 98),
+        )
+
+        val DefaultServiceTypeCatalog = listOf(
+            ServiceType(legacySourceId = 41L, name = "A/C System", notes = "Including Water Pump, Fans and Refrigerant", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 42L, name = "Air Filter", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 43L, name = "Battery", defaultTimeReminderMonths = 36, defaultDistanceReminder = 36000.0),
+            ServiceType(legacySourceId = 44L, name = "Belts", notes = "Fan, Ribbed and Timing Belts", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 45L, name = "Body/Chassis", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 46L, name = "Brake Fluid", notes = "Fluid needed for braking system operation", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 47L, name = "Brakes Front", defaultTimeReminderMonths = 15, defaultDistanceReminder = 15000.0),
+            ServiceType(legacySourceId = 48L, name = "Brakes Rear", defaultTimeReminderMonths = 15, defaultDistanceReminder = 15000.0),
+            ServiceType(legacySourceId = 49L, name = "Clutch Hydraulic Fluid", defaultTimeReminderMonths = 24, defaultDistanceReminder = 24000.0),
+            ServiceType(legacySourceId = 50L, name = "Clutch Hydraulic System", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 51L, name = "Cooling System", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 52L, name = "Differential Fluid", defaultTimeReminderMonths = 30, defaultDistanceReminder = 30000.0),
+            ServiceType(legacySourceId = 53L, name = "Doors", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 54L, name = "Engine Antifreeze", notes = "Radiator Coolant Fluid", defaultTimeReminderMonths = 24, defaultDistanceReminder = 24000.0),
+            ServiceType(legacySourceId = 55L, name = "Engine Mounts"),
+            ServiceType(legacySourceId = 56L, name = "Engine Oil", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 57L, name = "Exhaust System", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 58L, name = "Fuel Filter", defaultTimeReminderMonths = 24, defaultDistanceReminder = 24000.0),
+            ServiceType(legacySourceId = 59L, name = "Fuel Lines & Pipes", defaultTimeReminderMonths = 24, defaultDistanceReminder = 24000.0),
+            ServiceType(legacySourceId = 60L, name = "Fuel System", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 61L, name = "Glass/Mirrors", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 62L, name = "Heating System", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 63L, name = "Horns", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 64L, name = "Inspection", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 65L, name = "Lights", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 66L, name = "New Tires", defaultTimeReminderMonths = 24, defaultDistanceReminder = 24000.0),
+            ServiceType(legacySourceId = 67L, name = "Oil Filter", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 68L, name = "Power Steering Fluid", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 69L, name = "Power Steering System"),
+            ServiceType(legacySourceId = 70L, name = "Radiator", defaultTimeReminderMonths = 10, defaultDistanceReminder = 10000.0),
+            ServiceType(legacySourceId = 71L, name = "Rotate Tires", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 72L, name = "Safety Devices", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 73L, name = "Spark Plugs", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 74L, name = "Starter"),
+            ServiceType(legacySourceId = 75L, name = "Steering System", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+            ServiceType(legacySourceId = 76L, name = "Suspension System", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 77L, name = "Tie Rods"),
+            ServiceType(legacySourceId = 78L, name = "Tire Pressure", notes = "Controlling and balancing the tire pressure", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 79L, name = "Transmission Fluid", notes = "Automatic Transmission Fluid", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 80L, name = "Water Pump"),
+            ServiceType(legacySourceId = 81L, name = "Wheel Alignment", defaultTimeReminderMonths = 12, defaultDistanceReminder = 12000.0),
+            ServiceType(legacySourceId = 82L, name = "Windshield Washer Fluid", defaultTimeReminderMonths = 3, defaultDistanceReminder = 3000.0),
+            ServiceType(legacySourceId = 83L, name = "Windshield Wipers", defaultTimeReminderMonths = 6, defaultDistanceReminder = 6000.0),
+        )
+
+        val DefaultExpenseTypeCatalog = listOf(
+            ExpenseType(legacySourceId = 12L, name = "Accident"),
+            ExpenseType(legacySourceId = 13L, name = "Car Wash"),
+            ExpenseType(legacySourceId = 14L, name = "Insurance"),
+            ExpenseType(legacySourceId = 15L, name = "MOT"),
+            ExpenseType(legacySourceId = 16L, name = "Parking"),
+            ExpenseType(legacySourceId = 17L, name = "Payment"),
+            ExpenseType(legacySourceId = 18L, name = "Registration"),
+            ExpenseType(legacySourceId = 19L, name = "Tax"),
+            ExpenseType(legacySourceId = 20L, name = "Tolls"),
+        )
+
+        val DefaultTripTypeCatalog = listOf(
+            TripType(legacySourceId = 7L, name = "Business"),
+            TripType(legacySourceId = 8L, name = "Charity"),
+            TripType(legacySourceId = 12L, name = "Medical"),
+            TripType(legacySourceId = 9L, name = "Moving"),
+            TripType(legacySourceId = 10L, name = "Other"),
+            TripType(legacySourceId = 11L, name = "Personal"),
+        )
+    }
+
+    private fun compactBrowseVolumeUnitLabel(unit: String?): String = when (unit?.trim()?.lowercase()) {
+        "l", "liter", "liters", "litre", "litres" -> "L"
+        else -> "gal"
+    }
+
+    private fun compactBrowseDistanceUnitLabel(unit: String?): String = when (unit?.trim()?.lowercase()) {
+        "km", "kilometer", "kilometers" -> "km"
+        else -> "mi"
+    }
+
+    private fun compactBrowseFuelEfficiencyUnitLabel(unit: String?): String = when (FuelEfficiencyUnit.fromStorage(unit)) {
+        FuelEfficiencyUnit.MPG_US,
+        FuelEfficiencyUnit.MPG_UK -> "MPG"
+        FuelEfficiencyUnit.KILOMETERS_PER_LITER -> "km/L"
+        FuelEfficiencyUnit.LITERS_PER_100_KM -> "L/100km"
+    }
+}

@@ -17,7 +17,7 @@
   <rect class="bg" x="0" y="0" width="1440" height="1120"/>
   <rect class="panel" x="24" y="24" width="1392" height="1072" rx="30"/>
 
-  <text class="title" x="60" y="88">aCar-Style Icon Redraws for Garage Ledger</text>
+  <text class="title" x="60" y="88">aCar-Style Icon Redraws for Guzzlio</text>
   <text class="subtitle" x="60" y="124">V3: revised Service, Add Vehicle, and Parts after review feedback</text>
 
   <!-- Tile 1 Fuel-Up -->
